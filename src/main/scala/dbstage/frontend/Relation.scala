@@ -9,7 +9,6 @@ import runtime._
 
 class Relation {
   protected val curColumns = mutable.ArrayBuffer[Column]()
-  var data: Option[DataRep] = None
   
   val table = Lazy {
     val (keys,values) = columns.partition(_.isPrimary)
@@ -35,13 +34,8 @@ class Relation {
   
   //abstract class Column(name: String) extends Field(name) {
   abstract case class Column(override val name: String, val isPrimary: Bool, val foreignKey: Option[Relation # Column]) extends Field(name) {
-    //val name: String
-    //type T
-    //implicit val IRTypeT: IRType[T]
-    //implicit val SerialT: Serial[T]
     assert(!table.computed)
     curColumns += this
-    //val foreignKey: Option[Relation # Column]
     def isForeignKey = foreignKey.nonEmpty
   }
   object Column {
@@ -56,51 +50,19 @@ class Relation {
     }
   }
   
-  def loadDataFromFile(fileName: String, sm: StorageManager = InMemoryStorageManager) = {
+  def loadDataFromFile(fileName: String) = {
     log(s"Loading data from file $fileName into table $this")
     //val file = scala.util.nio.File(file)
     val src = scala.io.Source.fromFile(fileName)
     //data = Some(sm.fromCSV(this, src))
     
-    
-    //println(Table(columns))
-    //val tbl = Table(columns)
     val tbl = table.value
-    //println(tbl.parse)
-    //println(tbl.load)
     
     tbl.loadData(src.getLines())
     
-    //println(tbl.show)
-    
-    /*
-    val sep = '|'
-    val arr: Code[Array[String]] = ir"arr?:Array[String]"
-    val parser = tbl.parse(columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
-    val pgrm = for {
-      loader <- tbl.load
-    } yield ir"""(ite: Iterator[String]) =>
-      while (ite.hasNext) {
-        val str = ite.next
-        val arr = str.split(${Const(sep)})
-        //println(">"+arr.toList)
-        ${loader}(${parser:IR[tbl.Row,{val arr:Array[String]}]})
-      }
-    """
-    
-    println(s"Generated Program: $pgrm")
-    
-    pgrm.compile()(src.getLines())
-    
-    //println(tbl.buffer)
-    println(tbl.show)
-    */
-    
-    
   }
   
-  def select(cols: Column*): TableQuery = ???
-  
+  //def select(cols: Column*): TableQuery = ???
   
   //override def toString: String = s""
 }
@@ -117,17 +79,14 @@ trait TableQuery {
   
 }
 
-//abstract class Row {
-//  type T <: Product
-//  implicit val T: IRType[T]
-//  //val typs: Seq[IRType[_]]
-//  val fields: Seq[Field]
-//  //def parse(raw: Iterator[String]): T
-//  def parse: Code[Iterator[String]] => Code[T]
-//}
-//object Row {
-//  def apply(fs: Field*): Row = ???
-//}
+// Can make freestanding fields not associated with a table
+abstract class Field(val name: String) {
+  type T
+  implicit val IRTypeT: IRType[T]
+  implicit val SerialT: Serial[T]
+}
+
+
 
 
 

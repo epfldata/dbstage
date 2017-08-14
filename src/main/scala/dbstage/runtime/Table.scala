@@ -1,48 +1,15 @@
 package dbstage
 package runtime
 
+import scala.collection.mutable
+import scala.io._
+
 import squid.utils._
 import Embedding.Predef._
 //import Embedding.IntermediateIROps
 import Embedding.SimplePredef.{Rep => Code, _}
 import frontend._
 
-import scala.collection.mutable
-
-class DataRep {
-  
-}
-
-//class DataRep {
-//  class LoadingScheme
-//  class FromFile extends LoadingScheme
-//}
-//object InMemoryData extends DataRep {
-//  object FromCSV extends FromFile
-//}
-
-import scala.io._
-
-trait StorageManager {
-  def fromCSV(tbl: Relation, src: Source, separator: String = "|"): DataRep
-}
-
-object InMemoryStorageManager extends StorageManager {
-  
-  //class DataRep(cols: Product) extends runtime.DataRep {
-  //class DataRep[Row](tbl: Table) extends runtime.DataRep {
-  //abstract class DataRep(val row: Row) extends runtime.DataRep {
-  //  val data: IndexedSeq[row.T]
-  //}
-  
-  
-  def fromCSV(tbl: Relation, src: Source, separator: String = "|"): DataRep = {
-    tbl.columns
-    //new DataRep(tbl)
-    ???
-  }
-  
-}
 
 trait RowFormat {
   type Repr

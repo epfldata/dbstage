@@ -1,13 +1,6 @@
 
 
-Renamings
-
-
-| Rename | | 
-| ------------- |:-------------:| 
-| Table | Relation |
-| MetaTable      | Table | 
-
+Have something like a 'StorageManager'
 
 
 
