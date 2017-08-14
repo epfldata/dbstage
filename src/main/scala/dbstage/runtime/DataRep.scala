@@ -53,6 +53,7 @@ trait RowFormat {
 object RowFormat {
   def apply(cols: Seq[Field]): RowFormat = {
     val size = cols.size
+    if (size == 0) lastWords("Table with no columns")
     if (size == 1) new SingleColumnFormat(cols.head)
     else if (size > 22) {
       val t = cols.take(size/2)
@@ -111,11 +112,40 @@ class PlainTable(val cols: Seq[Field]) extends Table {
   //def loadData(data: Iterator[String], sep: Char = '|'): CrossStage[Unit] = ???
   def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = ???
 }
-//class IndexedTable(val keys: Seq[RowFormat], val values: Seq[RowFormat]) extends Table {
-case class IndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[String]) extends Table {
+
+trait IndexedTable extends Table {
+  val keys: Seq[Field]
+  val values: Seq[Field] 
+  val order: Seq[String]
   val keyFmt: RowFormat = RowFormat(keys) // Note: using TupleFormat here may generate references to Tuple1... not sure how that's handled by Scala
   val valFmt: RowFormat = RowFormat(values)
   val rowFmt: RowFormat = CompositeFormat(keyFmt,valFmt)
+  private[this] val arr: Code[Array[String]] = ir"arr?:Array[String]"
+  private[this] val colMap = order.zipWithIndex.toMap.mapValues(name => ir"$arr(${Const(name)})")
+  val kparser = keyFmt.parse(colMap)
+  val vparser = valFmt.parse(colMap)
+}
+case class GeneralIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[String]) extends IndexedTable {
+  import keyFmt.{Repr=>Key}
+  import valFmt.{Repr=>Val}
+  val hashTable = mutable.HashMap[Key,mutable.Set[Val]]()
+  def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = {
+    (CrossStage(hashTable) { ht => 
+      ir"""(ite: Iterator[String]) =>
+        while (ite.hasNext) {
+          val str = ite.next
+          val arr = str.split(${Const(sep)})
+          //println(">"+arr.toList)
+          $ht.getOrElseUpdate(${kparser:IR[Key,{val arr:Array[String]}]},mutable.Set()) += ${vparser:IR[Val,{val arr:Array[String]}]}
+        }
+      """
+    })//(dbg.implicitType[mutable.HashMap[Key,Val]],irTypeOf[Iterator[String] => Unit])
+  }
+}
+case class UniqueIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[String]) extends IndexedTable {
+  //val keyFmt: RowFormat = RowFormat(keys) // Note: using TupleFormat here may generate references to Tuple1... not sure how that's handled by Scala
+  //val valFmt: RowFormat = RowFormat(values)
+  //val rowFmt: RowFormat = CompositeFormat(keyFmt,valFmt)
   
   //type Key = keyFmt.Repr
   //type Val = valFmt.Repr
@@ -126,13 +156,13 @@ case class IndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[String]
   
   //def loadData(data: Iterator[String], sep: Char = '|'): CrossStage[Unit] = {
   def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = {
-    val arr: Code[Array[String]] = ir"arr?:Array[String]"
-    //val colMap = columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap
-    val colMap = order.zipWithIndex.toMap.mapValues(name => ir"$arr(${Const(name)})")
-    val kparser = keyFmt.parse(colMap)
-    val vparser = valFmt.parse(colMap)
-    //val kparser = keyFmt.parse(keys.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
-    //val vparser = valFmt.parse(values.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
+    //val arr: Code[Array[String]] = ir"arr?:Array[String]"
+    ////val colMap = columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap
+    //val colMap = order.zipWithIndex.toMap.mapValues(name => ir"$arr(${Const(name)})")
+    //val kparser = keyFmt.parse(colMap)
+    //val vparser = valFmt.parse(colMap)
+    ////val kparser = keyFmt.parse(keys.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
+    ////val vparser = valFmt.parse(values.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
     (CrossStage(hashTable) { ht => 
       ir"""(ite: Iterator[String]) =>
         while (ite.hasNext) {

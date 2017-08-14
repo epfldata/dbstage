@@ -13,9 +13,15 @@ class Relation {
   
   val table = Lazy {
     val (keys,values) = columns.partition(_.isPrimary)
-    if (keys.isEmpty) Table(values)
-    //else PrimaryIndexedTable(keys, values)
-    else IndexedTable(keys, values, columns.map(_.name))
+    //if (keys.isEmpty) Table(values)
+    ////else PrimaryIndexedTable(keys, values)
+    //else UniqueIndexedTable(keys, values, columns.map(_.name))
+    if (keys.nonEmpty) UniqueIndexedTable(keys, values, columns.map(_.name))
+    else {
+      val (foreignKeys,values) = columns.partition(_.isForeignKey)
+      if (foreignKeys.nonEmpty) GeneralIndexedTable(foreignKeys, values, columns.map(_.name))
+      else Table(values)
+    }
   }
   
   def columns: Seq[Column] = curColumns
@@ -28,18 +34,20 @@ class Relation {
   //}
   
   //abstract class Column(name: String) extends Field(name) {
-  abstract case class Column(override val name: String, val isPrimary: Bool) extends Field(name) {
+  abstract case class Column(override val name: String, val isPrimary: Bool, val foreignKey: Option[Relation # Column]) extends Field(name) {
     //val name: String
     //type T
     //implicit val IRTypeT: IRType[T]
     //implicit val SerialT: Serial[T]
     assert(!table.computed)
     curColumns += this
+    //val foreignKey: Option[Relation # Column]
+    def isForeignKey = foreignKey.nonEmpty
   }
   object Column {
     //def apply[T](name: String, foreignIn: Table = null) = {
     def apply[T0:IRType:Serial](name: String, primary: Bool = false, foreign: Relation # Column = null) = {
-      new Column(name,primary) {
+      new Column(name,primary,Option(foreign)) {
         //val name = 
         type T = T0
         val IRTypeT: IRType[T] = implicitly
