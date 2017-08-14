@@ -7,7 +7,7 @@ import Embedding.Predef._
 import Embedding.SimplePredef.{Rep=>Code,_}
 import runtime._
 
-class Table {
+class Relation {
   protected val curColumns = mutable.ArrayBuffer[Column]()
   var data: Option[DataRep] = None
   
@@ -30,7 +30,7 @@ class Table {
   }
   object Column {
     //def apply[T](name: String, foreignIn: Table = null) = {
-    def apply[T0:IRType:Serial](name: String, primary: Bool = false, foreign: Table # Column = null) = {
+    def apply[T0:IRType:Serial](name: String, primary: Bool = false, foreign: Relation # Column = null) = {
       new Column(name) {
         //val name = 
         type T = T0
@@ -47,42 +47,31 @@ class Table {
     //data = Some(sm.fromCSV(this, src))
     
     
-    println(MetaTable(columns))
+    //println(Table(columns))
+    val tbl = Table(columns)
+    //println(tbl.parse)
+    //println(tbl.load)
     
-    
-    //val mtbl = new MetaTable[Int]{}
-    val mtbl = new MetaTable_OLD[Int](columns)
-    
-    //columns.zipWithIndex.map(ci => ci._2 -> ci._1)
-    
-    val sep = "|"
-    /*
-    val pgrm =
-    ir"""(ite: Iterator[String]) =>
-      while (ite.hasNext) {
-        val str = ite.next
-        ${ (arr:Code[Array[String]]) =>
-          mtbl.parse(columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
-        }(str.split(${Const(sep)}))
-      }
-    """
-    */
-    
+    val sep = '|'
     val arr: Code[Array[String]] = ir"arr?:Array[String]"
+    val parser = tbl.parse(columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
     val pgrm = for {
-      parser <- mtbl.parse(columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
+      loader <- tbl.load
     } yield ir"""(ite: Iterator[String]) =>
       while (ite.hasNext) {
         val str = ite.next
         val arr = str.split(${Const(sep)})
-        ${parser:IR[Unit,{val arr:Array[String]}]}
+        //println(">"+arr.toList)
+        ${loader}(${parser:IR[tbl.Row,{val arr:Array[String]}]})
       }
     """
+    
     println(s"Generated Program: $pgrm")
     
     pgrm.compile()(src.getLines())
     
-    println(mtbl.buffer)
+    //println(tbl.buffer)
+    println(tbl.show)
     
   }
   

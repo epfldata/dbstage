@@ -24,7 +24,7 @@ class DataRep {
 import scala.io._
 
 trait StorageManager {
-  def fromCSV(tbl: Table, src: Source, separator: String = "|"): DataRep
+  def fromCSV(tbl: Relation, src: Source, separator: String = "|"): DataRep
 }
 
 object InMemoryStorageManager extends StorageManager {
@@ -36,7 +36,7 @@ object InMemoryStorageManager extends StorageManager {
   //}
   
   
-  def fromCSV(tbl: Table, src: Source, separator: String = "|"): DataRep = {
+  def fromCSV(tbl: Relation, src: Source, separator: String = "|"): DataRep = {
     tbl.columns
     //new DataRep(tbl)
     ???
@@ -44,85 +44,112 @@ object InMemoryStorageManager extends StorageManager {
   
 }
 
-class MetaTable_OLD[T](cols: Seq[Field]) {
-  
-  val buffer = mutable.ArrayBuffer[Any]()
-  
-  def parse(columnStrings: Map[String, Code[String]]): CrossStage[Unit] = {
-    println(cols)
-    //println(cols map (columnStrings(_.name)))
-    println(cols map (f => columnStrings(f.name)))
-    
-    //ir"(buf: mutable.ArrayBuffer[Any]) => ${}"
-    
-    CrossStage(buffer)(buf => ir"$buf += ${columnStrings(cols.head.name)}; ()")
-    
-    //???
-  }
-  
-  
-  
-}
-
-// TODO MetaTable stored as hashmaps, compressed arrays of bits, etc
-abstract class MetaTable[T:IRType] {
-  def parse(columnStrings: Map[String, Code[String]]): Code[T]
-   = ???
+// TODO Table stored as hashmaps, compressed arrays of bits, etc
+//abstract class Table[Row:IRType] {
+trait Table {
+  type Row
+  implicit val Row: IRType[Row]
+  val columns: Seq[Field] = null
+  //def parse(columnStrings: Map[String, Code[String]]): Code[Row]
+  val parse: Map[String, Code[String]] => Code[Row]
+   = null
   //def load(x: Code[T]): CrossStage[Unit]
   //val load: Code[T] => CrossStage[Unit]
-  val load: CrossStage[T => Unit]
-   = ???
+  val load: CrossStage[Row => Unit]
+   = null
   /** override if better implementation exists */
-  def loadMultiple(xs: Code[Iterator[T]]): CrossStage[Unit] =
+  def loadMultiple(xs: Code[Iterator[Row]]): CrossStage[Unit] =
     for {
       loader <- load
     } yield ir"val it = $xs; while (it.hasNext) ${loader}(it.next)"
-  def find(p: T => Code[Bool]): CrossStage[Iterator[T]]
+  def find(p: Code[Row => Bool]): CrossStage[Iterator[Row]]
    = ???
-  def lift[R](f: Seq[Field] => Code[R]): Code[T => R]
+  def lift[R](f: Seq[Field] => Code[R]): Code[Row => R]
    = ???
+  def show: String = s"Table(${columns mkString ","})"
 }
-object MetaTable {
-  def apply(cols: Seq[Field]): MetaTable[_] = {
+object Table {
+  //def apply(cols: Seq[Field]): Table[_] = {
+  def apply(cols: Seq[Field]): Table = {
     val size = cols.size
-    val t = cols.take(size/2)
-    //if (size == 1) ??? // TODO
     if (size == 1) SingleColumnTable(cols.head)
-    else if (size > 22) new CompositeMetaTable(MetaTable(t), MetaTable(cols.drop(t.size)))
+    else if (size > 22) {
+      val t = cols.take(size/2)
+      new CompositeTable(Table(t), Table(cols.drop(t.size)))
+    }
     else {
       val clsSym = base.loadTypSymbol(s"scala.Tuple${size}")
       val objSym = base.loadTypSymbol(s"scala.Tuple${size}$$")
       val mtd = base.loadMtdSymbol(objSym, "apply", None)
       val typs = cols.map(_.IRTypeT.rep).toList
-      println(clsSym,objSym,mtd)
+      val typ = base.staticTypeApp(clsSym, typs)
+      //println(clsSym,objSym,mtd,typ)
       
+      //new Table[Any]()(base.IRType(typ))
+      new Table
       {
-        import base._
-        val p = methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => ir"${Const(c.name)}.asInstanceOf[${c.IRTypeT}]".rep): _*)::Nil, staticTypeApp(clsSym, typs))
-        println(p)
-        //println(IR(p).compile)
+        implicit val Row = base.IRType[Row](typ)
+        val buffer = mutable.ArrayBuffer[Row]()
+        
+        override val columns = cols
+        
+        override val parse = {
+          import base._
+          //val p = methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => ir"${Const(c.name)}.asInstanceOf[${c.IRTypeT}]".rep): _*)::Nil, staticTypeApp(clsSym, typs))
+          //val p = methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => ir"${c.SerialT.parse}(${Const(c.name)})".rep): _*)::Nil, typ)
+          //println(p)
+          //println(IR(p).compile)
+          
+          (cs: Map[String, Code[String]]) => {
+            IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => 
+              ir"${c.SerialT.parse}(${cs(c.name)})".rep): _*)::Nil, typ))
+          }
+          
+        }
+        
+        override val load: CrossStage[Row => Unit] = CrossStage(buffer)(buf => ir"(x:Row) => { $buf += x; () }")
+        
+        override def show: String = s"${super.show} =\n\t${buffer mkString "\n\t"}"
+        
       }
       
       //???
-      null
+      //null
     }
   }
 }
-class CompositeMetaTable[T0:IRType,T1:IRType](lhs: MetaTable[T0], rhs: MetaTable[T1]) extends MetaTable[(T0,T1)] {
+/*class CompositeTable[T0:IRType,T1:IRType](lhs: Table[T0], rhs: Table[T1]) extends Table[(T0,T1)] {
   
+}*/
+class CompositeTable(val lhs: Table, val rhs: Table) extends Table {
+  //import lhs.{Row}, rhs.{Row}
+  import lhs.{Row=>LR}, rhs.{Row=>RR}
+  type Row = (lhs.Row, rhs.Row)
+  //val Row = irTypeOf[(lhs.Row,rhs.Row)]
+  val Row = irTypeOf[(LR,RR)]
 }
 object SingleColumnTable {
   val IntType = irTypeOf[Int]
-  def apply(col: Field): MetaTable[_] = {
+  //def apply(col: Field): Table[_] = {
+  def apply(col: Field): Table = {
     col.IRTypeT match {
       case IntType => ??? // TODO compressed column?
       case _ => ??? // TODO
     }
   }
 }
+/*
+abstract class IndexedTable[T:IRType](val keys: Seq[Field], val cols: Seq[Field]) extends Table[T] {
+  
+}
+abstract class PrimaryIndexedTable[T:IRType](primaryKeys: Seq[Field], cols: Seq[Field]) extends IndexedTable[T](primaryKeys, cols) {
+  
+}
+*/
+
 
 // TODO:
-//class CompressedMetaTable extends MetaTable[Int] {
+//class CompressedTable extends Table[Int] {
 //}
 
 

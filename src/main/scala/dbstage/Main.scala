@@ -10,12 +10,12 @@ object Main extends App {
   // ~>
   // val Name = Column[String]("Name")
   
-  case object Person extends Table {
+  case object Person extends Relation {
     val Id = Column[Int]("Id", primary = true)
     val Name = Column[String]("Name")
     val Age = Column[Int]("Age")
   }
-  case object HasJob extends Table {
+  case object HasJob extends Relation {
     val PersonId = Column[Int]("PId", foreign = Person.Id)
     val Title = Column[String]("Title")
     val Salary = Column[Option[Int]]("Salary")
