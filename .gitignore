@@ -1,0 +1,30 @@
+*.class
+*.log
+
+# sbt specific
+.cache
+.history
+.lib/
+dist/*
+
+target/*
+core_macros/target/
+core/target/
+sc-backend/target/
+project/target/
+project/project/
+sc-backend/macros/
+benchmark/target/*
+!benchmark/target/benchmarks/
+!benchmark/target/benchmarks/report/
+example/target/
+
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+.idea/*
