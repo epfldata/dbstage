@@ -6,16 +6,85 @@ import scala.io._
 
 import squid.utils._
 import Embedding.Predef._
-//import Embedding.IntermediateIROps
 import Embedding.SimplePredef.{Rep => Code, _}
 import frontend._
 
 
+abstract class FieldReifier {
+  def apply(f: Field): Code[f.T]
+}
 trait RowFormat {
   type Repr
   implicit val Repr: IRType[Repr]
   val columns: Seq[Field]
   val parse: Map[String, Code[String]] => Code[Repr]
+  //lazy val unparse: Code[Repr] => Code[String, Code[String]] = ??? 
+  //def access[T](k: Seq[Field] => Code[T]) = {
+  //  def rec(cols: Seq[Field], k2: Seq[Field] => Code[T]) = cols match {
+  //    case Seq() => 
+  //  }
+  //}
+  protected def getField(f:Field) = columns.find(_.name == f.name).fold(throw new Exception(s"No col ${f.name}")) { c => // TODO B/E
+    assert(c.IRTypeT <:< f.IRTypeT)
+    c
+  }
+  def get(repr:Embedding.Rep,f:Field): Embedding.Rep // = ???
+  //def lift2[T](k: Map[Field,Code]): Code[Repr => T] = {
+  def lift2[T](fr: FieldReifier => Code[T]): Code[Repr => T] = {
+    val repr = Embedding.bindVal(columns.map(_.name).mkString("_"),Repr.rep,Nil)
+    Embedding.IR(Embedding.lambda(repr::Nil,
+      fr(new FieldReifier {
+        def apply(f: Field) = Embedding.IR(get(repr|>Embedding.readVal,f))
+      }).rep
+    ))
+  }
+  def lift[T](q: Code[T], uid: Int): Code[Repr => T] = {
+    lift2 { fr =>
+      // TODO use unreftable Const xtors
+      //q rewrite { case ir"fieldIn[$tp](${Const(name)},${Const(fuid)})" if fuid == uid =>  ??? }
+      //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) } // FIXME: Error:(38, 9) not found: value ClassTag
+      //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) }
+      //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f).asInstanceOf[Code[tp.Typ]] } // FIXME Error:scalac: missing or invalid dependency detected while loading class file 'Field.class'. Could not access type tp in value dbstage.runtime.RowFormat.$anonfun, because it (or its dependencies) are missing.
+      q rewrite { case ir"${Field(f)}:Any" => fr(f) } // note: Any, unsound
+      //???
+    }
+  }
+  /*
+  def lift[T](q: Code[T], uid: Int): Code[Repr => T] = {
+    //val bound = columns.map(c => c.name -> Embedding.IR[Any,Any](Embedding.bindVal(c.name,c.IRTypeT.rep,Nil)|>Embedding.readVal)).toMap
+    val bound = columns.map(c => c.name -> Embedding.bindVal(c.name,c.IRTypeT.rep,Nil)).toMap
+    def getName[T:IRType](name: String) = (bound get name).fold(throw new Exception(s"No col $name")) { b =>
+      Embedding.IR[T,Any](b|>Embedding.readVal)
+    }
+    val q0 = q rewrite {
+      //case ir"field[$t]($name,$uidopt)" =>
+      //case ir"field[$tp](${Const(name)},Some(${Const(`uid`)}))" =>
+      //case ir"field[$tp](${Const(name)},Some[Int](${Const(fuid)}))" if fuid == uid =>  // TODO support syntax: Const(`uid`)
+      case ir"fieldIn[$tp](${Const(name)},${Const(fuid)})" if fuid == uid =>  // TODO support syntax: Const(`uid`)
+        //columns.find(_.name == name).fold(throw new Exception("No col")) { c =>
+        //  assert(c.IRTypeT <:< tp)
+        //}
+        //(bound get name).fold(throw new Exception(s"No col $name")) { b =>
+        //  //b.asInstanceOf[Code[tp.Typ]]
+        //  Embedding.IR[tp.Typ,Any](b|>Embedding.readVal)
+        //}
+        getName[tp.Typ](name)
+      //case ir"field[$tp](${Const(name)},None)" =>
+      case ir"field[$tp](${Const(name)})" =>
+        getName[tp.Typ](name)
+      //case ir"field[$tp]($n)" => // TODO also fieldIn
+      //  println(tp,n,i)
+      //  ??? // TODO B/E
+    }
+    println(q0)
+    val q1 = columns.foldLeft(q0.rep) {
+      case (acc, c) => Embedding.letin(bound(c.name), ir"???".rep, acc, q0.trep)
+    }
+    println(q1)
+    ???
+  }
+  */
+  override def toString = s"Row[${Repr.rep}](${columns mkString ","})"
 }
 object RowFormat {
   def apply(cols: Seq[Field]): RowFormat = {
@@ -34,8 +103,16 @@ class SingleColumnFormat(val col: Field) extends RowFormat {
   implicit val Repr = col.IRTypeT // Note: removing `implicit` creates a compiler crash...
   val columns = col :: Nil
   val parse = (cs: Map[String, Code[String]]) => ir"${col.SerialT.parse}(${cs(col.name)})"
+  def get(repr:Embedding.Rep,f:Field): Embedding.Rep = { getField(f); repr }
 }
-//class TupleFormat(val columns: Seq[Field]) extends RowFormat {
+object SingleColumnFormat {
+  def apply[S:IRType:Serial](name: String) = {
+    val c: Field{type T = S} = Field[S](name)
+    new SingleColumnFormat(c) {
+      override val col: Field{type T = S} = c
+    }
+  }
+}
 case class TupleFormat(columns: Seq[Field]) extends RowFormat {
   val size = columns.size
   val clsSym = base.loadTypSymbol(s"scala.Tuple${size}")
@@ -48,17 +125,35 @@ case class TupleFormat(columns: Seq[Field]) extends RowFormat {
     import base._
     (cs: Map[String, Code[String]]) => {
       IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(columns map (c => 
-        ir"${c.SerialT.parse}(${cs(c.name)})".rep): _*)::Nil, typ))
+        ir"${c.SerialT.parse}(${cs(c.name)}):${c.IRTypeT}".rep): _*)::Nil, typ))  // the ascription ${c.IRTypeT} is to prevent the QQ from using a TypeTag
     }
   }
+  def get(repr:Embedding.Rep,f:Field): Embedding.Rep = {
+    val c = getField(f)
+    base.methodApp(repr,base.loadMtdSymbol(clsSym, "_" + (columns.indexWhere(_.name==c.name)+1), None),Nil,Nil,c.IRTypeT.rep)
+  }
 }
-case class CompositeFormat(val lhs: RowFormat, val rhs: RowFormat) extends RowFormat {
+//case class CompositeFormat(val lhs: RowFormat, val rhs: RowFormat) extends RowFormat {
+case class CompositeFormat[L<:RowFormat,R<:RowFormat](val lhs: L, val rhs: R) extends RowFormat { // TODO make abstract class/trait?
   import lhs.{Repr=>LR}, rhs.{Repr=>RR}
   type Repr = (lhs.Repr, rhs.Repr)
   //val Repr = irTypeOf[(lhs.Repr,rhs.Repr)]
   lazy val Repr = irTypeOf[(LR,RR)]
   val columns = lhs.columns ++ rhs.columns
   val parse = (cs: Map[String, Code[String]]) => ir"(${lhs.parse(cs)}, ${rhs.parse(cs)})"
+  def get(repr:Embedding.Rep,f:Field): Embedding.Rep = {
+    //val c = getField(f)
+    //if (lhs.columns.exists(_.name==f.name)) {
+    //  lhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
+    //}
+    //else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
+    //println(s"Getting $f $lhs $rhs")
+    val r = 
+    if (lhs.columns.exists(_.name==f.name))
+      lhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
+    else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._2".rep,f)
+    println(s"Getting $f $lhs $rhs -> $r"); r
+  }
 }
 
 //abstract class Table(val rf: RowFormat) {
@@ -70,6 +165,10 @@ trait Table {
     println(s"Generated Program: $pgrm")
     pgrm.compile()(data)
   }
+  //def scan: CrossStage[rowFmt.Repr] = ???
+  //def scan(k: Seq[Field] => Code[Unit]): CrossStage[Unit] = ???
+  def scan(k: Code[rowFmt.Repr => Unit]): CrossStage[Unit] = ???
+  def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = ???
 }
 object Table {
   def apply(cols: Seq[Field]): Table = new PlainTable(cols)
@@ -86,18 +185,21 @@ trait IndexedTable extends Table {
   val order: Seq[String]
   val keyFmt: RowFormat = RowFormat(keys) // Note: using TupleFormat here may generate references to Tuple1... not sure how that's handled by Scala
   val valFmt: RowFormat = RowFormat(values)
-  val rowFmt: RowFormat = CompositeFormat(keyFmt,valFmt)
+  //val rowFmt: RowFormat = CompositeFormat(keyFmt,valFmt)
+  //val rowFmt: CompositeFormat{val lhs:keyFmt.type;val rhs: valFmt.type} = CompositeFormat(keyFmt,valFmt)
+  val rowFmt: CompositeFormat[keyFmt.type,valFmt.type] = CompositeFormat(keyFmt,valFmt)
   private[this] val arr: Code[Array[String]] = ir"arr?:Array[String]"
   private[this] val colMap = order.zipWithIndex.toMap.mapValues(name => ir"$arr(${Const(name)})")
   val kparser = keyFmt.parse(colMap)
   val vparser = valFmt.parse(colMap)
+  //def 
 }
 case class GeneralIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[String]) extends IndexedTable {
   import keyFmt.{Repr=>Key}
   import valFmt.{Repr=>Val}
   val hashTable = mutable.HashMap[Key,mutable.Set[Val]]()
   def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = {
-    (CrossStage(hashTable) { ht => 
+    CrossStage(hashTable) { ht => 
       ir"""(ite: Iterator[String]) =>
         while (ite.hasNext) {
           val str = ite.next
@@ -106,31 +208,17 @@ case class GeneralIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[
           $ht.getOrElseUpdate(${kparser:IR[Key,{val arr:Array[String]}]},mutable.Set()) += ${vparser:IR[Val,{val arr:Array[String]}]}
         }
       """
-    })//(dbg.implicitType[mutable.HashMap[Key,Val]],irTypeOf[Iterator[String] => Unit])
+    }
   }
 }
 case class UniqueIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[String]) extends IndexedTable {
-  //val keyFmt: RowFormat = RowFormat(keys) // Note: using TupleFormat here may generate references to Tuple1... not sure how that's handled by Scala
-  //val valFmt: RowFormat = RowFormat(values)
-  //val rowFmt: RowFormat = CompositeFormat(keyFmt,valFmt)
-  
-  //type Key = keyFmt.Repr
-  //type Val = valFmt.Repr
   import keyFmt.{Repr=>Key}
   import valFmt.{Repr=>Val}
   
   val hashTable = mutable.HashMap[Key,Val]()
   
-  //def loadData(data: Iterator[String], sep: Char = '|'): CrossStage[Unit] = {
   def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = {
-    //val arr: Code[Array[String]] = ir"arr?:Array[String]"
-    ////val colMap = columns.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap
-    //val colMap = order.zipWithIndex.toMap.mapValues(name => ir"$arr(${Const(name)})")
-    //val kparser = keyFmt.parse(colMap)
-    //val vparser = valFmt.parse(colMap)
-    ////val kparser = keyFmt.parse(keys.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
-    ////val vparser = valFmt.parse(values.zipWithIndex.map(ci => ci._1.name -> ir"$arr(${Const(ci._2)})").toMap)
-    (CrossStage(hashTable) { ht => 
+    CrossStage(hashTable) { ht => 
       ir"""(ite: Iterator[String]) =>
         while (ite.hasNext) {
           val str = ite.next
@@ -139,157 +227,37 @@ case class UniqueIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[S
           $ht += (${kparser:IR[Key,{val arr:Array[String]}]} -> ${vparser:IR[Val,{val arr:Array[String]}]})
         }
       """
-    })//(dbg.implicitType[mutable.HashMap[Key,Val]],irTypeOf[Iterator[String] => Unit])
+    }
+  }
+  
+  //def 
+  
+  //override def scan(k: Seq[Field] => Code[Unit]): CrossStage[Unit] = CrossStage(hashTable) { ht =>
+  //  val inner = k(keys ++ values) // FIXME: Q: can have duplicates across the two?
+  //  println(inner)
+  //  ir"""$ht.foreach(println)"""
+  //  //ir"""$ht.foreach(kv => )"""
+  //}
+  override def scan(k: Code[rowFmt.Repr => Unit]): CrossStage[Unit] = CrossStage(hashTable) { ht =>
+    ir"""$ht.foreach(kv => $k(kv._1->kv._2))"""
+  }
+  override def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = CrossStage(hashTable) { ht =>
+    ir"""val it = $ht.iterator; loopWhile { it.hasNext && { val kv = it.next; $cont(kv._1->kv._2) } }"""
   }
   
 }
 
-/*
 // TODO Table stored as hashmaps, compressed arrays of bits, etc
-//abstract class Table[Row:IRType] {
-trait Table {
-  type Row
-  implicit val Row: IRType[Row]
-  val columns: Seq[Field] = null
-  //def parse(columnStrings: Map[String, Code[String]]): Code[Row]
-  val parse: Map[String, Code[String]] => Code[Row]
-   = null
-  //def load(x: Code[T]): CrossStage[Unit]
-  //val load: Code[T] => CrossStage[Unit]
-  val load: CrossStage[Row => Unit]
-   = null
-  /** override if better implementation exists */
-  def loadMultiple(xs: Code[Iterator[Row]]): CrossStage[Unit] =
-    for {
-      loader <- load
-    } yield ir"val it = $xs; while (it.hasNext) ${loader}(it.next)"
-  def find(p: Code[Row => Bool]): CrossStage[Iterator[Row]]
-   = ???
-  def lift[R](f: Seq[Field] => Code[R]): Code[Row => R]
-   = ???
-  def show: String = s"Table(${columns mkString ","})"
-}
-object Table {
-  //def apply(cols: Seq[Field]): Table[_] = {
-  def apply(cols: Seq[Field]): Table = {
-    val size = cols.size
-    if (size == 1) SingleColumnTable(cols.head)
-    else if (size > 22) {
-      val t = cols.take(size/2)
-      CompositeOf(Table(t), Table(cols.drop(t.size)))
-    }
-    else {
-      val clsSym = base.loadTypSymbol(s"scala.Tuple${size}")
-      val objSym = base.loadTypSymbol(s"scala.Tuple${size}$$")
-      val mtd = base.loadMtdSymbol(objSym, "apply", None)
-      val typs = cols.map(_.IRTypeT.rep).toList
-      val typ = base.staticTypeApp(clsSym, typs)
-      //println(clsSym,objSym,mtd,typ)
-      
-      //new Table[Any]()(base.IRType(typ))
-      new Table // extract as PlainTupleTable
-      {
-        implicit val Row = base.IRType[Row](typ)
-        val buffer = mutable.ArrayBuffer[Row]()
-        
-        override val columns = cols
-        
-        override val parse = {
-          import base._
-          //val p = methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => ir"${Const(c.name)}.asInstanceOf[${c.IRTypeT}]".rep): _*)::Nil, staticTypeApp(clsSym, typs))
-          //val p = methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => ir"${c.SerialT.parse}(${Const(c.name)})".rep): _*)::Nil, typ)
-          //println(p)
-          //println(IR(p).compile)
-          
-          (cs: Map[String, Code[String]]) => {
-            IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(cols map (c => 
-              ir"${c.SerialT.parse}(${cs(c.name)})".rep): _*)::Nil, typ))
-          }
-          
-        }
-        
-        override val load: CrossStage[Row => Unit] = CrossStage(buffer)(buf => ir"(x:Row) => { $buf += x; () }")
-        
-        override def show: String = s"${super.show} =\n\t${buffer mkString "\n\t"}"
-        
-      }
-      
-      //???
-      //null
-    }
-  }
-}
-/*class CompositeTable[T0:IRType,T1:IRType](lhs: Table[T0], rhs: Table[T1]) extends Table[(T0,T1)] {
-  
-}*/
-//class CompositeTable(val lhs: Table, val rhs: Table) extends Table {
-trait CompositeTable extends Table {
-  val lhs: Table
-  val rhs: Table
-  //import lhs.{Row}, rhs.{Row}
-  import lhs.{Row=>LR}, rhs.{Row=>RR}
-  type Row = (lhs.Row, rhs.Row)
-  //val Row = irTypeOf[(lhs.Row,rhs.Row)]
-  lazy val Row = irTypeOf[(LR,RR)]
-}
-case class CompositeOf(val lhs: Table, val rhs: Table) extends CompositeTable
-//object CompositeTable {
-//  def apply(lhs: Table, rhs: Table) = new CompositeTable {
-//    
-//  }
-//}
-class SingleColumnTable[T:IRType] extends Table {
-  type Row = T
-  val Row = implicitly[IRType[T]]
-}
-object SingleColumnTable {
-  val IntType = irTypeOf[Int]
-  //def apply(col: Field): Table[_] = {
-  def apply(col: Field): Table = {
-    col.IRTypeT match {
-      //case IntType => ??? // TODO compressed column?
-      case _ => new SingleColumnTable[col.T]
-    }
-  }
-}
-abstract class IndexedTable(val keys: Seq[Field], val values: Seq[Field]) extends Table {
-  
-}
-case class PrimaryIndexedTable(primaryKeys: Seq[Field], override val values: Seq[Field]) extends IndexedTable(primaryKeys, values) with CompositeTable {
-  val cols = primaryKeys ++ values
-  val lhs = Table(primaryKeys)
-  val rhs = Table(values)
-}
-//object PrimaryIndexedTable {
-//  def apply(primaryKeys: Seq[Field], cols: Seq[Field])
-//}
-
-/*
-abstract class IndexedTable[T:IRType](val keys: Seq[Field], val cols: Seq[Field]) extends Table[T] {
-}
-abstract class PrimaryIndexedTable[T:IRType](primaryKeys: Seq[Field], cols: Seq[Field]) extends IndexedTable[T](primaryKeys, cols) {
-}
-*/
-
 
 // TODO:
 //class CompressedTable extends Table[Int] {
 //}
-*/
 
 
 
 
 
-////class CrossStage[T,R](value: T, code: Code[R])
-//object CrossStage {
-//  //def apply[T,R](value: T)(code: Code[T] => Code[R]): CrossStage[T,R] = ???
-//  val values = mutable.WeakHashMap[Int,Any]
-//  def apply[T,R](value: T, name: String = "csp")(code: Code[T] => Code[R]): Code[R] = ???
-//}
-//class CrossStage[R](values: mutable.Buffer[Any], code: Code[R])
 import CrossStage.Dict
-//class CrossStage[R](values: Dict, code: Code[Dict => R])
 class CrossStage[A:IRType](val values: Dict, val code: Code[Dict] => Code[A]) {
   def map[B:IRType](f: Code[A] => Code[B]) = new CrossStage[B](values, code andThen f)
   def flatMap[B:IRType](f: Code[A] => CrossStage[B]) = {
@@ -308,7 +276,7 @@ class CrossStage[A:IRType](val values: Dict, val code: Code[Dict] => Code[A]) {
   }
   
 }
-object CrossStage {
+object CrossStage { // TODO make these insert dict accesses BEFORE the code, not inside of it!
   type Dict = Map[Int,Any]
   private var curId = 0
   def freshId = curId alsoDo (curId += 1)
@@ -322,6 +290,12 @@ object CrossStage {
     //val fun = (d:Code[Dict]) => code(ir"$d(${Const(id0)}).asInstanceOf[T0]", ir"$d(${Const(id1)}).asInstanceOf[T1]")
     new CrossStage(Map(id0 -> value0, id1 -> value1), (d:Code[Dict]) => 
       code(ir"$d(${Const(id0)}).asInstanceOf[T0]", ir"$d(${Const(id1)}).asInstanceOf[T1]"))
+  }
+  def magic[A:IRType,B:IRType](f: Code[A] => CrossStage[B]): CrossStage[A => B] = {
+    //ir"(a:A) => $f(a)"
+    val cs = f(ir"a?:A")
+    //new CrossStage[B](cs.values, (a:Code[A]) => (cs.code(a):IR[B,{val a:A}]) subs 'a -> d)
+    new CrossStage[A => B](cs.values, (d:Code[Dict]) => ir"(a:A) => ${cs.code(d):IR[B,{val a:A}]}")
   }
 }
 
