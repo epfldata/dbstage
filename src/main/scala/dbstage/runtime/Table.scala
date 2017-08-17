@@ -3,11 +3,11 @@ package runtime
 
 import scala.collection.mutable
 import scala.io._
-
 import squid.utils._
 import Embedding.Predef._
 import Embedding.SimplePredef.{Rep => Code, _}
 import frontend._
+import squid.lib.transparencyPropagating
 
 
 abstract class FieldReifier {
@@ -154,6 +154,10 @@ case class TupleFormat(columns: Seq[Field]) extends RowFormat { thisFmt =>
     import base._
     IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(columns map (c => c.toCode.rep) : _*)::Nil, typ))
   }
+  def mk(xs:Code[Any]*): Code[Repr] = { // TODO factor with parse
+    import base._
+    IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(xs map (_.rep) : _*)::Nil, typ))
+  }
   def withId(id: Int) = TupleFormat(columns map (_ withId id)).asInstanceOf[TupleFormat{type Repr = thisFmt.Repr}]
 }
 //case class CompositeFormat(val lhs: RowFormat, val rhs: RowFormat) extends RowFormat {
@@ -204,12 +208,31 @@ trait Table {
   def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = ???
 }
 object Table {
-  def apply(cols: Seq[Field]): Table = new PlainTable(cols)
+  def apply(cols: Seq[Field]): Table = new PlainTable(cols,0)
 }
-class PlainTable(val cols: Seq[Field]) extends Table {
-  val rowFmt: RowFormat = TupleFormat(cols)
-  //def loadData(data: Iterator[String], sep: Char = '|'): CrossStage[Unit] = ???
-  def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = ???
+abstract class SimpleTable extends Table { // TODO merge into Table
+  def mkEntryLoader(sep: Char): CrossStage[String => Unit]
+  def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = 
+    mkEntryLoader(sep) map (el => ir"(ite: Iterator[String]) => while (ite.hasNext) { val str = ite.next; ${el}(str) }")
+}
+class PlainTable(val cols: Seq[Field], idxShift: Int) extends SimpleTable {
+  //val rowFmt: RowFormat = TupleFormat(cols)
+  val rowFmt: RowFormat = RowFormat(cols)
+  import rowFmt.{Repr => Val}
+  val buffer = mutable.ArrayBuffer[Val]()
+  private[this] val arr: Code[Array[String]] = ir"arr?:Array[String]"
+  private[this] val colMap = cols.map(_.name).zipWithIndex.toMap.mapValues(i => ir"$arr(${Const(i+idxShift)})") // TODO factor with IndexedTable
+  
+  ////def loadData(data: Iterator[String], sep: Char = '|'): CrossStage[Unit] = ???
+  //def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = CrossStage(buffer)(buf => 
+  //  ir"(ite: Iterator[String]) => { val str = ite.next; val arr = str.split(${Const(sep)}); $buf += ${rowFmt.parse(colMap):IR[Val,{val arr:Array[String]}]}; () }")
+  def mkEntryLoader(sep: Char): CrossStage[String => Unit] = CrossStage(buffer)(buf => 
+    ir"(str: String) => { val arr = str.split(${Const(sep)}); $buf += ${rowFmt.parse(colMap):IR[Val,{val arr:Array[String]}]}; () }")
+  
+  override def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = CrossStage(buffer){ buf => ir"$buf.foreach($cont)" }
+}
+class SingleColumnTable(val col: Field, idxShift: Int) extends PlainTable(col::Nil, idxShift) {
+  override val rowFmt = new SingleColumnFormat(col)
 }
 
 trait IndexedTable extends Table {
@@ -279,6 +302,91 @@ case class UniqueIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[S
   }
   
 }
+
+case class ColumnStore(val cols: Seq[Field]) extends SimpleTable {
+  val rowFmt: TupleFormat = TupleFormat(cols)
+  val stores = cols.zipWithIndex map {case (c,i) => new SingleColumnTable(c,i)}
+  //def mkDataLoader(sep: Char): CrossStage[Iterator[String] => Unit] = stores.map(_.mkDataLoader(sep)).fold(CrossStage(())(_ => ir"(it:Iterator[String]) => ()")) {
+  //  case (acc, dl) => acc flatMap (_ => dl)
+  //}
+  def mkEntryLoader(sep: Char): CrossStage[String => Unit] = (stores.map(_.mkEntryLoader(sep)).fold(CrossStage(())(_ => ir"(str:String) => ()")) {
+    case (acc, dl) => //acc flatMap (a => ir"$a; $dl")
+      //println(acc,dl)
+      for {
+        a <- acc
+        d <- dl
+      } yield ir"(str:String) => {$a(str); $d(str)}"
+  }) //alsoApply println
+  
+  override def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = {
+    import Embedding.{hole,IR}
+    import scala.collection.mutable.ArrayBuffer
+    import ColumnStore.placeHolder
+    /*
+    //println(ir"List[Any]()")
+    val r = 
+    stores.map{ sct => 
+      import sct.rowFmt.Repr
+      CrossStage(sct.buffer){buf=>ir"$buf(idx?:Int)"}
+    }.foldLeft[CrossStage[List[Any]]](CrossStage(List[Any]())(_ => ir"List[Any]()")) {
+      case (acc, dl) =>
+        //println(acc,dl)
+        //for {
+        //  a <- acc
+        //  val ir"List[Any]($xs*)" = a
+        ////  d <- dl
+        ////  xs2 = xs :+ d
+        ////} yield ir"List($xs2*)"
+        //} yield ???
+        acc.flatMap {
+          case ir"Nil" =>
+            dl map { d => ir"List[Any]($d)" }
+          case ir"List[Any]($xs*)" =>
+            dl map { d =>
+              val xs2 = xs :+ d
+              ir"List($xs2*)"
+            }
+        }
+      
+    }
+    println(r)
+    */
+    val assoc -> getters = stores.zipWithIndex.map { case (sct,i) => 
+      import sct.rowFmt.Repr
+      //(i -> CrossStage.freshId) ->
+      val fid = CrossStage.freshId
+      (fid -> i) ->
+      //ir"${IR[ArrayBuffer[Repr],Any](hole(s"BUFF#$i", typeRepOf[ArrayBuffer[Repr]]))}(idx? :Int)" : Code[Any]
+      (ir"placeHolder[ArrayBuffer[Repr]](${Const(fid)})(idx? : Int)" : Code[Any]) //: IR[Any,{val idx:Int}] //
+    }.unzip
+    //val assocMap = assoc.toMap
+    //val assocMap = assoc.map(_.swap).toMap
+    //println(getters)
+    val tuple: IR[rowFmt.Repr,{val idx:Int}] = rowFmt.mk(getters:_*)
+    val r = CrossStage(stores.head.buffer.size) { len =>
+      ir"var i = 0; loopWhile { val idx = i; i = idx+1; idx < $len && $cont($tuple) }"
+    }
+    //println(r)
+    //println(assoc.toMap.mapValues(stores))
+    //val cs = r flatMap (r => new CrossStage[Unit](assoc.toMap.mapValues(stores).mapValues(_.buffer), d => r rewrite {
+    val cs = r flatMap (r => new CrossStage[Unit](assoc.toMap.mapValues(stores).mapValues(_.buffer), d => r rewrite {
+      //case ir"placeHolder[ArrayBuffer[$t]](${Const(id)})" =>
+      case ir"placeHolder[$t](${Const(id)})" =>
+        //println(s"placeHolder[$t](${Const(id)})")
+        //ir"$d(${Const(assocMap(id))}).asInstanceOf[$t]"
+        ir"$d(${Const(id)}).asInstanceOf[$t]"
+    }))
+    //println(cs)
+    //???
+    cs
+  }
+  
+}
+object ColumnStore {
+  @transparencyPropagating def placeHolder[T](id: Int): T = ???
+}
+
+
 
 // TODO Table stored as hashmaps, compressed arrays of bits, etc
 

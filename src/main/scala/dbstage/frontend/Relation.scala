@@ -11,6 +11,7 @@ class Relation {
   protected val curColumns = mutable.ArrayBuffer[Column]()
   
   var indexByKeys = true
+  var columnStore = false
   
   val table = Lazy {
     val (keys,values) = columns.partition(_.isPrimary)
@@ -18,6 +19,7 @@ class Relation {
     else {
       val (foreignKeys,values) = columns.partition(_.isForeignKey)
       if (foreignKeys.nonEmpty && indexByKeys) GeneralIndexedTable(foreignKeys, values, columns.map(_.name))
+      else if (columnStore) ColumnStore(values)
       else Table(values)
     }
   }

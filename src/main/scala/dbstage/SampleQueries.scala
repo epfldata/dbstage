@@ -8,11 +8,15 @@ import Main.HasJob
 
 object OlderThan18 extends App {
   import Person._
+  Person.indexByKeys = false
+  Person.columnStore = true
   
   Person.loadDataFromFile("data/persons.csv", compileCode = false)
+  //Person.loadDataFromFile("data/persons.csv")
   
   val p = from(Person)
   val j = from(HasJob)
+  //p.printLines
   
   //println(p.Age)
   //println(p.Age.toCode)
