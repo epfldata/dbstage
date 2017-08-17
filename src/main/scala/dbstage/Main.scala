@@ -1,5 +1,6 @@
 package dbstage
 
+import squid.utils._
 import Embedding.Predef._
 import frontend._
 
@@ -14,6 +15,7 @@ object Main extends App {
     val Id = Column[Int]("Id", primary = true)
     val Name = Column[String]("Name")
     val Age = Column[Int]("Age")
+    val Sex = Column[Bool]("Sex")
   }
   case object HasJob extends Relation {
     val PersonId = Column[Int]("PId", foreign = Person.Id)
@@ -34,6 +36,8 @@ object Main extends App {
   //val pgrm0 = Print(p0).foreachCode(ir"{(x:String) => println(x)}")
   //val pgrm0 = Print(p0).foreach(println)
   //println(pgrm0)
+  val p1 = (p0 join Scan(HasJob.table.value))(ir"${Person.Id} == ${HasJob.PersonId}")
+  println(p1)
   
   
   //System exit -1
@@ -53,8 +57,8 @@ object Main extends App {
   //HasJob.loadDataFromFile("data/jobs.csv")
   
   // execute query
-  p0.foreach(println)
-  Print(p0).foreach(println)
+  //p0.foreach(println)
+  //Print(p0).foreach(println)
   
   // println(q0.run)
   

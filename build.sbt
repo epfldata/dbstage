@@ -4,15 +4,22 @@ name := "stagedb"
 
 version := "1.0"
 
-scalaVersion := "2.11.8"
+lazy val commonSettings = Seq(
+  scalaVersion := "2.11.8",
+  libraryDependencies += "ch.epfl.data" %% "squid" % "0.1.1-SNAPSHOT",
+  autoCompilerPlugins := true,
+  addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
+  scalacOptions ++= Seq("-feature", "-language:postfixOps")
+)
 
-libraryDependencies += "ch.epfl.data" %% "squid" % "0.1.1-SNAPSHOT"
+lazy val main = (project in file("."))
+    .settings(commonSettings: _*)
+    .aggregate(macros)
+    .dependsOn(macros)
 
-autoCompilerPlugins := true
-
-addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full)
-
-scalacOptions ++= Seq("-feature", "-language:postfixOps")
-
-
+lazy val macros = (project in file("macros"))
+    .settings(commonSettings: _*)
+    .settings(
+      name := "macros"
+    )
 

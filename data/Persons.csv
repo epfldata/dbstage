@@ -1,6 +1,6 @@
-0|john smith|23
-1|bob parker|41
-2|julia smith|37
-5|toto|7
-3|hugh carper|67
-4|martha roberts|56
+0|john smith|23|true
+1|bob parker|41|true
+2|julia smith|37|false
+5|toto ronto|7|true
+3|hugh carper|67|true
+4|martha roberts|56|false

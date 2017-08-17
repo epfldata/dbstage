@@ -25,9 +25,6 @@ import Embedding.SimplePredef.{Rep=>Code,_}
 //  }
 //}
 
-sealed trait Query {
-  lazy val bestPlan: QueryPlan = ???
-}
 sealed trait QueryPlan {
   val uid = 42 // TODO
   val rowFormat: RowFormat = null
@@ -63,7 +60,37 @@ sealed trait QueryPlan {
   //def foreach = ir"(f: Row => Unit) => ${
   //  (f: Code[Row => Unit]) => foreachCode(f) } yield fe).compile() }"
   //def foreach = NeatClosure3.close((f: Code[Row => Unit]) => )
-  def foreach = (f: Row => Unit) => CrossStage.magic((f: Code[Row => Unit]) => foreachCode(f)).compile()(f)
+  
+  //lazy val foreach = (f: Row => Unit) => CrossStage.magic((f: Code[Row => Unit]) => foreachCode(f)).compile()(f)
+  lazy val foreach = CrossStage.magic((f: Code[Row => Unit]) => foreachCode(f)).compile()
+  
+  def asIndexedOn(cols: Seq[FieldRef]) = Option.empty[IndexedQueryPlan]
+  
+  def join(that: QueryPlan)(pred: Code[Bool]): QueryPlan = {
+    //asIndexedOn()
+    println(pred)
+    //def isEqui(p: Code[Bool]) = 
+    //isEqui(pred).getOrElse
+    object Equi { // FIXME direction of equality doesn't actually matter! needs to partition keys // TODO generalize to multi-joins
+      def unapply(x: Code[Bool]): Option[List[FieldRef -> FieldRef]] = x |>? {
+        //case ir"(${Field(f0)}:$t0) == (${Field(f1)}:$t1)" =>
+        case ir"(${Equi(lhs)}:Bool) && (${Equi(rhs)}:Bool)" => lhs ++ rhs
+        case ir"(${FieldRef(f0)}:$t0) equals (${FieldRef(f1)}:$t1)" =>
+          //println(f0)
+          //???
+          (f0 -> f1) :: Nil
+      }
+    }
+    pred |> Equi.unapply map (equiJoin(that,_)) getOrElse ???
+    //???
+  }
+  def equiJoin(that: QueryPlan, eqCols: Seq[FieldRef -> FieldRef]) = {
+    val eqLhs -> eqRhs = eqCols.unzip
+    asIndexedOn(eqLhs) -> that.asIndexedOn(eqRhs) match {
+      case Some(indQP) -> _ =>
+        ???
+    }
+  }
 }
 case class Scan(tbl: Table) extends QueryPlan {
   override val rowFormat: tbl.rowFmt.type = tbl.rowFmt
@@ -81,8 +108,28 @@ case class Scan(tbl: Table) extends QueryPlan {
   }
   */
   override def pushRec(step: Code[Row => Bool]): CrossStage[Unit] = tbl.push(step)
+  override def asIndexedOn(cols: Seq[FieldRef]) = tbl match {
+    case tbl: IndexedTable if tbl.keys.size == cols.size && (tbl.keys,cols).zipped.forall(_.name == _.name) => // TODO better cond
+      Some(new IndexedQueryPlan(this, tbl.keys))
+      //???
+    //case tbl: GeneralIndexedTable =>
+    //  println(s"Nope ${tbl.keys} $cols")
+    //  None
+    case _ => 
+      None
+  }
 }
-case class Project(that: QueryPlan, cols: Seq[Field]) extends QueryPlan
+case class Project[T](that: QueryPlan, cols: Seq[Field]) extends QueryPlan {
+  import that.rowFormat.Repr
+  //override val rowFormat = TupleFormat(cols).asInstanceOf[RowFormat.Tuple[T]]
+  override val rowFormat = RowFormat(cols).asInstanceOf[RowFormat.Of[T]]
+  override def pushRec(step: Code[Row => Bool]): CrossStage[Unit] = {
+    //println(rowFormat.mkRefs)
+    //that.push
+    //???
+    that.pushRec(ir"(${that.rowFormat.lift(rowFormat.mkRefs,uid)}) andThen $step")
+  }
+}
 case class Filter(that: QueryPlan, pred: Code[Bool]) extends QueryPlan {
   override val rowFormat: that.rowFormat.type = that.rowFormat
   import rowFormat.Repr
@@ -98,9 +145,17 @@ case class Filter(that: QueryPlan, pred: Code[Bool]) extends QueryPlan {
   override def pushRec(step: Code[Row => Bool]): CrossStage[Unit] =
     //that.push(ir"(x:Row) => !${rowFormat.lift(pred,uid)}(x) || $step(x)")
     that.pushRec(ir"(x:Row) => if (${rowFormat.lift(pred,uid)}(x)) $step(x) else true")
+  override def asIndexedOn(cols: Seq[FieldRef]) = that.asIndexedOn(cols)
 }
 case class GeneralJoin(lhs: QueryPlan, rhs: QueryPlan, pred: Code[Bool]) extends QueryPlan
-case class EquiJoin(lhs: QueryPlan, rhs: QueryPlan, eqCols: Seq[Field]) extends QueryPlan
+case class EquiJoin(lhs: QueryPlan, rhs: QueryPlan, eqCols: Seq[(Field,Field)]) extends QueryPlan
+case class HashJoin(lhs: IndexedTable, rhs: QueryPlan, rhsHash: Seq[Field]) extends QueryPlan {
+  
+}
+//object QueryPlan {
+//  def join(lhs)
+//}
+
 case class Print(that: QueryPlan) extends QueryPlan {
   import that.rowFormat.Repr
   //override val rowFormat = new SingleColumnFormat(Field[String]("StringRep"))
@@ -117,5 +172,10 @@ case class Print(that: QueryPlan) extends QueryPlan {
     //println(colsToString)
     that.pushRec(ir"(x:that.Row) => $step(${that.rowFormat.lift(colsToString,uid)}(x))")
   }
+}
+
+
+class IndexedQueryPlan(that: QueryPlan, keys: Seq[Field]) extends QueryPlan {
+  
 }
 

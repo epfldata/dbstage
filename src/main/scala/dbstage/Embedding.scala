@@ -1,6 +1,7 @@
 package dbstage
 
 import squid.anf.analysis.BlockHelpers
+import squid.anf.transfo.EqualityNormalizer
 import squid.anf.transfo.LogicFlowNormalizer
 import squid.anf.transfo.LogicNormalizer
 import squid.anf.transfo.StandardNormalizer
@@ -22,6 +23,7 @@ object Embedding
     with LogicNormalizer
     with BlockHelpers
     with ScalaCore
+    with EqualityNormalizer
 {
   
 }

@@ -11,7 +11,7 @@ import frontend._
 
 
 abstract class FieldReifier {
-  def apply(f: Field): Code[f.T]
+  def apply(f: FieldRef): Code[f.T]
 }
 trait RowFormat {
   type Repr
@@ -24,28 +24,27 @@ trait RowFormat {
   //    case Seq() => 
   //  }
   //}
-  protected def getField(f:Field) = columns.find(_.name == f.name).fold(throw new Exception(s"No col ${f.name}")) { c => // TODO B/E
+  protected def getField(f:FieldRef) = columns.find(_.name == f.name).fold(throw new Exception(s"No col ${f.name}")) { c => // TODO B/E
     assert(c.IRTypeT <:< f.IRTypeT)
     c
   }
-  def get(repr:Embedding.Rep,f:Field): Embedding.Rep // = ???
+  def get(repr:Embedding.Rep,f:FieldRef): Embedding.Rep // = ???
   //def lift2[T](k: Map[Field,Code]): Code[Repr => T] = {
   def lift2[T](fr: FieldReifier => Code[T]): Code[Repr => T] = {
     val repr = Embedding.bindVal(columns.map(_.name).mkString("_"),Repr.rep,Nil)
     Embedding.IR(Embedding.lambda(repr::Nil,
       fr(new FieldReifier {
-        def apply(f: Field) = Embedding.IR(get(repr|>Embedding.readVal,f))
+        def apply(f: FieldRef) = Embedding.IR(get(repr|>Embedding.readVal,f))
       }).rep
     ))
   }
   def lift[T](q: Code[T], uid: Int): Code[Repr => T] = {
     lift2 { fr =>
-      // TODO use unreftable Const xtors
       //q rewrite { case ir"fieldIn[$tp](${Const(name)},${Const(fuid)})" if fuid == uid =>  ??? }
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) } // FIXME: Error:(38, 9) not found: value ClassTag
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) }
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f).asInstanceOf[Code[tp.Typ]] } // FIXME Error:scalac: missing or invalid dependency detected while loading class file 'Field.class'. Could not access type tp in value dbstage.runtime.RowFormat.$anonfun, because it (or its dependencies) are missing.
-      q rewrite { case ir"${Field(f)}:Any" => fr(f) } // note: Any, unsound
+      q rewrite { case ir"${FieldRef(f)}:Any" => fr(f) } // note: Any, unsound
       //???
     }
   }
@@ -84,6 +83,7 @@ trait RowFormat {
     ???
   }
   */
+  def mkRefs: Code[Repr] = ???
   override def toString = s"Row[${Repr.rep}](${columns mkString ","})"
 }
 object RowFormat {
@@ -97,13 +97,16 @@ object RowFormat {
     }
     else new TupleFormat(cols)
   }
+  type Tuple[T] = TupleFormat{type Repr = T}
+  type Of[T] = RowFormat{type Repr = T}
 }
 class SingleColumnFormat(val col: Field) extends RowFormat {
   type Repr = col.T
   implicit val Repr = col.IRTypeT // Note: removing `implicit` creates a compiler crash...
   val columns = col :: Nil
   val parse = (cs: Map[String, Code[String]]) => ir"${col.SerialT.parse}(${cs(col.name)})"
-  def get(repr:Embedding.Rep,f:Field): Embedding.Rep = { getField(f); repr }
+  def get(repr:Embedding.Rep,f:FieldRef): Embedding.Rep = { getField(f); repr }
+  override def mkRefs: Code[Repr] = col.toCode
 }
 object SingleColumnFormat {
   def apply[S:IRType:Serial](name: String) = {
@@ -128,9 +131,14 @@ case class TupleFormat(columns: Seq[Field]) extends RowFormat {
         ir"${c.SerialT.parse}(${cs(c.name)}):${c.IRTypeT}".rep): _*)::Nil, typ))  // the ascription ${c.IRTypeT} is to prevent the QQ from using a TypeTag
     }
   }
-  def get(repr:Embedding.Rep,f:Field): Embedding.Rep = {
+  def get(repr:Embedding.Rep,f:FieldRef): Embedding.Rep = {
     val c = getField(f)
     base.methodApp(repr,base.loadMtdSymbol(clsSym, "_" + (columns.indexWhere(_.name==c.name)+1), None),Nil,Nil,c.IRTypeT.rep)
+  }
+  //def mk(fields: Seq[Code[Any]])
+  override def mkRefs: Code[Repr] = { // TODO factor with parse
+    import base._
+    IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(columns map (c => c.toCode.rep) : _*)::Nil, typ))
   }
 }
 //case class CompositeFormat(val lhs: RowFormat, val rhs: RowFormat) extends RowFormat {
@@ -141,18 +149,18 @@ case class CompositeFormat[L<:RowFormat,R<:RowFormat](val lhs: L, val rhs: R) ex
   lazy val Repr = irTypeOf[(LR,RR)]
   val columns = lhs.columns ++ rhs.columns
   val parse = (cs: Map[String, Code[String]]) => ir"(${lhs.parse(cs)}, ${rhs.parse(cs)})"
-  def get(repr:Embedding.Rep,f:Field): Embedding.Rep = {
+  def get(repr:Embedding.Rep,f:FieldRef): Embedding.Rep = {
     //val c = getField(f)
     //if (lhs.columns.exists(_.name==f.name)) {
     //  lhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
     //}
     //else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
     //println(s"Getting $f $lhs $rhs")
-    val r = 
+    //val r = 
     if (lhs.columns.exists(_.name==f.name))
       lhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
     else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._2".rep,f)
-    println(s"Getting $f $lhs $rhs -> $r"); r
+    //println(s"Getting $f $lhs $rhs -> $r"); r
   }
 }
 
@@ -269,6 +277,7 @@ class CrossStage[A:IRType](val values: Dict, val code: Code[Dict] => Code[A]) {
     val pgrm = ir"$code(_)".compile
     () => pgrm(values)
   }
+  def run = ir"$code(_)".run.apply(values)
   
   override def toString: String = {
     val c = code(ir"d?:Dict")
