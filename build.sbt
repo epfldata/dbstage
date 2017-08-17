@@ -9,7 +9,7 @@ lazy val commonSettings = Seq(
   libraryDependencies += "ch.epfl.data" %% "squid" % "0.1.1-SNAPSHOT",
   autoCompilerPlugins := true,
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
-  scalacOptions ++= Seq("-feature", "-language:postfixOps")
+  scalacOptions ++= Seq("-feature", "-language:postfixOps", "-unchecked")
 )
 
 lazy val main = (project in file("."))

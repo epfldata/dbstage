@@ -26,6 +26,17 @@ object Embedding
     with EqualityNormalizer
 {
   
+  import Predef._
+  
+  rewrite {
+    case ir"($lhs:$t0) -> ($rhs:$t1)" => ir"($lhs,$rhs)"
+    case ir"($x0:$t0,$x1:$t1)._1" => x0
+    case ir"($x0:$t0,$x1:$t1)._2" => x1
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2)._1" => x0
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2)._2" => x1
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2)._3" => x2
+  }
+  
 }
 
 object LogicFlow extends Embedding.SelfTransformer with LogicFlowNormalizer

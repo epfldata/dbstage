@@ -13,10 +13,15 @@ import frontend._
 abstract class FieldReifier {
   def apply(f: FieldRef): Code[f.T]
 }
-trait RowFormat {
+trait RowFormat { thisRow =>
   type Repr
   implicit val Repr: IRType[Repr]
   val columns: Seq[Field]
+  lazy val columnsByName: Map[String,Field] = columns.map(c => c.name -> c).toMap
+  //lazy val columnsByRef: FieldRef => Option[Field] = fr => 
+  //  //columnsByName get fr.name flatMap (_ optionIf (_.id == fr.id))
+  //  //columnsByName get fr.name filter { c => fr.id forall (frid => Some(frid) == c.id) }
+  //  columnsByName get fr.name filter { fr conformsTo _ }
   val parse: Map[String, Code[String]] => Code[Repr]
   //lazy val unparse: Code[Repr] => Code[String, Code[String]] = ??? 
   //def access[T](k: Seq[Field] => Code[T]) = {
@@ -24,7 +29,8 @@ trait RowFormat {
   //    case Seq() => 
   //  }
   //}
-  protected def getField(f:FieldRef) = columns.find(_.name == f.name).fold(throw new Exception(s"No col ${f.name}")) { c => // TODO B/E
+  //protected def getField(f:FieldRef) = columns.find(_.name == f.name).fold(throw new Exception(s"No col ${f.name}")) { c => // TODO B/E
+  protected def getField(f:FieldRef) = columns.find(f conformsTo _).fold(throw new Exception(s"No col ${f} in $this")) { c => // TODO B/E
     assert(c.IRTypeT <:< f.IRTypeT)
     c
   }
@@ -84,6 +90,10 @@ trait RowFormat {
   }
   */
   def mkRefs: Code[Repr] = ???
+  
+  //def withId(id: Int): this.type // note: type not right
+  def withId(id: Int): RowFormat{type Repr = thisRow.Repr}
+  
   override def toString = s"Row[${Repr.rep}](${columns mkString ","})"
 }
 object RowFormat {
@@ -107,16 +117,20 @@ class SingleColumnFormat(val col: Field) extends RowFormat {
   val parse = (cs: Map[String, Code[String]]) => ir"${col.SerialT.parse}(${cs(col.name)})"
   def get(repr:Embedding.Rep,f:FieldRef): Embedding.Rep = { getField(f); repr }
   override def mkRefs: Code[Repr] = col.toCode
+  def withId(id: Int) = {
+    import col.SerialT
+    SingleColumnFormat[Repr](col.name, Some(id))
+  }
 }
 object SingleColumnFormat {
-  def apply[S:IRType:Serial](name: String) = {
-    val c: Field{type T = S} = Field[S](name)
+  def apply[S:IRType:Serial](name: String, id: Option[Int] = None) = {
+    val c: Field{type T = S} = Field[S](name, id)
     new SingleColumnFormat(c) {
       override val col: Field{type T = S} = c
     }
   }
 }
-case class TupleFormat(columns: Seq[Field]) extends RowFormat {
+case class TupleFormat(columns: Seq[Field]) extends RowFormat { thisFmt =>
   val size = columns.size
   val clsSym = base.loadTypSymbol(s"scala.Tuple${size}")
   val objSym = base.loadTypSymbol(s"scala.Tuple${size}$$")
@@ -140,6 +154,7 @@ case class TupleFormat(columns: Seq[Field]) extends RowFormat {
     import base._
     IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(columns map (c => c.toCode.rep) : _*)::Nil, typ))
   }
+  def withId(id: Int) = TupleFormat(columns map (_ withId id)).asInstanceOf[TupleFormat{type Repr = thisFmt.Repr}]
 }
 //case class CompositeFormat(val lhs: RowFormat, val rhs: RowFormat) extends RowFormat {
 case class CompositeFormat[L<:RowFormat,R<:RowFormat](val lhs: L, val rhs: R) extends RowFormat { // TODO make abstract class/trait?
@@ -157,11 +172,21 @@ case class CompositeFormat[L<:RowFormat,R<:RowFormat](val lhs: L, val rhs: R) ex
     //else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
     //println(s"Getting $f $lhs $rhs")
     //val r = 
-    if (lhs.columns.exists(_.name==f.name))
+    
+    //if (lhs.columns.exists(_.name==f.name))
+    //  lhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
+    //else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._2".rep,f)
+    
+    if (lhs.columns.exists(f conformsTo _))
       lhs.get(ir"${Embedding.IR[Repr,Any](repr)}._1".rep,f)
-    else rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._2".rep,f)
+    else {
+      assert(rhs.columns.exists(f conformsTo _), s"Field ref $f is not in $this")
+      rhs.get(ir"${Embedding.IR[Repr,Any](repr)}._2".rep,f)
+    }
+    
     //println(s"Getting $f $lhs $rhs -> $r"); r
   }
+  def withId(id: Int) = CompositeFormat(lhs withId id, rhs withId id)
 }
 
 //abstract class Table(val rf: RowFormat) {
@@ -281,8 +306,9 @@ class CrossStage[A:IRType](val values: Dict, val code: Code[Dict] => Code[A]) {
   
   override def toString: String = {
     val c = code(ir"d?:Dict")
-    s"${base.showRep(c.rep)}\n\twhere: ${values map (kv => s"d(${kv._1}) = ${kv._2}; ") mkString}"
+    s"${base.showRep(c.rep)}\n\twhere: ${values map (kv => s"d(${kv._1}) = ${kv._2|>showObject}; ") mkString}"
   }
+  def showObject(x:AnyRef) = s"${x.getClass} @ 0x${System.identityHashCode(x).toLong.toHexString}"
   
 }
 object CrossStage { // TODO make these insert dict accesses BEFORE the code, not inside of it!

@@ -36,6 +36,7 @@ object OlderThan18 extends App {
 
 object PotentialCouples extends App {
   import Person._
+  //Person.indexByKeys = false  // TODO missing impl
   
   Person.loadDataFromFile("data/persons.csv", compileCode = false)
   
@@ -44,16 +45,17 @@ object PotentialCouples extends App {
   //val m, f = from(Person)
   
   val males = m where (ir"$Sex == true")
-  males.printLines
+  //males.printLines
   //males.selectStringRepr().plan.foreach(println)
   
   val females = f where (ir"$Sex == false")
-  females.printLines
+  //females.printLines
   
   val q = (males join females)(ir"${m.Age} == ${f.Age}")
   println(q)
   println(q.plan)
-  
+  q.printLines
+  //println(q.plan.foreach(println))
   
   
 }

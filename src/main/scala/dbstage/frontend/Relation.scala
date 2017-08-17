@@ -10,12 +10,14 @@ import runtime._
 class Relation {
   protected val curColumns = mutable.ArrayBuffer[Column]()
   
+  var indexByKeys = true
+  
   val table = Lazy {
     val (keys,values) = columns.partition(_.isPrimary)
-    if (keys.nonEmpty) UniqueIndexedTable(keys, values, columns.map(_.name))
+    if (keys.nonEmpty && indexByKeys) UniqueIndexedTable(keys, values, columns.map(_.name))
     else {
       val (foreignKeys,values) = columns.partition(_.isForeignKey)
-      if (foreignKeys.nonEmpty) GeneralIndexedTable(foreignKeys, values, columns.map(_.name))
+      if (foreignKeys.nonEmpty && indexByKeys) GeneralIndexedTable(foreignKeys, values, columns.map(_.name))
       else Table(values)
     }
   }
@@ -83,20 +85,25 @@ class Relation {
 //}
 
 // Can make freestanding fields not associated with a table
-abstract class Field(override val name: String, val inQ: Option[query.Query] = None) extends FieldRef(name,inQ.map(_.uid)) { thisField => // TODO extend Embedding.IR ?
+//abstract class Field(override val name: String, val inQ: Option[query.Query] = None) extends FieldRef(name,inQ.map(_.uid)) { thisField => // TODO extend Embedding.IR ?
+abstract class Field(override val name: String, in: Option[Int] = None) extends FieldRef(name,in) { thisField => // TODO extend Embedding.IR ?
   //type T
   //implicit val IRTypeT: IRType[T]
   implicit val SerialT: Serial[T]
   //def toCode: Code[T] = ir"field[T](${Const(name)},None)"
-  def toCode: Code[T] = inQ.fold(ir"field[T](${Const(name)})") { q => ir"fieldIn[T](${Const(name)},${Const(q.uid)})" }
-  def in (that: dbstage.query.Query): Field{type T = thisField.T} = 
-    //??? // TODO query id to remove ambiguities (eg in self-joins)
-    Field[T](name,Some(that))
+  //def toCode: Code[T] = inQ.fold(ir"field[T](${Const(name)})") { q => ir"fieldIn[T](${Const(name)},${Const(q.uid)})" }
+  def toCode: Code[T] = in.fold(ir"field[T](${Const(name)})") { q => ir"fieldIn[T](${Const(name)},${Const(q)})" }
+  //def withId (id: Int): FieldRef{type T = thisField.T} = Field[T](name,Some(id))
+  def withId (id: Int): Field = Field[T](name,Some(id))
+  //def in (that: dbstage.query.Query): Field{type T = thisField.T} = 
+  //  //??? // TODO query id to remove ambiguities (eg in self-joins)
+  //  Field[T](name,Some(that))
   //override def toString = s"Field[${IRTypeT.rep}]($name${in.fold(""){q => s",$q"}})"
-  override def toString = s"Field[${IRTypeT.rep}]($name)${inQ.fold(""){ q => s" in $q"}}"
+  //override def toString = s"Field[${IRTypeT.rep}]($name)${inQ.fold(""){ q => s" in $q"}}"
 }
 object Field {
-  def apply[S:IRType:Serial](name: String, in: Option[query.Query] = None) = new Field(name,in) {
+  //def apply[S:IRType:Serial](name: String, in: Option[query.Query] = None) = new Field(name,in) {
+  def apply[S:IRType:Serial](name: String, in: Option[Int] = None) = new Field(name,in) {
     type T = S
     val IRTypeT: IRType[T] = implicitly
     val SerialT: Serial[T] = implicitly
@@ -140,6 +147,10 @@ object Field {
 abstract class FieldRef(val name: String, val id: Option[Int]) {
   type T
   implicit val IRTypeT: IRType[T]
+  override def toString = s"Field[${IRTypeT.rep}]($name)${id.fold(""){ q => s" in $q"}}"
+  //def conformsTo(f: Field) = id forall (id => Some(id) == f.id)
+  //def conformsTo(f: FieldRef) = f.name == name && id.forall(id => Some(id) == f.id)
+  def conformsTo(f: FieldRef) = f.name == name && id.forall(_ => id == f.id)
 }
 object FieldRef {
   def apply[S:IRType](name: String, id: Option[Int] = None) = new FieldRef(name,id) {

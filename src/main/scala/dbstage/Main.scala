@@ -15,7 +15,7 @@ object Main extends App {
     val Id = Column[Int]("Id", primary = true)
     val Name = Column[String]("Name")
     val Age = Column[Int]("Age")
-    val Sex = Column[Bool]("Sex")
+    val Sex = Column[Bool]("Sex") // TODO use user-defined datatype
   }
   case object HasJob extends Relation {
     val PersonId = Column[Int]("PId", foreign = Person.Id)
@@ -25,6 +25,7 @@ object Main extends App {
   
   import query._
   
+  /*
   //val p0 = Scan(Person.table.value)
   val p0 = Filter(Scan(Person.table.value), ir"${Person.Age} > 18")
   //println(p0.mkPrgm.init(ir"{(x:Any) => println(x)}"))
@@ -38,7 +39,7 @@ object Main extends App {
   //println(pgrm0)
   val p1 = (p0 join Scan(HasJob.table.value))(ir"${Person.Id} == ${HasJob.PersonId}")
   println(p1)
-  
+  */
   
   //System exit -1
   //???
