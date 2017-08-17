@@ -5,6 +5,7 @@ import squid.anf.transfo.EqualityNormalizer
 import squid.anf.transfo.LogicFlowNormalizer
 import squid.anf.transfo.LogicNormalizer
 import squid.anf.transfo.StandardNormalizer
+import squid.ir.CurryEncoding
 import squid.ir.OnlineOptimizer
 import squid.ir.SchedulingANF
 import squid.ir.SimpleANF
@@ -24,6 +25,7 @@ object Embedding
     with BlockHelpers
     with ScalaCore
     with EqualityNormalizer
+    with CurryEncoding.ApplicationNormalizer
 {
   
   import Predef._

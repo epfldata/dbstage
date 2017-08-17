@@ -204,8 +204,10 @@ trait Table {
   }
   //def scan: CrossStage[rowFmt.Repr] = ???
   //def scan(k: Seq[Field] => Code[Unit]): CrossStage[Unit] = ???
-  def scan(k: Code[rowFmt.Repr => Unit]): CrossStage[Unit] = ???
+  //def scan(k: Code[rowFmt.Repr => Unit]): CrossStage[Unit] = ???
   def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = ???
+  //def pull: CrossStage[(rowFmt.Repr => Unit) => Bool] = ???
+  def pull: CrossStage[() => (rowFmt.Repr => Unit) => Bool] = ???
 }
 object Table {
   def apply(cols: Seq[Field]): Table = new PlainTable(cols,0)
@@ -230,6 +232,11 @@ class PlainTable(val cols: Seq[Field], idxShift: Int) extends SimpleTable {
     ir"(str: String) => { val arr = str.split(${Const(sep)}); $buf += ${rowFmt.parse(colMap):IR[Val,{val arr:Array[String]}]}; () }")
   
   override def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = CrossStage(buffer){ buf => ir"$buf.foreach($cont)" }
+  
+  //override def pull: CrossStage[(rowFmt.Repr => Unit) => Bool] = CrossStage(buffer){ buf => 
+  //  ir"val it = $buf.iterator; println(it); (k:rowFmt.Repr => Unit) => if (it.hasNext) { k(it.next); true } else false" }
+  override def pull: CrossStage[() => (rowFmt.Repr => Unit) => Bool] = CrossStage(buffer){ buf => 
+    ir"val it = $buf.iterator; () => (k:rowFmt.Repr => Unit) => if (it.hasNext) { k(it.next); true } else false" }
 }
 class SingleColumnTable(val col: Field, idxShift: Int) extends PlainTable(col::Nil, idxShift) {
   override val rowFmt = new SingleColumnFormat(col)
@@ -294,9 +301,9 @@ case class UniqueIndexedTable(keys: Seq[Field], values: Seq[Field], order: Seq[S
   //  ir"""$ht.foreach(println)"""
   //  //ir"""$ht.foreach(kv => )"""
   //}
-  override def scan(k: Code[rowFmt.Repr => Unit]): CrossStage[Unit] = CrossStage(hashTable) { ht =>
-    ir"""$ht.foreach(kv => $k(kv._1->kv._2))"""
-  }
+  //override def scan(k: Code[rowFmt.Repr => Unit]): CrossStage[Unit] = CrossStage(hashTable) { ht =>
+  //  ir"""$ht.foreach(kv => $k(kv._1->kv._2))"""
+  //}
   override def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = CrossStage(hashTable) { ht =>
     ir"""val it = $ht.iterator; loopWhile { it.hasNext && { val kv = it.next; $cont(kv._1->kv._2) } }"""
   }

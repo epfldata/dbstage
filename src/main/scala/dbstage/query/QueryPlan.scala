@@ -54,6 +54,12 @@ sealed trait QueryPlan {
   //def printLines
   def push(step: Code[Row => Bool]): CrossStage[Unit] = pushImpl(step) map (_ transformWith LogicFlow)
   def pushImpl(step: Code[Row => Bool]): CrossStage[Unit] = ???
+  
+  //def pull: CrossStage[(Row => Unit) => Bool] = pullImpl map (_ transformWith LogicFlow)
+  //def pullImpl: CrossStage[(Row => Unit) => Bool] = ???
+  def pull: CrossStage[() => (Row => Unit) => Bool] = pullImpl map (_ transformWith LogicFlow)
+  def pullImpl: CrossStage[() => (Row => Unit) => Bool] = ???
+  
   def foreachCode(f: Code[Row => Unit]) = push(ir"(x:Row) => {$f(x); true}")
   //def foreach(f: Row => Unit) = (for {
   //  nextF <- CrossStage(f)(identity)
@@ -67,6 +73,28 @@ sealed trait QueryPlan {
   //lazy val foreach = CrossStage.magic((f: Code[Row => Unit]) => foreachCode(f)).compile()
   lazy val foreachLiftedCode: CrossStage[(Row => Unit) => Unit] = CrossStage.magic((f: Code[Row => Unit]) => foreachCode(f))
   lazy val foreach = foreachLiftedCode.compile()
+  
+  lazy val mkPull = pull.compile
+  def iterator = new Iterator[Row] {
+    val curPull = mkPull()()
+    //var curElem: Option[Row] = null //Option.empty[Row]
+    var curElem = Option.empty[Row]
+    def hasNext: Boolean = {
+      //if (curElem == null) {
+      //  curElem = None
+      //  curPull { e => curElem = Some(e) }
+      //}
+      if (curElem.isEmpty)
+        curPull { e => curElem = Some(e) }
+      curElem.isDefined
+    }
+    def next(): Row = {
+      assert(hasNext)
+      val e = curElem.get
+      curElem = None
+      e
+    }
+  }
   
   //def asIndexedOn(cols: Seq[FieldRef]) = Option.empty[IndexedQueryPlan]
   def asIndexedOn(cols: Set[FieldRef]) = Option.empty[IndexedQueryPlan]
@@ -173,6 +201,8 @@ case class Scan(tbl: Table, fromId: Int) extends QueryPlan {
   //  case _ => 
   //    None
   //}
+  //override def pullImpl: CrossStage[(Row => Unit) => Bool] = tbl.pull
+  override def pullImpl: CrossStage[() => (Row => Unit) => Bool] = tbl.pull
   override def asIndexedOn(cols: Set[FieldRef]) = tbl match {
     //case tbl: IndexedTable if tbl.keys.size == cols.size && tbl.keys.toSet == cols =>
     case tbl: IndexedTable if tbl.keys.size == cols.size && tbl.keys.forall(c => cols.exists(_ conformsTo c)) =>
@@ -185,15 +215,22 @@ case class Scan(tbl: Table, fromId: Int) extends QueryPlan {
   }
 }
 case class Project[T](that: QueryPlan, cols: Seq[Field]) extends QueryPlan {
-  import that.rowFormat.Repr
+  //import that.rowFormat.Repr
+  import that.rowFormat.{Repr => ThatRepr}
+  import rowFormat.Repr
   //override val rowFormat = TupleFormat(cols).asInstanceOf[RowFormat.Tuple[T]]
   override val rowFormat = RowFormat(cols).asInstanceOf[RowFormat.Of[T]]
+  
   override def pushImpl(step: Code[Row => Bool]): CrossStage[Unit] = {
     //println(rowFormat.mkRefs)
     //that.push
     //???
     that.pushImpl(ir"(${that.rowFormat.lift(rowFormat.mkRefs,uid)}) andThen $step")
   }
+  override def pullImpl: CrossStage[() => (Row => Unit) => Bool] =
+    //that.pullImpl.map(p => ir"(k:Row => Unit) => $p(r => k(${that.rowFormat.lift(rowFormat.mkRefs,uid)}(r)))")
+    that.pullImpl.map(p => ir"() => {val p = $p(); (k:Row => Unit) => p(r => k(${that.rowFormat.lift(rowFormat.mkRefs,uid)}(r)))}")
+  
   //override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf._2.name)) // TODO better algo
   override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf.name)) // TODO better algo // TODO check no name clashes...
 }
@@ -212,6 +249,11 @@ case class Filter(that: QueryPlan, pred: Code[Bool]) extends QueryPlan {
   override def pushImpl(step: Code[Row => Bool]): CrossStage[Unit] =
     //that.push(ir"(x:Row) => !${rowFormat.lift(pred,uid)}(x) || $step(x)")
     that.pushImpl(ir"(x:Row) => if (${rowFormat.lift(pred,uid)}(x)) $step(x) else true")
+  
+  // TODO
+  //override def pullImpl: CrossStage[(Row => Unit) => Bool] = 
+  //  that.pullImpl.map(p => ir"(k:Row => Unit) => while (!${rowFormat.lift(pred,uid)}(x)) $p")
+  
   //override def asIndexedOn(cols: Seq[FieldRef]) = that.asIndexedOn(cols)
   override def asIndexedOn(cols: Set[FieldRef]) = that.asIndexedOn(cols)
   override val taggedColumns = that.taggedColumns

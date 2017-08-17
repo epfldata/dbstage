@@ -9,7 +9,7 @@ import Main.HasJob
 object OlderThan18 extends App {
   import Person._
   Person.indexByKeys = false
-  Person.columnStore = true
+  //Person.columnStore = true
   
   Person.loadDataFromFile("data/persons.csv", compileCode = false)
   //Person.loadDataFromFile("data/persons.csv")
@@ -20,7 +20,7 @@ object OlderThan18 extends App {
   
   //println(p.Age)
   //println(p.Age.toCode)
-  
+  /*
   //val q0 = p where ir"${p.Age} > 18" select (p.Name)
   val q0 = from(Person) where ir"$Age > 18" select (Name,Age)
   println(q0)
@@ -28,13 +28,23 @@ object OlderThan18 extends App {
   println(q1)
   //println(q1.plan)
   
+  
+  // Pushing:
+  
   //println(q0.plan)
   //println(q0.plan.foreach(x => println(x)))
   val fe = q0.plan.foreach
   //fe(x => println(x._2:Int))
   fe { case (name, age) => assert(age > 18); println(s"$name $age") }
+  */
   
-  
+  // Pulling:
+  val it = (p select (Name,Age)).plan.iterator
+  while (it.hasNext) {
+    val (name, age) = it.next()
+    assert(age > 0)
+    println(s"$name $age")
+  }
   
 }
 
