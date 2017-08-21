@@ -5,23 +5,12 @@ import Embedding.Predef._
 import frontend._
 
 object Main extends App {
+  import example._
   
   // TODO syntax sugar:
   // @column type Name = String
   // ~>
   // val Name = Column[String]("Name")
-  
-  case object Person extends Relation {
-    val Id = Column[Int]("Id", primary = true)
-    val Name = Column[String]("Name")
-    val Age = Column[Int]("Age")
-    val Sex = Column[Bool]("Sex") // TODO use user-defined datatype
-  }
-  case object HasJob extends Relation {
-    val PersonId = Column[Int]("PId", foreign = Person.Id)
-    val Title = Column[String]("Title")
-    val Salary = Column[Option[Int]]("Salary")
-  }
   
   import query._
   

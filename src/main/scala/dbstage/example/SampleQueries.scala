@@ -1,10 +1,23 @@
 package dbstage
+package example
 
 import Embedding.Predef._
+import squid.utils._
 import frontend._
 import query._
-import Main.Person
-import Main.HasJob
+
+case object Person extends Relation {
+  val Id = Column[Int]("Id", primary = true)
+  val Name = Column[String]("Name")
+  val Age = Column[Int]("Age")
+  //val Sex = Column[Bool]("Sex") // TODO use user-defined datatype
+  val Sex = Column[Sex]("Sex")
+}
+case object HasJob extends Relation {
+  val PersonId = Column[Int]("PId", foreign = Person.Id)
+  val Title = Column[String]("Title")
+  val Salary = Column[Option[Int]]("Salary")
+}
 
 object OlderThan18 extends App {
   import Person._
@@ -58,11 +71,11 @@ object PotentialCouples extends App {
   val f = from(Person)
   //val m, f = from(Person)
   
-  val males = m where (ir"$Sex == true")
+  val males = m where (ir"$Sex == Male")
   //males.printLines
   //males.selectStringRepr().plan.foreach(println)
   
-  val females = f where (ir"$Sex == false")
+  val females = f where (ir"$Sex == Female")
   //females.printLines
   
   val q = (males join females)(ir"${m.Age} == ${f.Age}")
