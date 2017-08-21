@@ -4,13 +4,18 @@ import squid.anf.analysis.BlockHelpers
 import squid.anf.transfo.EqualityNormalizer
 import squid.anf.transfo.LogicFlowNormalizer
 import squid.anf.transfo.LogicNormalizer
+import squid.anf.transfo.OptionNormalizer
 import squid.anf.transfo.StandardNormalizer
+import squid.anf.transfo.VarFlattening
 import squid.ir.CurryEncoding
+import squid.ir.FixPointRuleBasedTransformer
+import squid.ir.FixPointTransformer
 import squid.ir.OnlineOptimizer
 import squid.ir.SchedulingANF
 import squid.ir.SimpleANF
 import squid.ir.SimpleRuleBasedTransformer
 import squid.ir.StandardEffects
+import squid.ir.TopDownTransformer
 import squid.lang.ScalaCore
 import squid.quasi.SimpleReps
 
@@ -22,6 +27,7 @@ object Embedding
     with OnlineOptimizer
     //with StandardNormalizer 
     with LogicNormalizer
+    with OptionNormalizer // note: needed by VarFlattening
     with BlockHelpers
     with ScalaCore
     with EqualityNormalizer
@@ -47,3 +53,10 @@ object Embedding
 }
 
 object LogicFlow extends Embedding.SelfTransformer with LogicFlowNormalizer
+
+object LowLevelOpt extends Embedding.SelfTransformer with VarFlattening with FixPointRuleBasedTransformer with TopDownTransformer
+
+object FinalizeCode extends Embedding.TransformerWrapper(LogicFlow,LowLevelOpt)
+
+//object FinalizeCode extends Embedding.TransformerWrapper(LogicFlow,LowLevelOpt) with FixPointTransformer
+// ^ does not seem to converge, probably because LogicFlowNormalizer is an (atypical) IRTransformer 

@@ -208,6 +208,8 @@ trait Table {
   def push(cont: Code[rowFmt.Repr => Bool]): CrossStage[Unit] = ???
   //def pull: CrossStage[(rowFmt.Repr => Unit) => Bool] = ???
   def pull: CrossStage[() => (rowFmt.Repr => Unit) => Bool] = ???
+  //def pull2: CrossStage[(() => Bool, () => rowFmt.Repr)] = ???
+  def pull2: CrossStage[IteratorRep[rowFmt.Repr]] = ???
 }
 object Table {
   def apply(cols: Seq[Field]): Table = new PlainTable(cols,0)
@@ -237,6 +239,8 @@ class PlainTable(val cols: Seq[Field], idxShift: Int) extends SimpleTable {
   //  ir"val it = $buf.iterator; println(it); (k:rowFmt.Repr => Unit) => if (it.hasNext) { k(it.next); true } else false" }
   override def pull: CrossStage[() => (rowFmt.Repr => Unit) => Bool] = CrossStage(buffer){ buf => 
     ir"val it = $buf.iterator; () => (k:rowFmt.Repr => Unit) => if (it.hasNext) { k(it.next); true } else false" }
+  override def pull2: CrossStage[IteratorRep[rowFmt.Repr]] = CrossStage(buffer){ buf =>
+    ir"val it = $buf.iterator; () => (it.hasNext _) -> (it.next _)" }
 }
 class SingleColumnTable(val col: Field, idxShift: Int) extends PlainTable(col::Nil, idxShift) {
   override val rowFmt = new SingleColumnFormat(col)

@@ -8,4 +8,6 @@ package object dbstage {
     while(cnd)()
   }
   
+  type IteratorRep[T] = () => (() => Bool, () => T)
+  
 }

@@ -10,7 +10,6 @@ case object Person extends Relation {
   val Id = Column[Int]("Id", primary = true)
   val Name = Column[String]("Name")
   val Age = Column[Int]("Age")
-  //val Sex = Column[Bool]("Sex") // TODO use user-defined datatype
   val Sex = Column[Sex]("Sex")
 }
 case object HasJob extends Relation {
@@ -33,9 +32,10 @@ object OlderThan18 extends App {
   
   //println(p.Age)
   //println(p.Age.toCode)
-  /*
+  ///*
   //val q0 = p where ir"${p.Age} > 18" select (p.Name)
-  val q0 = from(Person) where ir"$Age > 18" select (Name,Age)
+  //val q0 = from(Person) where ir"$Age > 18" select (Name,Age)
+  val q0 = from(Person) where ir"$Age > 18" where ir"$Sex == Male" select (Name,Age)
   println(q0)
   val q1 = (p join j)(ir"${p.Id} == ${j.PersonId}")
   println(q1)
@@ -44,6 +44,7 @@ object OlderThan18 extends App {
   
   // Pushing:
   
+  /*
   //println(q0.plan)
   //println(q0.plan.foreach(x => println(x)))
   val fe = q0.plan.foreach
@@ -52,12 +53,22 @@ object OlderThan18 extends App {
   */
   
   // Pulling:
-  val it = (p select (Name,Age)).plan.iterator
+  //val it = (q0 select (Name,Age)).plan.iterator
+  val it = (q0 select (Name,Age)).plan.iterator2
   while (it.hasNext) {
     val (name, age) = it.next()
-    assert(age > 0)
+    assert(age > 18)
     println(s"$name $age")
   }
+  
+}
+
+object OlderThan18_ColStore extends App {
+  import Person._
+  Person.indexByKeys = false // can also enable
+  Person.columnStore = true
+  
+  Person.loadDataFromFile("data/persons.csv", compileCode = false)
   
 }
 

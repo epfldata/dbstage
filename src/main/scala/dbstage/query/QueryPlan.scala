@@ -52,12 +52,12 @@ sealed trait QueryPlan {
   //    ???
   //}
   //def printLines
-  def push(step: Code[Row => Bool]): CrossStage[Unit] = pushImpl(step) map (_ transformWith LogicFlow)
+  def push(step: Code[Row => Bool]): CrossStage[Unit] = pushImpl(step) map (_ transformWith FinalizeCode)
   def pushImpl(step: Code[Row => Bool]): CrossStage[Unit] = ???
   
-  //def pull: CrossStage[(Row => Unit) => Bool] = pullImpl map (_ transformWith LogicFlow)
+  //def pull: CrossStage[(Row => Unit) => Bool] = pullImpl map (_ transformWith FinalizeCode)
   //def pullImpl: CrossStage[(Row => Unit) => Bool] = ???
-  def pull: CrossStage[() => (Row => Unit) => Bool] = pullImpl map (_ transformWith LogicFlow)
+  def pull: CrossStage[() => (Row => Unit) => Bool] = pullImpl map (_ transformWith FinalizeCode)
   def pullImpl: CrossStage[() => (Row => Unit) => Bool] = ???
   
   def foreachCode(f: Code[Row => Unit]) = push(ir"(x:Row) => {$f(x); true}")
@@ -80,12 +80,11 @@ sealed trait QueryPlan {
     //var curElem: Option[Row] = null //Option.empty[Row]
     var curElem = Option.empty[Row]
     def hasNext: Boolean = {
-      //if (curElem == null) {
-      //  curElem = None
+      //if (curElem.isEmpty)
       //  curPull { e => curElem = Some(e) }
-      //}
-      if (curElem.isEmpty)
-        curPull { e => curElem = Some(e) }
+      loopWhile {
+        curElem.isEmpty && curPull { e => curElem = Some(e) }
+      }
       curElem.isDefined
     }
     def next(): Row = {
@@ -94,6 +93,15 @@ sealed trait QueryPlan {
       curElem = None
       e
     }
+  }
+  
+  def pull2: CrossStage[IteratorRep[Row]] = pullImpl2 map (_ transformWith FinalizeCode)
+  def pullImpl2: CrossStage[IteratorRep[Row]] = ???
+  lazy val mkPull2 = pull2.compile
+  def iterator2 = new Iterator[Row] {
+    val curPull = mkPull2()()
+    def hasNext: Boolean = curPull._1()
+    def next(): Row = curPull._2()
   }
   
   //def asIndexedOn(cols: Seq[FieldRef]) = Option.empty[IndexedQueryPlan]
@@ -203,6 +211,7 @@ case class Scan(tbl: Table, fromId: Int) extends QueryPlan {
   //}
   //override def pullImpl: CrossStage[(Row => Unit) => Bool] = tbl.pull
   override def pullImpl: CrossStage[() => (Row => Unit) => Bool] = tbl.pull
+  override def pullImpl2: CrossStage[IteratorRep[Row]] = tbl.pull2
   override def asIndexedOn(cols: Set[FieldRef]) = tbl match {
     //case tbl: IndexedTable if tbl.keys.size == cols.size && tbl.keys.toSet == cols =>
     case tbl: IndexedTable if tbl.keys.size == cols.size && tbl.keys.forall(c => cols.exists(_ conformsTo c)) =>
@@ -230,6 +239,8 @@ case class Project[T](that: QueryPlan, cols: Seq[Field]) extends QueryPlan {
   override def pullImpl: CrossStage[() => (Row => Unit) => Bool] =
     //that.pullImpl.map(p => ir"(k:Row => Unit) => $p(r => k(${that.rowFormat.lift(rowFormat.mkRefs,uid)}(r)))")
     that.pullImpl.map(p => ir"() => {val p = $p(); (k:Row => Unit) => p(r => k(${that.rowFormat.lift(rowFormat.mkRefs,uid)}(r)))}")
+  override def pullImpl2: CrossStage[IteratorRep[Row]] =
+    that.pullImpl2.map(p => ir"() => { val p = $p(); val hn = p._1; val ne = p._2; hn -> (() => ${that.rowFormat.lift(rowFormat.mkRefs,uid)}(ne())) }")
   
   //override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf._2.name)) // TODO better algo
   override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf.name)) // TODO better algo // TODO check no name clashes...
@@ -251,8 +262,34 @@ case class Filter(that: QueryPlan, pred: Code[Bool]) extends QueryPlan {
     that.pushImpl(ir"(x:Row) => if (${rowFormat.lift(pred,uid)}(x)) $step(x) else true")
   
   // TODO
-  //override def pullImpl: CrossStage[(Row => Unit) => Bool] = 
-  //  that.pullImpl.map(p => ir"(k:Row => Unit) => while (!${rowFormat.lift(pred,uid)}(x)) $p")
+  override def pullImpl: CrossStage[() => (Row => Unit) => Bool] = 
+    //that.pullImpl.map(p => ir"(k:Row => Unit) => while (!${rowFormat.lift(pred,uid)}(x)) $p")
+    //that.pullImpl.map(p => ir"val p = $p; () => (k:Row => Unit) => loopWhile { val e = p(); !${rowFormat.lift(pred,uid)}(e) }")
+    //
+    //that.pullImpl.map(p => ir"val p = $p(); () => (k:Row => Unit) => loopWhile { p(e => !${rowFormat.lift(pred,uid)}(e)) }")
+    that.pullImpl.map(p => ir"val p = $p(); () => (k:Row => Unit) => p(e => if (${rowFormat.lift(pred,uid)}(e)) k(e))")
+  
+  override def pullImpl2: CrossStage[IteratorRep[Row]] = that.pullImpl2.map(p =>
+    //ir"() => { val p = $p(); (() => p._1(), () => p._2())}")
+    // Using an Option variable:
+    ir"""() => {
+      val p = $p()
+      //(() => p._1(), () => p._2())
+      var cur = Option.empty[Row]
+      val hn = () => {
+        while (cur.isEmpty && p._1()) {
+          val next = p._2()
+          if (${rowFormat.lift(pred,uid)}(next)) cur = Some(next)
+        }
+        cur.isDefined
+      }
+      val ne = () => {
+        val res = cur.get
+        cur = None
+        res
+      }
+      hn -> ne
+    }""")
   
   //override def asIndexedOn(cols: Seq[FieldRef]) = that.asIndexedOn(cols)
   override def asIndexedOn(cols: Set[FieldRef]) = that.asIndexedOn(cols)
