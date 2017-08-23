@@ -98,6 +98,8 @@ trait RowFormat { thisRow =>
   //def withId(id: Int): this.type // note: type not right
   def withId(id: Int): RowFormat{type Repr = thisRow.Repr}
   
+  def runtimeReprOf(values: Any*): Repr = ???
+  
   override def toString = s"Row[${Repr.rep}](${columns mkString ","})"
 }
 object RowFormat {
@@ -124,6 +126,11 @@ class SingleColumnFormat(val col: Field) extends RowFormat {
   def withId(id: Int) = {
     import col.SerialT
     SingleColumnFormat[Repr](col.name, Some(id))
+  }
+  override def runtimeReprOf(values: Any*): Repr = {
+    //values |> { case Seq(v) => v }
+    assert(values.size === 1)
+    values.head.asInstanceOf[Repr]
   }
 }
 object SingleColumnFormat {
@@ -164,6 +171,22 @@ case class TupleFormat(columns: Seq[Field]) extends RowFormat { thisFmt =>
     IR(methodApp(staticModule(s"scala.Tuple${size}"), mtd, typs, Args(xs map (_.rep) : _*)::Nil, typ))
   }
   def withId(id: Int) = TupleFormat(columns map (_ withId id)).asInstanceOf[TupleFormat{type Repr = thisFmt.Repr}]
+  override def runtimeReprOf(values: Any*): Repr = {
+    assert(values.size === size)
+    (values match {
+      case Seq(v0,v1) => (v0,v1)
+      case Seq(v0,v1,v2) => (v0,v1,v2)
+      case Seq(v0,v1,v2,v3) => (v0,v1,v2,v3)
+      case Seq(v0,v1,v2,v3,v4) => (v0,v1,v2,v3,v4)
+      case Seq(v0,v1,v2,v3,v4,v5) => (v0,v1,v2,v3,v4,v5)
+      case Seq(v0,v1,v2,v3,v4,v5,v6) => (v0,v1,v2,v3,v4,v5,v6)
+      case Seq(v0,v1,v2,v3,v4,v5,v6,v7) => (v0,v1,v2,v3,v4,v5,v6,v7)
+      case Seq(v0,v1,v2,v3,v4,v5,v6,v7,v8) => (v0,v1,v2,v3,v4,v5,v6,v7,v8)
+      case Seq(v0,v1,v2,v3,v4,v5,v6,v7,v8,v9) => (v0,v1,v2,v3,v4,v5,v6,v7,v8,v9)
+      case Seq(v0,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10) => (v0,v1,v2,v3,v4,v5,v6,v7,v8,v9,v10)
+      case _ => lastWords(s"Tuple arity not yet supported: $size, for: ${values}")
+    }).asInstanceOf[Repr]
+  }
 }
 //case class CompositeFormat(val lhs: RowFormat, val rhs: RowFormat) extends RowFormat {
 case class CompositeFormat[L<:RowFormat,R<:RowFormat](val lhs: L, val rhs: R) extends RowFormat { // TODO make abstract class/trait?
@@ -367,6 +390,30 @@ case class ColumnStore(val cols: Seq[Field]) extends SimpleTable {
     }
     println(r)
     */
+    
+    
+    // FIXME
+    
+    //val s = stores.zipWithIndex.map { case (sct,i) =>
+    val s = stores.map { case sct =>
+      import sct.rowFmt.Repr
+      //CrossStage(sct.buffer){ buf => ir"$buf(${Const(i)})" }
+      CrossStage(sct.buffer){ buf => ir"$buf(idx?:Int)" }
+    //}.reduce((lhs,rhs) => )
+    }.foldLeft((ls:List[Code[Any]]) => CrossStage()(rowFmt.mk(ls:_*))) {
+      case (f, cs) => (ls:List[Code[Any]]) => cs.flatMap(c => f(c :: ls))
+    }
+    //println(s)
+    //println(s(Nil))
+    s(Nil) flatMap { tup =>
+      CrossStage(stores.head.buffer.size) { len =>
+        ir"var i = 0; loopWhile { val idx = i; i = idx+1; idx < $len && $cont(${tup:IR[rowFmt.Repr,{val idx:Int}]}) }"
+      }
+    }
+    
+    //???
+    
+    /*
     val assoc -> getters = stores.zipWithIndex.map { case (sct,i) => 
       import sct.rowFmt.Repr
       //(i -> CrossStage.freshId) ->
@@ -395,6 +442,8 @@ case class ColumnStore(val cols: Seq[Field]) extends SimpleTable {
     //println(cs)
     //???
     cs
+    */
+    
   }
   
 }
@@ -413,7 +462,96 @@ object ColumnStore {
 
 
 
-
+//class CrossStage[A:IRType](val values: Seq[base.Val -> Any], val code: IR[A,Ctx]) {
+//abstract class CrossStage[A:IRType](val values: Seq[base.Val -> Any]) { cs =>
+abstract class CrossStage[A:IRType](val values: Seq[base.Val -> AnyRef]) { thisCS =>
+  type Ctx
+  val code: IR[A,Ctx]
+  def map[B:IRType](f: Code[A] => Code[B]): CrossStage[B] = {
+    new CrossStage[B](thisCS.values) {
+      val code = f(thisCS.code)
+    }
+  }
+  def flatMap[B:IRType](f: Code[A] => CrossStage[B]): CrossStage[B] = {
+    val cs = f(code)
+    new CrossStage[B](values ++ cs.values) {
+      type Ctx = thisCS.Ctx with cs.Ctx
+      val code = cs.code
+    }
+  }
+  lazy val valuesAndNames = values.zipWithIndex.map { case (vx, i) => (vx, s"cs$i") }
+  lazy val fmt = RowFormat(valuesAndNames.map { case (v -> _, n) => Field(n)(base.IRType(v.typ),null) })
+  lazy val vals = fmt.runtimeReprOf(values.map(_._2):_*)
+  lazy val mkFun: Code[fmt.Repr => A] = {
+    val valuesAndNames = values.zipWithIndex.map { case (vx, i) => (vx, s"cs$i") }
+    val body = valuesAndNames.foldLeft(code.rep) {
+      case (newCode, (v -> x, n)) => base.letin(v, ir"field[${base.IRType(v.typ)}](${Const(n)})".rep, newCode, code.typ.rep)
+    }
+    val vals = fmt.runtimeReprOf(values.map(_._2):_*)
+    fmt.lift(base.IR(body),0)
+  }
+  lazy val compile: () => A = {
+    //val curId = 0
+    //val fmt = RowFormat(values.map { case v -> _ => Field(curId.toString alsoDo (curId += 1)) })
+    //val fmt = RowFormat(values.zipWithIndex.map { case (v -> _, i) => FieldRef(i.toString)(base.IRType(v.typ)) })
+    //val fmt = RowFormat(values.zipWithIndex.map { case (v -> _, i) => Field(i.toString)(base.IRType(v.typ),null) })
+    val valuesAndNames = values.zipWithIndex.map { case (vx, i) => (vx, s"cs$i") }
+    val fmt = RowFormat(valuesAndNames.map { case (v -> _, n) => Field(n)(base.IRType(v.typ),null) })
+    //val p = base.bindVal("csp", fmt.Repr.rep, Nil)
+    //val body = values.zipWithIndex.foldLeft(code.rep) {
+    //  //case (newCode, (v -> x, i)) => base.letin(v, fmt.lift(ir"field[${base.IRType(v.typ)}](${Const(i.toString)})",0/*unused*/).rep, newCode, code.typ)
+    //  case (newCode, (v -> x, i)) => base.letin(v, ir"field[${base.IRType(v.typ)}](${Const(i.toString)})".rep, newCode, code.typ.rep)
+    //}
+    val body = valuesAndNames.foldLeft(code.rep) {
+      case (newCode, (v -> x, n)) => base.letin(v, ir"field[${base.IRType(v.typ)}](${Const(n)})".rep, newCode, code.typ.rep)
+    }
+    //IR[A,Any](body).
+    //println(body)
+    //println(fmt.runtimeReprOf(values.map(_._2):_*))
+    val vals = fmt.runtimeReprOf(values.map(_._2):_*)
+    val f = fmt.lift(base.IR(body),0).compile.asInstanceOf[Any => A]
+    //val f = () => fun()
+    //???
+    () => f(vals)
+  }
+  //protected def mkFun: Code[A] = {
+  //  ???
+  //}
+  //def run: A = mkFun.run
+  def run: A = mkFun.run.apply(vals)
+  //override def toString: String = "???"
+  override def toString: String = {
+    //s"${base.showRep(code.rep)}\n\twhere: ${values map (kv => s"d(${kv._1}) = ${kv._2|>CrossStage.showObject}; ") mkString}"
+    val map = values.toMap
+    val c = base.bottomUpPartial(code.rep) {
+      case base.RepDef(bv: base.BoundVal) if map isDefinedAt bv => base.hole(s"cs${values.indexWhere(_._1 == bv)}", bv.typ)
+    }
+    //s"${base.showRep(c)}\n\twhere: ${values.zipWithIndex map {case (kv,i) => s"cs${i} = ${kv._2|>CrossStage.showObject}; "} mkString}"
+    s"${base.showRep(c)}\n\twhere: ${values.zipWithIndex map {case (kv,i) => s"cs${i} = ${CrossStage.showObject(kv._2)}; "} mkString}"
+  }
+  //def showObject(x:AnyRef) = ???
+}
+object CrossStage {
+  def apply[R:IRType]()(code0: Code[R]): CrossStage[R] = new CrossStage[R](Nil) {
+    val code = code0
+  }
+  def apply[T0:IRType,R:IRType](value0: T0)(codeFun: Code[T0] => Code[R]): CrossStage[R] = {
+    val v = base.bindVal("cs", typeRepOf[T0], Nil)
+    new CrossStage[R](v -> value0.asInstanceOf[AnyRef] :: Nil) {
+      val code = codeFun(base.IR(v |> base.readVal))
+    }
+  }
+  def apply[T0:IRType,T1:IRType,R:IRType](value0: T0, value1: T1)(code: (Code[T0],Code[T1]) => Code[R]): CrossStage[R] = ???
+  def magic[A:IRType,B:IRType](f: Code[A] => CrossStage[B]): CrossStage[A => B] = {
+    val cs = f(ir"a?:A")
+    //new CrossStage[A => B](cs.values)(dbg.implicitType[A=>B]) {
+    new CrossStage[A => B](cs.values)(irTypeOf[A=>B]) { // FIXME: why is it necessary to provide the implicit?! even `implicitly[IRType[A=>B]]` works!
+      val code = ir"(a:A) => ${cs.code:IR[B,{val a:A}]}"
+    }
+  }
+  def showObject(x:AnyRef) = s"${x.getClass.getName} @ 0x${System.identityHashCode(x).toLong.toHexString}"
+}
+/*
 import CrossStage.Dict
 class CrossStage[A:IRType](val values: Dict, val code: Code[Dict] => Code[A]) {
   def map[B:IRType](f: Code[A] => Code[B]) = new CrossStage[B](values, code andThen f)
@@ -442,13 +580,15 @@ object CrossStage { // TODO make these insert dict accesses BEFORE the code, not
   def apply[T0:IRType,R:IRType](value0: T0)(code: Code[T0] => Code[R]): CrossStage[R] = {
     val id0 = freshId
     //new CrossStage(Map(id0 -> value0), ir"(d:Dict) => ${code}(d(${Const(id0)}).asInstanceOf[T0])")
-    new CrossStage(Map(id0 -> value0), (d:Code[Dict]) => code(ir"$d(${Const(id0)}).asInstanceOf[T0]"))
+    //new CrossStage(Map(id0 -> value0), (d:Code[Dict]) => code(ir"$d(${Const(id0)}).asInstanceOf[T0]"))
+    new CrossStage(Map(id0 -> value0), (d:Code[Dict]) => ir"$code($d(${Const(id0)}).asInstanceOf[T0])")
   }
   def apply[T0:IRType,T1:IRType,R:IRType](value0: T0, value1: T1)(code: (Code[T0],Code[T1]) => Code[R]): CrossStage[R] = {
     val id0,id1 = freshId
     //val fun = (d:Code[Dict]) => code(ir"$d(${Const(id0)}).asInstanceOf[T0]", ir"$d(${Const(id1)}).asInstanceOf[T1]")
-    new CrossStage(Map(id0 -> value0, id1 -> value1), (d:Code[Dict]) => 
-      code(ir"$d(${Const(id0)}).asInstanceOf[T0]", ir"$d(${Const(id1)}).asInstanceOf[T1]"))
+    new CrossStage(Map(id0 -> value0, id1 -> value1), (d:Code[Dict]) =>
+      code(ir"$d(${Const(id0)}).asInstanceOf[T0]", ir"$d(${Const(id1)}).asInstanceOf[T1]") alsoDo ???) // FIXME not at the right place
+      //ir"${code.curried}($d(${Const(id0)}).asInstanceOf[T0])($d(${Const(id1)}).asInstanceOf[T1])") // FIXME in Squid: allow curried HOF insertion
   }
   def magic[A:IRType,B:IRType](f: Code[A] => CrossStage[B]): CrossStage[A => B] = {
     //ir"(a:A) => $f(a)"
@@ -457,6 +597,7 @@ object CrossStage { // TODO make these insert dict accesses BEFORE the code, not
     new CrossStage[A => B](cs.values, (d:Code[Dict]) => ir"(a:A) => ${cs.code(d):IR[B,{val a:A}]}")
   }
 }
+*/
 
 
 

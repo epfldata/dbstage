@@ -48,6 +48,11 @@ object Embedding
     case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3)._2" => x1
     case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3)._3" => x2
     case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3)._4" => x3
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._1" => x0
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._2" => x1
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._3" => x2
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._4" => x3
+    case ir"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._5" => x4
   }
   
 }

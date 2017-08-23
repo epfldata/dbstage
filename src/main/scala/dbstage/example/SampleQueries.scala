@@ -23,8 +23,8 @@ object OlderThan18 extends App {
   Person.indexByKeys = false
   //Person.columnStore = true
   
-  Person.loadDataFromFile("data/persons.csv", compileCode = false)
-  //Person.loadDataFromFile("data/persons.csv")
+  //Person.loadDataFromFile("data/persons.csv", compileCode = false)
+  Person.loadDataFromFile("data/persons.csv")
   
   val p = from(Person)
   val j = from(HasJob)
@@ -44,13 +44,13 @@ object OlderThan18 extends App {
   
   // Pushing:
   
-  /*
+  ///*
   //println(q0.plan)
   //println(q0.plan.foreach(x => println(x)))
   val fe = q0.plan.foreach
   //fe(x => println(x._2:Int))
   fe { case (name, age) => assert(age > 18); println(s"$name $age") }
-  */
+  //*/
   
   // Pulling:
   val it = (q0 select (Name,Age)).plan.iterator
@@ -119,9 +119,11 @@ object PotentialCouples_ColStore extends App {
   
   val m = from(Person)
   val f = from(Person)
-  val males = m where (ir"$Sex == Male")
-  val females = f where (ir"$Sex == Female")
-  val q = (males join females)(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
+  //val males = m where (ir"$Sex == Male")
+  //val females = f where (ir"$Sex == Female")
+  //val q = (males join females)(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
+  val q = ((m where ir"$Sex == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
+  //val q = ((m where ir"(${Sex.toCode}.asInstanceOf[Sex]) == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
   q.printLines
   
 }
