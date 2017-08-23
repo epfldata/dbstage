@@ -19,7 +19,9 @@ sealed trait Query {
   def selectStringRepr(): ToString = ToString(this)
   def select(c0: Field): Select[c0.T] = Select(this, c0 :: Nil)
   def select(c0: Field, c1: Field): Select[(c0.T,c1.T)] = Select(this, c0 :: c1 :: Nil)
-  //def select(c0: Field, c1: Field, c2: Field): TableQuery[(c0.T,c1.T,c2.T)] = ???
+  def select(c0: Field, c1: Field, c2: Field): Select[(c0.T,c1.T,c2.T)] = Select(this, c0 :: c1 :: c2 :: Nil)
+  def select(c0: Field, c1: Field, c2: Field, c3: Field): Select[(c0.T,c1.T,c2.T,c3.T)] = Select(this, c0 :: c1 :: c2 :: c3 :: Nil)
+  def select(c0: Field, c1: Field, c2: Field, c3: Field, c4: Field): Select[(c0.T,c1.T,c2.T,c3.T,c4.T)] = Select(this, c0 :: c1 :: c2 :: c3 :: c4 :: Nil)
   
   def plan: QueryPlan = this match {
     case f @ From(r) => Scan(r.table.value, f.uid)
@@ -33,7 +35,8 @@ sealed trait Query {
   
   def pushLines(consume: String => Unit) = {
     val fe = selectStringRepr().plan.foreach
-    val header = plan.rowFormat.columns.map(_.name).mkString("|","|","|")
+    //val header = plan.rowFormat.columns.map(_.name).mkString("|","|","|")
+    val header = plan.rowFormat.columns.map(f => f.name+f.id.fold("")("("+_.toString+")")).mkString("|","|","|")
     consume(header)
     consume(header.map { case '|' => '|' case _ => '-' })
     fe(consume)

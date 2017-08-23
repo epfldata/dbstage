@@ -3,7 +3,7 @@ import squid.lib.transparent
 
 package object dbstage {
   
-  @transparent
+  @inline @transparent
   def loopWhile(cnd: => Bool) = {
     while(cnd)()
   }

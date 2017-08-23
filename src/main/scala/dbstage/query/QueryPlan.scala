@@ -74,6 +74,10 @@ sealed trait QueryPlan {
   lazy val foreachLiftedCode: CrossStage[(Row => Unit) => Unit] = CrossStage.magic((f: Code[Row => Unit]) => foreachCode(f))
   lazy val foreach = foreachLiftedCode.compile()
   
+  // TODO use aggregate of Unit
+  //def foreachCode(f: Code[Row => Unit]) = foreachLiftedCode.map(fe => ir"$fe($f)").compile()
+  def foreachLifted(f: Code[Row => Unit]) = foreachCode(f).compile()
+  
   lazy val mkPull = pull.compile
   def iterator = new Iterator[Row] {
     val curPull = mkPull()()
@@ -243,7 +247,9 @@ case class Project[T](that: QueryPlan, cols: Seq[Field]) extends QueryPlan {
     that.pullImpl2.map(p => ir"() => { val p = $p(); val hn = p._1; val ne = p._2; hn -> (() => ${that.rowFormat.lift(rowFormat.mkRefs,uid)}(ne())) }")
   
   //override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf._2.name)) // TODO better algo
-  override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf.name)) // TODO better algo // TODO check no name clashes...
+  //override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_.name == nf.name)) // TODO better algo // TODO check no name clashes...
+  //override val taggedColumns = that.taggedColumns filter (nf => cols.exists(_ conformsTo nf)) // TODO better algo // TODO check no name clashes...
+  override val taggedColumns = cols // TODO check no name clashes...
 }
 case class Filter(that: QueryPlan, pred: Code[Bool]) extends QueryPlan {
   override val rowFormat: that.rowFormat.type = that.rowFormat
@@ -377,7 +383,8 @@ case class Print(that: QueryPlan) extends QueryPlan {
       import c._
       ir"""$colsToString + ${SerialT.unparse}($toCode) + "|""""
     }
-    //println(colsToString)
+    //println("CTS "+that.rowFormat)
+    //println("CTS "+colsToString,that.rowFormat.lift(colsToString,uid))
     that.pushImpl(ir"(x:that.Row) => $step(${that.rowFormat.lift(colsToString,uid)}(x))")
   }
   //override val taggedColumns = Map[String,Field]() // FIXME? have a specially-generated tag here?

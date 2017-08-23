@@ -17,7 +17,8 @@ trait RowFormat { thisRow =>
   type Repr
   implicit val Repr: IRType[Repr]
   val columns: Seq[Field]
-  lazy val columnsByName: Map[String,Field] = columns.map(c => c.name -> c).toMap
+  //lazy val columnsByName: Map[String,Field] = columns.map(c => c.name -> c).toMap
+  
   //lazy val columnsByRef: FieldRef => Option[Field] = fr => 
   //  //columnsByName get fr.name flatMap (_ optionIf (_.id == fr.id))
   //  //columnsByName get fr.name filter { c => fr.id forall (frid => Some(frid) == c.id) }
@@ -30,7 +31,7 @@ trait RowFormat { thisRow =>
   //  }
   //}
   //protected def getField(f:FieldRef) = columns.find(_.name == f.name).fold(throw new Exception(s"No col ${f.name}")) { c => // TODO B/E
-  protected def getField(f:FieldRef) = columns.find(f conformsTo _).fold(throw new Exception(s"No col ${f} in $this")) { c => // TODO B/E
+  protected def getField(f:FieldRef) = columns.find(f conformsTo _).fold(throw new Exception(s"No column '${f}' in $this")) { c => // TODO B/E
     assert(c.IRTypeT <:< f.IRTypeT)
     c
   }
@@ -50,7 +51,10 @@ trait RowFormat { thisRow =>
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) } // FIXME: Error:(38, 9) not found: value ClassTag
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) }
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f).asInstanceOf[Code[tp.Typ]] } // FIXME Error:scalac: missing or invalid dependency detected while loading class file 'Field.class'. Could not access type tp in value dbstage.runtime.RowFormat.$anonfun, because it (or its dependencies) are missing.
-      q rewrite { case ir"${FieldRef(f)}:Any" => fr(f) } // note: Any, unsound
+      val r = q rewrite { case ir"${FieldRef(f)}:Any" => fr(f) } // note: Any, unsound
+      //println("Lifting: "+q)
+      //println("Lifted : "+r)
+      r
       //???
     }
   }
@@ -147,7 +151,8 @@ case class TupleFormat(columns: Seq[Field]) extends RowFormat { thisFmt =>
   }
   def get(repr:Embedding.Rep,f:FieldRef): Embedding.Rep = {
     val c = getField(f)
-    base.methodApp(repr,base.loadMtdSymbol(clsSym, "_" + (columns.indexWhere(_.name==c.name)+1), None),Nil,Nil,c.IRTypeT.rep)
+    //base.methodApp(repr,base.loadMtdSymbol(clsSym, "_" + (columns.indexWhere(_.name==c.name)+1), None),Nil,Nil,c.IRTypeT.rep)
+    base.methodApp(repr,base.loadMtdSymbol(clsSym, "_" + (columns.indexWhere(c conformsTo _)+1), None),Nil,Nil,c.IRTypeT.rep)
   }
   //def mk(fields: Seq[Code[Any]])
   override def mkRefs: Code[Repr] = { // TODO factor with parse
