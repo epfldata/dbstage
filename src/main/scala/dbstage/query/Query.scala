@@ -1,6 +1,8 @@
 package dbstage
 package query
 
+import java.io.PrintStream
+
 import squid.utils._
 import frontend._
 import runtime._
@@ -33,15 +35,23 @@ sealed trait Query {
       //???
   }
   
-  def pushLines(consume: String => Unit) = {
+  def pushLines(consume: String => Unit, pushHeader: Bool = true) = {
     val fe = selectStringRepr().plan.foreach
     //val header = plan.rowFormat.columns.map(_.name).mkString("|","|","|")
-    val header = plan.rowFormat.columns.map(f => f.name+f.id.fold("")("("+_.toString+")")).mkString("|","|","|")
-    consume(header)
-    consume(header.map { case '|' => '|' case _ => '-' })
+    if (pushHeader) {
+      val header = plan.rowFormat.columns.map(f => f.name+f.id.fold("")("("+_.toString+")")).mkString("|","|","|")
+      consume(header)
+      consume(header.map { case '|' => '|' case _ => '-' })
+    }
     fe(consume)
   }
-  def printLines = pushLines(println)
+  //def printLines = pushLines(println)
+  def printLines(out: PrintStream = System.out) = pushLines(out.println)
+  def mkLines(sep: String = "\n"): String = {
+    val sb = new StringBuilder
+    pushLines(sb ++= _ alsoDo (sb ++= sep))
+    sb.result
+  }
   //def printLines = {
   //  //println(rowFormat.columns.map(_.name).mkString("|","|","|"))
   //  //selectStringRepr.foreach(println)

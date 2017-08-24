@@ -6,17 +6,19 @@ import squid.utils._
 import frontend._
 import query._
 
-case object Person extends Relation {
+class Person extends Relation {
   val Id = Column[Int]("Id", primary = true)
   val Name = Column[String]("Name")
   val Age = Column[Int]("Age")
   val Sex = Column[Sex]("Sex")
 }
-case object HasJob extends Relation {
+case object Person extends Person
+class HasJob extends Relation {
   val PersonId = Column[Int]("PId", foreign = Person.Id)
   val Title = Column[String]("Title")
   val Salary = Column[Option[Int]]("Salary")
 }
+case object HasJob extends HasJob
 
 object OlderThan18 extends App {
   import Person._
@@ -71,7 +73,7 @@ object OlderThan18_ColStore extends App {
   Person.loadDataFromFile("data/persons.csv", compileCode = false)
   
   val q0 = from(Person) where ir"$Age > 18" where ir"$Sex == Male" select (Name,Age)
-  q0.printLines
+  q0.printLines()
   
 }
 
@@ -100,13 +102,13 @@ object PotentialCouples extends App {
   val q = (males join females)(ir"${m.Age} == ${f.Age}")
   println(q)
   println(q.plan)
-  q.printLines
+  q.printLines()
   //println(q.plan.foreach(println))
   //*/
   
   val q2 = (males join females)(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
   //q2.plan.foreachLifted(ir"println(_:Any)")
-  q2.printLines
+  q2.printLines()
   
 }
 
@@ -124,6 +126,6 @@ object PotentialCouples_ColStore extends App {
   //val q = (males join females)(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
   val q = ((m where ir"$Sex == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
   //val q = ((m where ir"(${Sex.toCode}.asInstanceOf[Sex]) == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
-  q.printLines
+  q.printLines()
   
 }
