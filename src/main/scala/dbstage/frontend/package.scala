@@ -2,7 +2,6 @@ package dbstage
 
 import squid.utils._
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep => Code, _}
 import squid.lib.transparencyPropagating
 import squid.lib.transparent
 
@@ -17,7 +16,7 @@ package object frontend {
   
   import scala.language.implicitConversions
   //implicit def field2Code(f: Field): Code[f.T] = ir"field[${f.IRTypeT}](${Const(f.name)})"
-  implicit def field2Code(f: Field): Code[f.T] = f.toCode
+  implicit def field2Code(f: Field): IR[f.T,Any] = f.toCode.asClosedIR // there is currently no unquote $ overload for Code in Squid...
   //def field2CodeOf[S:IRType](f: Field{type T <: S}): Code[S] = ir"field[S](${Const(f.name)})" // FIXME rm
   def field2CodeOf[S:IRType](f: Field{type T <: S}): Code[S] = f.toCode
   

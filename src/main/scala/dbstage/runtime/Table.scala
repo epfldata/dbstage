@@ -5,7 +5,6 @@ import scala.collection.mutable
 import scala.io._
 import squid.utils._
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep => Code, _}
 import frontend._
 import squid.lib.transparencyPropagating
 
@@ -51,7 +50,7 @@ trait RowFormat { thisRow =>
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) } // FIXME: Error:(38, 9) not found: value ClassTag
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f) }
       //q dbg_rewrite { case ir"${Field(f)}:$tp" => fr(f).asInstanceOf[Code[tp.Typ]] } // FIXME Error:scalac: missing or invalid dependency detected while loading class file 'Field.class'. Could not access type tp in value dbstage.runtime.RowFormat.$anonfun, because it (or its dependencies) are missing.
-      val r = q rewrite { case ir"${FieldRef(f)}:Any" => fr(f) } // note: Any, unsound
+      val r = q rewrite { case ir"${FieldRef(f)}:Any" => fr(f).asClosedIR } // note: Any, unsound
       //println("Lifting: "+q)
       //println("Lifted : "+r)
       r
@@ -470,7 +469,7 @@ abstract class CrossStage[A:IRType](val values: Seq[base.Val -> AnyRef]) { thisC
   val code: IR[A,Ctx]
   def map[B:IRType](f: Code[A] => Code[B]): CrossStage[B] = {
     new CrossStage[B](thisCS.values) {
-      val code = f(thisCS.code)
+      val code = f(thisCS.code).asClosedIR
     }
   }
   def flatMap[B:IRType](f: Code[A] => CrossStage[B]): CrossStage[B] = {
@@ -496,7 +495,7 @@ abstract class CrossStage[A:IRType](val values: Seq[base.Val -> AnyRef]) { thisC
     //val fmt = RowFormat(values.map { case v -> _ => Field(curId.toString alsoDo (curId += 1)) })
     //val fmt = RowFormat(values.zipWithIndex.map { case (v -> _, i) => FieldRef(i.toString)(base.IRType(v.typ)) })
     //val fmt = RowFormat(values.zipWithIndex.map { case (v -> _, i) => Field(i.toString)(base.IRType(v.typ),null) })
-    val valuesAndNames = values.zipWithIndex.map { case (vx, i) => (vx, s"cs$i") }
+    val valuesAndNames = values.zipWithIndex.map { case (vx, i) => (vx, s"cs$i") } // TODO rm
     val fmt = RowFormat(valuesAndNames.map { case (v -> _, n) => Field(n)(base.IRType(v.typ),null) })
     //val p = base.bindVal("csp", fmt.Repr.rep, Nil)
     //val body = values.zipWithIndex.foldLeft(code.rep) {
@@ -510,7 +509,7 @@ abstract class CrossStage[A:IRType](val values: Seq[base.Val -> AnyRef]) { thisC
     //println(body)
     //println(fmt.runtimeReprOf(values.map(_._2):_*))
     val vals = fmt.runtimeReprOf(values.map(_._2):_*)
-    val f = fmt.lift(base.IR(body),0).compile.asInstanceOf[Any => A]
+    val f = fmt.lift(base.IR(body),0).asClosedIR.compile.asInstanceOf[Any => A]
     //val f = () => fun()
     //???
     () => f(vals)
@@ -519,7 +518,7 @@ abstract class CrossStage[A:IRType](val values: Seq[base.Val -> AnyRef]) { thisC
   //  ???
   //}
   //def run: A = mkFun.run
-  def run: A = mkFun.run.apply(vals)
+  def run: A = mkFun.asClosedIR.run.apply(vals)
   //override def toString: String = "???"
   override def toString: String = {
     //s"${base.showRep(code.rep)}\n\twhere: ${values map (kv => s"d(${kv._1}) = ${kv._2|>CrossStage.showObject}; ") mkString}"
@@ -534,12 +533,12 @@ abstract class CrossStage[A:IRType](val values: Seq[base.Val -> AnyRef]) { thisC
 }
 object CrossStage {
   def apply[R:IRType]()(code0: Code[R]): CrossStage[R] = new CrossStage[R](Nil) {
-    val code = code0
+    val code = code0.asClosedIR
   }
   def apply[T0:IRType,R:IRType](value0: T0)(codeFun: Code[T0] => Code[R]): CrossStage[R] = {
     val v = base.bindVal("cs", typeRepOf[T0], Nil)
     new CrossStage[R](v -> value0.asInstanceOf[AnyRef] :: Nil) {
-      val code = codeFun(base.IR(v |> base.readVal))
+      val code = codeFun(base.IR(v |> base.readVal)).asClosedIR
     }
   }
   def apply[T0:IRType,T1:IRType,R:IRType](value0: T0, value1: T1)(code: (Code[T0],Code[T1]) => Code[R]): CrossStage[R] = ???

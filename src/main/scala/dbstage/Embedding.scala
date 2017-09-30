@@ -22,7 +22,6 @@ import squid.quasi.SimpleReps
 object Embedding 
   extends SimpleANF 
   //extends SchedulingANF 
-    with SimpleReps 
     with StandardEffects 
     with OnlineOptimizer
     //with StandardNormalizer 

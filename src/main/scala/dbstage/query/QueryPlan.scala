@@ -5,7 +5,6 @@ import squid.utils._
 import frontend._
 import runtime._
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep=>Code,_}
 
 //abstract class Operator[T] {
 //  //def init(step: Code[T => Unit]): Code[Unit]

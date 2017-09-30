@@ -7,7 +7,6 @@ import squid.utils._
 import frontend._
 import runtime._
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep => Code, _}
 
 sealed trait Query {
   //val uid = Query.curId alsoDo (Query.curId += 1)

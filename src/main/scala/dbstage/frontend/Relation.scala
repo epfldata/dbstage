@@ -4,7 +4,6 @@ package frontend
 import scala.collection.mutable
 import squid.utils._
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep=>Code,_}
 import runtime._
 
 class Relation {

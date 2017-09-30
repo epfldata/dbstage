@@ -4,7 +4,6 @@ import squid.utils._
 import frontend._
 import runtime._
 import Embedding.Predef._
-import Embedding.SimplePredef.{Rep => Code, _}
 
 package object query {
   
