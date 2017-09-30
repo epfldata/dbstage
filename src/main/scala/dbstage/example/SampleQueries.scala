@@ -20,6 +20,9 @@ class HasJob extends Relation {
 }
 case object HasJob extends HasJob
 
+/*
+    Note that something like ir"$Age > 18" is syntax sugar for ir"${Age.toCode} > 18" (there is an implicit conversion) 
+*/
 object OlderThan18 extends App {
   import Person._
   Person.indexByKeys = false
@@ -115,17 +118,16 @@ object PotentialCouples extends App {
 object PotentialCouples_ColStore extends App {
   import Person._
   Person.indexByKeys = false
-  Person.columnStore = true
+  //Person.columnStore = true
   
   Person.loadDataFromFile("data/persons.csv", compileCode = false)
   
   val m = from(Person)
   val f = from(Person)
-  //val males = m where (ir"$Sex == Male")
-  //val females = f where (ir"$Sex == Female")
-  //val q = (males join females)(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
-  val q = ((m where ir"$Sex == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
-  //val q = ((m where ir"(${Sex.toCode}.asInstanceOf[Sex]) == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
+  val q = (
+    ((m where ir"$Sex == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}")
+      select (m.Age, m.Name, f.Name, m.Id, f.Id)
+  )
   q.printLines()
   
 }

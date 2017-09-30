@@ -107,7 +107,7 @@ object RowFormat {
     val size = cols.size
     if (size == 0) lastWords("Table with no columns")
     if (size == 1) new SingleColumnFormat(cols.head)
-    else if (size > 22) {
+    else if (size > MAX_SCALA_TUPLE_ARITY) {
       val t = cols.take(size/2)
       CompositeFormat(RowFormat(t), RowFormat(cols.drop(t.size)))
     }
@@ -143,6 +143,7 @@ object SingleColumnFormat {
 }
 case class TupleFormat(columns: Seq[Field]) extends RowFormat { thisFmt =>
   val size = columns.size
+  require(size > 0 && size <= MAX_SCALA_TUPLE_ARITY)
   val clsSym = base.loadTypSymbol(s"scala.Tuple${size}")
   val objSym = base.loadTypSymbol(s"scala.Tuple${size}$$")
   val mtd = base.loadMtdSymbol(objSym, "apply", None)

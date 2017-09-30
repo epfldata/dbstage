@@ -1,6 +1,6 @@
 val paradiseVersion = "2.1.0"
 
-name := "stagedb"
+name := "dbstage"
 
 version := "1.0"
 
