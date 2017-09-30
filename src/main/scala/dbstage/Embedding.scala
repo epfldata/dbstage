@@ -35,6 +35,7 @@ object Embedding
   
   import Predef._
   
+  // We make heavy use of tuples as an abstraction mechanism; they need to be removed automatically:
   rewrite {
     case ir"($f:$t0=>$t1) andThen ($g:t1 => $t2)" => ir"(x:$t0) => $g($f(x))"
     case ir"($lhs:$t0) -> ($rhs:$t1)" => ir"($lhs,$rhs)"

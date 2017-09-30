@@ -6,6 +6,11 @@ import squid.utils._
 import frontend._
 import query._
 
+// TODO add syntax sugar:
+// @column type Name = String
+//  ~>
+// val Name = Column[String]("Name")
+
 class Person extends Relation {
   val Id = Column[Int]("Id", primary = true)
   val Name = Column[String]("Name")
@@ -21,7 +26,7 @@ class HasJob extends Relation {
 case object HasJob extends HasJob
 
 /*
-    Note that something like ir"$Age > 18" is syntax sugar for ir"${Age.toCode} > 18" (there is an implicit conversion) 
+    Note that, for example, ir"$Age > 18" is syntax sugar for ir"${Age.toCode} > 18" (there is an implicit conversion) 
 */
 object OlderThan18 extends App {
   import Person._
@@ -35,9 +40,6 @@ object OlderThan18 extends App {
   val j = from(HasJob)
   //p.printLines
   
-  //println(p.Age)
-  //println(p.Age.toCode)
-  ///*
   //val q0 = p where ir"${p.Age} > 18" select (p.Name)
   //val q0 = from(Person) where ir"$Age > 18" select (Name,Age)
   val q0 = from(Person) where ir"$Age > 18" where ir"$Sex == Male" select (Name,Age)
@@ -49,15 +51,13 @@ object OlderThan18 extends App {
   
   // Pushing:
   
-  ///*
-  //println(q0.plan)
   //println(q0.plan.foreach(x => println(x)))
   val fe = q0.plan.foreach
-  //fe(x => println(x._2:Int))
   fe { case (name, age) => assert(age > 18); println(s"$name $age") }
-  //*/
+  
   
   // Pulling:
+  
   val it = (q0 select (Name,Age)).plan.iterator
   //val it = (q0 select (Name,Age)).plan.iterator2
   while (it.hasNext) {
@@ -70,7 +70,7 @@ object OlderThan18 extends App {
 
 object OlderThan18_ColStore extends App {
   import Person._
-  Person.indexByKeys = false // can also enable
+  Person.indexByKeys = false // can switch this on
   Person.columnStore = true
   
   Person.loadDataFromFile("data/persons.csv", compileCode = false)
@@ -92,7 +92,6 @@ object PotentialCouples extends App {
   
   val m = from(Person)
   val f = from(Person)
-  //val m, f = from(Person)
   
   val males = m where (ir"$Sex == Male")
   //males.printLines
@@ -101,17 +100,16 @@ object PotentialCouples extends App {
   val females = f where (ir"$Sex == Female")
   //females.printLines
   
-  ///*
   val q = (males join females)(ir"${m.Age} == ${f.Age}")
   println(q)
   println(q.plan)
   q.printLines()
-  //println(q.plan.foreach(println))
-  //*/
   
   val q2 = (males join females)(ir"${m.Age} == ${f.Age}") select (m.Age, m.Name, f.Name, m.Id, f.Id)
-  //q2.plan.foreachLifted(ir"println(_:Any)")
   q2.printLines()
+  
+  // `foreachLifted` can be used to include the foreach'ed function as part of the generated code: 
+  //q2.plan.foreachLifted(ir"println(_:Any)")
   
 }
 

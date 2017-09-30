@@ -6,6 +6,10 @@ import squid.utils._
 import Embedding.Predef._
 import runtime._
 
+/*
+    TODO: implement hybrid row-store/col-store
+      Partition the columns into groups of columns that are frequently accessed together and should thus be stored in the same array.
+*/
 class Relation {
   protected val curColumns = mutable.ArrayBuffer[Column]()
   
@@ -25,24 +29,15 @@ class Relation {
   
   def columns: Seq[Column] = curColumns
   
-  /** Partitions the columns into groups of columns that frequently accessed together and are thus to be stored in the same array. */
-  //def columnsPartitioning: Seq[Row] = {
-  //  //???
-  //  // TODO
-  //}
-  
-  //abstract class Column(name: String) extends Field(name) {
+  // The Column/Field/FieldRef organization is a bit messy; could probably do things in a clearer, less confusing way
   abstract class Column(override val name: String, val isPrimary: Bool, val foreignKey: Option[Relation # Column]) extends Field(name) {
-  //abstract case class Column(override val name: String)(val isPrimary: Bool, val foreignKey: Option[Relation # Column]) extends Field(name) { // using a second param list so these additional params do not appear in the toString...
-    assert(!table.computed)
+    assert(!table.computed, "Cannot add a column after the relation has started being used! Make a new relation first.")
     curColumns += this
     def isForeignKey = foreignKey.nonEmpty
   }
   object Column {
-    //def apply[T](name: String, foreignIn: Table = null) = {
     def apply[T0:IRType:Serial](name: String, primary: Bool = false, foreign: Relation # Column = null) = {
       new Column(name,primary,Option(foreign)) {
-        //val name = 
         type T = T0
         val IRTypeT: IRType[T] = implicitly
         val SerialT: Serial[T] = implicitly
@@ -56,101 +51,35 @@ class Relation {
     
     val tbl = table.value
     
-    // FIXME this
-    if (compileCode) tbl.loadData(src.getLines())
+    // Loading data with `tbl.loadData` uses specialized runtime-compiled code
+    if (compileCode) tbl.loadData(src.getLines(), '|')
+    // `tbl.mkDataLoader` currently uses the same code but interpreted; it might be more efficient to just use generic code!
     else tbl.mkDataLoader('|').run(src.getLines())
     
   }
   
-  //def select(cols: Column*): TableQuery = ???
-  
-  //override def toString: String = s""
 }
 
-//trait TableQuery[+T] {
-//  //type ValueQuery = Code[Bool]
-//  
-//  //def project(fields: Field*): TableQuery = ???
-//  //def filter(pred: ValueQuery): TableQuery = ???
-//  //def groupBy(sch: Schema): TableQuery = GroupBy(this, sch)
-//  
-//  
-//}
-//
-//trait QueryBuilder { // relarion extends this?
-//  
-//  def select(c0: Field): TableQuery[c0.T] = ???
-//  def select(c0: Field, c1: Field): TableQuery[(c0.T,c1.T)] = ???
-//  def select(c0: Field, c1: Field, c2: Field): TableQuery[(c0.T,c1.T,c2.T)] = ???
-//  
-//}
-
-// Can make freestanding fields not associated with a table
-//abstract class Field(override val name: String, val inQ: Option[query.Query] = None) extends FieldRef(name,inQ.map(_.uid)) { thisField => // TODO extend Embedding.IR ?
-abstract class Field(override val name: String, in: Option[Int] = None) extends FieldRef(name,in) { thisField => // TODO extend Embedding.IR ?
-  //type T
-  //implicit val IRTypeT: IRType[T]
+// Freestanding fields not associated with a table
+// Note: the `Field` class could extend Embedding.IR so we wouldn't need implicit conversions!
+abstract class Field(override val name: String, in: Option[Int] = None) extends FieldRef(name,in) { thisField =>
   implicit val SerialT: Serial[T]
-  //def toCode: Code[T] = ir"field[T](${Const(name)},None)"
-  //def toCode: Code[T] = inQ.fold(ir"field[T](${Const(name)})") { q => ir"fieldIn[T](${Const(name)},${Const(q.uid)})" }
   def toCode: Code[T] = in.fold(ir"field[T](${Const(name)})") { q => ir"fieldIn[T](${Const(name)},${Const(q)})" }
-  //def withId (id: Int): FieldRef{type T = thisField.T} = Field[T](name,Some(id))
   def withId (id: Int): Field = Field[T](name,Some(id))
-  //def in (that: dbstage.query.Query): Field{type T = thisField.T} = 
-  //  //??? // TODO query id to remove ambiguities (eg in self-joins)
-  //  Field[T](name,Some(that))
-  //override def toString = s"Field[${IRTypeT.rep}]($name${in.fold(""){q => s",$q"}})"
-  //override def toString = s"Field[${IRTypeT.rep}]($name)${inQ.fold(""){ q => s" in $q"}}"
 }
 object Field {
-  //def apply[S:IRType:Serial](name: String, in: Option[query.Query] = None) = new Field(name,in) {
   def apply[S:IRType:Serial](name: String, in: Option[Int] = None) = new Field(name,in) {
     type T = S
     val IRTypeT: IRType[T] = implicitly
     val SerialT: Serial[T] = implicitly
   }
   // TODO distinguish Field/SerialField
-  
-  // FIXME: Rwr have problems with unapply referring to the <unapply-selector>.Typ
-  /*
-  //def unapply[T:Serial](x: Code[T]): Option[Field] = x match {
-  //def unapply[S:IRType](x: IR[S,_]): Option[Field{type T = S}] = x match {
-  //def unapply[S](x: IR[S,_]): Option[Field{type T = S}] = {
-  //def unapply(x: IR[Any,_]): Option[Field{type T = x.Typ}] = {
-  //def unapply(x: IR[_,_]): Option[Field{type T = x.Typ}] = {
-  def unapply[S](x: IR[S,_]): Option[Field{type T = x.Typ}] = {
-    //implicit val tp: IRType[S] = x.typ
-    //implicit val tp = x.typ
-    //implicit val tp: IRType[x.Typ] = x.typ
-    implicit val tp: IRType[x.Typ] = Embedding.irTyp(x)
-    x match {
-      //case ir"field[$tp](${Const(name)})" => 
-      //case ir"field[S](${Const(name)})" =>
-      //  //implicit val _ = new Serial[tp.Typ](_ => ir"???", _ => ir"???")
-      //  //Some(Field[tp.Typ](name))
-      //  implicit val _ = new Serial[S](_ => ir"???", _ => ir"???")
-      //  Some(Field[S](name))
-      case ir"field[$$tp](${Const(name)})" =>
-        implicit val _ = new Serial[x.Typ](_ => ir"???", _ => ir"???")
-        Some(Field[x.Typ](name))
-      case _ => None
-    }
-  }
-  */
-  //def unapply(x: Code[_]): Option[Field] = x match {
-  //  case ir"field[$tp](${Const(name)})" =>
-  //    implicit val _ = new Serial[tp.Typ](_ => ir"???", _ => ir"???")
-  //    Some(Field[tp.Typ](name))
-  //  case _ => None
-  //}
 }
-//class FieldRef[T:IRType](name: String, id: Option[Int])
+
 abstract class FieldRef(val name: String, val id: Option[Int]) {
   type T
   implicit val IRTypeT: IRType[T]
   override def toString = s"Field[${IRTypeT.rep}]($name)${id.fold(""){ q => s" in $q"}}"
-  //def conformsTo(f: Field) = id forall (id => Some(id) == f.id)
-  //def conformsTo(f: FieldRef) = f.name == name && id.forall(id => Some(id) == f.id)
   def conformsTo(f: FieldRef) = f.name == name && id.forall(_ => id == f.id)
 }
 object FieldRef {
