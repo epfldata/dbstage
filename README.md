@@ -1,48 +1,96 @@
+# DBStage – Flexible, Staged Query Compilation Playground
 
+## Introduction
 
-Have something like a 'StorageManager'
+This repository contains a proof of concept for a configurable language-integrated runtime query compiler based on staging.
+The implementation relies on the [Squid type-safe metaprogramming framework](https://github.com/epfldata/squid/) for Scala, 
+which makes its code manipulation and generation capabilities fairly robust.
 
-
-TODO better handling of join conditions: 
-represent as a `Seq[Code[Bool]]` and move down those conditions that do not concern the join
-
-
-
-Pull approaches:
-
- * Functional 'iterator' encoding: `() => Option[T]`  
-   Pro: nice interface    
-   Cons: options create complicated control-flow that the current IR does not handle well
-   Cons: allocates options -- even if we can get rid of internal ones, the final code will still contain the type in its interface and thus options will still have to be allocated  
+The main features are:
+ * An expressive SQL embedded DSL (still currently missing many features), 
+ with type-safe integration to normal Scala programs (LinQ-style); 
  
- * Natural 'imperative iterator' encoding: `() => (() => Bool, () => T)`  
-   Pro: immediate mapping to Scala/Java iterators  
-   Pro: no Option allocation  
-   Cons: impl of `filter` is unnecessarily compliated and requires local optional variables, which sucks (even though they can be flattened to two local variables, it's still unnecessary variables)
- 
- * Imperative CPS `() => (T => Unit) => Unit`  
-   Where the continuation passed must be invoked exactly once unless there are no more elements in the stream  
-   (This is the approach in GPCE17)  
-   Pro (big): simpler impl of operators  
-   Cons (big): generated code isn't nice for, eg, combinations of filter (unless we merge them before generating the code), as they will contain nested while loops; in general, the fact that `filter` need to loop seems problematic (is it really?)
- 
- * Imperative CPS with boolean return `() => (T => Unit) => Bool`  
-   Where the boolean indicates whether there **potentially** are still elements in the stream; the continuation passed may not be executed every time, but it will be executed at most once each time  
-   Pro (big): simpler impl of operators  
-   Cons: if one wants to consume exactly one element, one has to loop until some local optional variable is set by the continuation  
-   Cons (minor): iterator impl very awkward: `hasNext` needs to execute the continuation, so it needs to put the value aside so `next` accesses it later 
-   (corollary: can't just peek to see if a given stream has any elements without actively tryin to consume one)
-     
- * Imperative CPS with two boolean returns `() => (T => Unit) => (Bool,Bool)`  
-   Indicating potential elements left and whether an element was consumed or not
-   Pro: avoids using a variable to know whether we've iterated or not
-
- * Imperative CPS + virtualized variable `() => (Var[Bool], (T => Unit) => Bool)`  
-  An interesting variation of the above, but it's not clear whether it has any actual advantages over it
-  
+ * A backend implemented using powerful abstractions and Scala modular programming,
+ which allows great configurability at no runtime cost: 
+ experiment and combine 
+ different ways to store relation tables (column store, row store, hash map), 
+ different ways to index them, 
+ different ways to query them (push, pull), etc.
 
 
+## Step by step
 
+### 1. define the database relations
 
+```scala
+case object Person extends Relation {
+  val Id = Column[Int]("Id", primary = true)
+  val Name = Column[String]("Name")
+  val Age = Column[Int]("Age")
+  val Sex = Column[Sex]("Sex")
+}
+```
 
+### 2.a. register queries to be executed later, using a SQL-like DSL
+
+```scala
+  import Person._
+  val q0 = from(Person) where ir"$Age > 18" where ir"$Sex == Male" select (Name,Age)
+```
+
+(Of course, one can write `where ir"$Age > 18 && $Sex == Male"` equivalently.)
+
+Note that column types are checked at compile-time, but column reference consistency and ambiguities are checked at query construction time (runtime). 
+For example if I had written `select (Name,Age,Salary)` it would have complained at runtime that there are no such Salary column available. (It would be easy to have a compile-time linter written in Squid to catch these errors earlier.)
+
+### 2.b. load the data from the file system
+
+```scala
+  Person.loadDataFromFile("data/persons.csv", compileCode = true)
+```
+
+This compiles a program on-the-fly to efficiently load the data given the relation schema.
+
+### 2.c. on-the-fly compile and execute queries
+
+```scala
+  q0.plan.foreach { case (name, age) => assert(age > 18); println(s"$name $age") }
+```
+
+Notice that the types for `name` and `age` are correctly inferred as String and Int, respectively.
+
+Importantly, steps 2.a, 2.b and 2.c can be done in any order and can be interleaved.
+
+Another example: all pairs of people of the same age but opposite sex:
+
+```scala
+  val m = from(Person)
+  val f = from(Person)
+  val q = ((m where ir"$Sex == Male") join (f where ir"$Sex == Female"))(ir"${m.Age} == ${f.Age}")
+    .select (m.Age, m.Name, f.Name, m.Id, f.Id)
+  q.printLines
+```
+
+Which prints the following:
+
+| Age(0) | Name(0) | Name(1) | Id(0) | Id(1) |
+| --- | --- | --- | --- | --- |
+| 41 | bob parker | julia kenn | 1 | 6 |
+|...|...|...|...|...|
+
+The currently supported functionalities are:
+ * Selection, projection, filtering, (hash) joins
+ * Option to load data in a hashmap where the keys are the primary keys of the relation; this structure is then used to perform faster joins
+ * Option to store data in column store, on a per-relation basis (if the above is not applied on the given relation)
+ * User-defined functions and data types
+ * Pushing and pulling are both supported
+ * The type-safe DSL means one can integrate queries inside general purpose program, using DBStage as a simple Scala library
+ * Engine is agnostic in the underlying data structures and row representation; tables currently use tuples and Scala ArrayBuffer/HashMap's, but we could easily experiment with off-heap memory to avoid boxing, for example.
+
+What I'd like to have in the future:
+ * Aggregations, grouping, sorting
+ * Customize the storage of data optimizing for registered queries (possibly adapt it dynamically as more queries are registered)
+ * Option to instrument the data loading code to add more error recovery and/or add data analytics guiding subsequent query compilation
+ * Extend the SQL subset with updates, perhaps transactions
+ * Handling of data on disk, and associated cache management?
 
