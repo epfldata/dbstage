@@ -1,19 +1,29 @@
-import squid.utils._
-import squid.lib.transparent
+import cats.kernel.Monoid
 
 package object dbstage {
   
-  val MAX_SCALA_TUPLE_ARITY = 22
+  import squid.utils._
   
-  @inline @transparent
-  def loopWhile(cnd: => Bool) = {
-    while(cnd)()
+  import dbstage2.{Record,::,NoFields,Project,Access,Field}
+  
+  //implicit class FieldFunOps[A,F<:Field[A]](private val f: A => Field[A]) extends AnyVal {
+  //  def apply[R](r:R)(implicit ev: R Access F): F = ???
+  //  //def get[R](r:R)(implicit ev: F Access R): F = ???
+  //}
+  
+  implicit object unitMonoid extends Monoid[Unit] {
+    def empty = ()
+    def combine(a: Unit, b: Unit) = ()
   }
   
-  type IteratorRep[T] = () => (() => Bool, () => T)
+  //val indent = 2
+  def indentString(str: String) = {
+    //val lines = str.splitSane('\n')
+    //lines map (Console.RED + "| " * indent + ">> " + Console.RESET + Console.BOLD + _) mkString s"${Console.RESET}\n"
+    val lines = str.splitSane('\n')
+    val pre = "| "
+    lines map (Debug.GREY + pre + Console.RESET + _) mkString "\n"
+  }
   
-  import scala.language.implicitConversions
-  import Embedding.Predef._
-  implicit def interop[T](q: Code[T]): IR[T,Any] = q.asClosedIR // because currently Squid requires an IR (eg: for calling .compile and .run)
   
 }
