@@ -12,6 +12,19 @@ import ExampleRelations.{ps,js,hs}
 import dbstage2.Embedding.Predef._
 import dbstage2.Embedding.Quasicodes._
 
+object QueryEmbeddingTests2 extends App {{
+  
+  val ls = List(1,2,3)
+  
+  //val f = code"() => ls.size".compile
+  val f = code"() => ls ++ (?ls : List[Int])" //.compile
+  println(f)
+  
+  
+}}
+
+
+
 object QueryEmbeddingTests extends App {{
   
   val ageLimit = 18
