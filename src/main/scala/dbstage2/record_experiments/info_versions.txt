@@ -1,0 +1,11 @@
+
+v4 is the first one to have such a beautifully simple and effective interface;
+unfortunately, the additional A parameter in Access and everywhere borks Scala's implicit inference (it doesn't 
+instantiate the type properly from inside another implicit resolution, such as Project)
+
+v5 solves this issue by using a FieldModule base class with a Typ member, and type projections
+
+TODO: test wether Dotty has the v4 problem (wouldn't be surprised if not)
+
+
+
