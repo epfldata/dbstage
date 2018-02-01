@@ -14,6 +14,7 @@ import cats.implicits._
 import shapeless.the
 
 abstract class Relation[+A:CodeType] extends QuerySource[A] {
+  def staged = From(this, None)
   //override def toString = s"Relation[${codeTypeOf[A].rep.tpe}]@${System.identityHashCode(this).toHexString}"
   override def toString = s"Relation@${System.identityHashCode(this).toHexString}"
 }

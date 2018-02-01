@@ -6,13 +6,37 @@ import dbstage2.Embedding.Predef._
 import dbstage2.Embedding.Quasicodes._
 import dbstage2.Embedding.ClosedCode
 
-sealed abstract class StagedSource[T,C] {
+import scala.annotation.unchecked.uncheckedVariance
+
+sealed abstract class StagedSource[+T,C] {
   def plans: List[SimpleQueryPlan[T,C]] = this match {
     case From(r,src) => Scan[T,C](r,src)::Nil
+    case Filter(q,p) => for {q <- q.plans} yield SimpleSelection[T,C](q,p)
   }
+  
+  //def map[B](f: ClosedCode[T] => ClosedCode[B]): StagedSource[B,C] =
+  /*
+  def map[T0>:T,B:CodeType](f: ClosedCode[T0] => ClosedCode[B])(implicit ev:CodeType[T0]): Query[B,C] = // FIXME ev
+    new FlatMapWith[T0,B,C](this) {
+      //val v: x.type = x
+      val v = new Variable[T0]//{type Ctx=Any}//FIXME
+      val query = Produce[B,C&v.Ctx](f(v.toCode.unsafe_asClosedCode))
+    }
+  */
+  def map[B:CodeType](f: ClosedCode[T] => ClosedCode[B])(implicit ev:CodeType[T @uncheckedVariance]): Query[B,C] = // FIXME ev
+    new FlatMapWith[T,B,C](this) {
+      //val v: x.type = x
+      val v = new Variable[T]//{type Ctx=Any}//FIXME
+      val query = Produce[B,C&v.Ctx](f(v.toCode.unsafe_asClosedCode))
+    }
+  def flatMap[B:CodeType](f: ClosedCode[T] => Query[B,C])(implicit ev:CodeType[T @uncheckedVariance]): Query[B,C] = // FIXME ev
+    new FlatMapWith[T,B,C](this) {
+      val v = new Variable[T]//{type Ctx=Any}//FIXME
+      val query = f(v.toCode.unsafe_asClosedCode)
+    }
 }
-sealed abstract class Query[T,C] {
-  def run(implicit ev: C <:< {}): Iterable[T] = ???
+sealed abstract class Query[T,-C] {
+  //def run(implicit ev: C <:< {}): Iterable[T] = ???  // TODO
   def plans = Query.plansOf(this)
 }
 object Query {
@@ -29,9 +53,13 @@ object Query {
   }
 }
 //case class From[T,C](r: Relation[T]) extends Query[T,C] {
-case class From[T,C](r: QuerySource[T], src: Option[ClosedCode[QuerySource[T]]]) extends StagedSource[T,C] {
+case class From[+T,C](r: QuerySource[T], src: Option[ClosedCode[QuerySource[T]]]) extends StagedSource[T,C] {
   //def run = ???
   override def toString = s"From(${src.fold(r.toString)(cde => cde.rep|>base.showRep)})"
+}
+//case class Where[+T,C](cond: Code[Bool,C]) extends StagedSource[T,C] {
+case class Where(cond: ClosedCode[Bool]) extends StagedSource[Unit,Any] {
+  
 }
 ////case class CountQuery[T<:Record](r: Query[T,C]) extends Query[Count::NoFields] {
 //case class Fold[T,C](r: Query[T,C]) extends Query[T,C] {

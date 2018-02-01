@@ -20,6 +20,7 @@ object RelationTests extends App {
   //{(j:Job) => FieldFunOps[Int,Salary](Salary).get(j)}
   
   val q0 =
+  // Find the name and salary of all persons above 18, and count them
   //Debug.show
   { (persons: Relation[IdPerson], jobs: Relation[IdJob], hasjob: Relation[HasJob]) => {
     for {
@@ -48,6 +49,7 @@ object RelationTests extends App {
   println(q0(ps,js,hs))
   
   val q1 =
+  // Find couples and sort by least age difference
   //Debug.show
   {() => for {
       boy <- ps

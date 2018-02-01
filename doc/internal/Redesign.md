@@ -12,3 +12,20 @@ so this (allowing seamless nesting in an inspectable way) seems like it would be
 
 
 drop usage of `NoFields` in favor of simply using `Unit`!?
+use ~ or ~: to aggregate
+have a Record[T] type class that gives useful capabilities on proper record types (ie: with labels); eg. lifting a plain tuple into the record type, and converting back
+
+
+have Bag#limit(n) operation; properly optimized
+	take care of the case where 'n' is dependent on some previous query! – or a query itself...
+
+
+Support nested queries; eg. sum of the salaries of the richest 10 people
+
+
+Data types:
+	FileInput[T:Serial](separator)(implicit encoding) <: Relation[T]
+	Table[T:Record[StorageTypeClass]]  // to efficiently store things
+	InMemoryTable  // default impl; stores things in memory
+
+
