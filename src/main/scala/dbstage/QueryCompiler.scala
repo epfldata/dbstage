@@ -27,7 +27,7 @@ object QueryCompiler {
       //  Filter(liftSource(qs), code"(x:T) => $pred(x)")
       case code"($qs:QuerySource[S]).withFilter($pred)" =>
         Filter(liftSource(qs), pred)
-      case code"($qs:QuerySource[S]).naturalJoin[S,$ta]($r)($pairs)" => // TODO S0<:S ?
+      case code"($qs:QuerySource[S]).naturallyJoining[S,$ta]($r)($pairs)" => // TODO S0<:S ?
         println(qs,r)
         //???
         NaturalJoin(liftSource(qs), r)
@@ -50,10 +50,11 @@ object QueryCompiler {
       case code"($qs:QuerySource[$ta]).flatMap[T]($x => $body)($ev)" =>
         //println(qs,x)
         //val q = lift(body)
-        new FlatMapWith[ta.Typ,T,C](liftSource(qs)) {
-          val v: x.type = x
-          val query = lift(body)
-        }
+        //new FlatMapWith[ta.Typ,T,C](liftSource(qs)) {
+        //  val v: x.type = x
+        //  val query = lift(body)
+        //}
+        FlatMapWith(x)(liftSource(qs),lift(body))
       case code"($qs:QuerySource[$ta]).flatMap[T]($f)($ev)" =>
         System.err.println(s"Warning: could not inspect query code: $f")
         val q = liftSource(qs)

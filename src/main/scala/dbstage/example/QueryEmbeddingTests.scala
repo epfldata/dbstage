@@ -16,14 +16,18 @@ object QueryEmbeddingTests extends App {{
   
   val ageLimit = 18
   
-  val q0 = code{ //(ageLimit: Int) =>
+  // try parametrize with (ageLimit: Int) =>
+  
+  val q0 = code{
     for {
       p <- ps
       if p[Age] > ageLimit
       j <- js
       //_ <- hs.naturalJoin(p).naturalJoin(j)
       hj <- hs
-      if p[PersonId] == hj[PersonId] && j[JobId] == hj[JobId]
+      //if p[PersonId] == hj[PersonId] && j[JobId] == hj[JobId]
+      if p[PersonId] == hj[PersonId]
+      if j[JobId] == hj[JobId]
       //() = println(s"Processing:  $p  |  $j")
       //if {println(s"Processing:  $p  |  $j"); true}
     } yield j[Salary]
@@ -34,7 +38,7 @@ object QueryEmbeddingTests extends App {{
   //println(q0.compile)
   
   val q0l = QueryCompiler.compile(q0) alsoApply println
-  println(q0l.plans)
+  //println(q0l.plans)
   
   
   

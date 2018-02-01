@@ -29,3 +29,9 @@ Data types:
 	InMemoryTable  // default impl; stores things in memory
 
 
+
+Staged interface:
+	circumvent lack of first-class polymorphism: try to have map generate an object with a path-dependent context that can be used in the type of the lambda passed to its apply method...
+
+
+

@@ -25,5 +25,9 @@ package object dbstage {
     lines map (Debug.GREY + pre + Console.RESET + _) mkString "\n"
   }
   
+  //import dbstage2.Embedding.Predef._
+  //type PreciseCode[T,-C] = Code[T,C]{type Typ = T}
+  //def asPreciseCode[T,C](cde: Code[T,C]): PreciseCode[cde.Typ,C] = cde.withUnderlyingTyp.asInstanceOf[PreciseCode[cde.Typ,C]]
+  
   
 }

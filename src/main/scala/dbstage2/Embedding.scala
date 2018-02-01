@@ -71,6 +71,10 @@ object Embedding
       .replaceAll("dbstage.","")
       .replaceAll("RecordsPredef.NoFields.type","NoFields")
   
+  
+  // TODO port to Squid
+  //implicit class Variable
+  
 }
 
 object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTransformer

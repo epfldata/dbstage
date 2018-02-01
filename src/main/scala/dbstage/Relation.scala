@@ -35,7 +35,7 @@ sealed trait QuerySource[+A] { self =>
   // TODO warning or error if no common fields found!
   // TODO join predicate
   @transparencyPropagating
-  def naturalJoin[A0>:A,B](b: B)(implicit pairs: A0 PairUp B): QuerySource[A] = {
+  def naturallyJoining[A0>:A,B](b: B)(implicit pairs: A0 PairUp B): QuerySource[A] = {
     //println(pairs)
     //this
     new QuerySource[A] {

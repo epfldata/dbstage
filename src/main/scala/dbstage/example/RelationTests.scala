@@ -42,7 +42,7 @@ object RelationTests extends App {
       p <- persons
       if p[Age] > 18
       j <- jobs
-      hj <- hasjob.naturalJoin(p).naturalJoin(j)
+      hj <- hasjob.naturallyJoining(p).naturallyJoining(j)
     } yield (Count(), Bag(p[Name] :: Salary(j[Salary]) :: NoFields).orderBy[Salary])
   }}
   
