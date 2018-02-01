@@ -64,10 +64,10 @@ object Query {
   }
 }
 //case class From[T,C](r: Relation[T]) extends Query[T,C] {
-case class From[+T,C](r: QuerySource[T], src: Option[ClosedCode[QuerySource[T]]]) extends StagedSource[T,C] {
+case class From[+T,C](rel: QuerySource[T], src: Option[ClosedCode[QuerySource[T]]]) extends StagedSource[T,C] {
 //case class From[+T](r: QuerySource[T], src: Option[ClosedCode[QuerySource[T]]]) extends StagedSource[T,Any] {
   //def run = ???
-  override def toString = s"From(${src.fold(r.toString)(cde => cde.rep|>base.showRep)})"
+  override def toString = s"From(${src.fold(rel.toString)(cde => cde.rep|>base.showRep)})"
 }
 //case class Where[+T,C](cond: Code[Bool,C]) extends StagedSource[T,C] {
 case class Where(cond: ClosedCode[Bool]) extends StagedSource[Unit,Any] {
@@ -123,6 +123,10 @@ object Filter {
   }
 }
 
+
+// It doesn't actually seem possible to have a generic Join impl that can be reordered
+// Instead, it seems it would make more sense to do the reordering in a direct manner while constructing the possible plans
+
 //case class Join[A,B,C](lhs: Query[A,C], rhs: Query[B,C], pred: (A,B) => Bool) extends Query[(A,B),C] {
 //case class Join[A,B,C](lhs: StagedSource[A,C], rhs: Query[B,C], pred: (A,B) => Bool) extends Query[(A,B),C] {
 //  //def run = ???
@@ -136,25 +140,40 @@ object Filter {
 //  val rhs: Query[B, C & v.Ctx]
 //  val pred: Code[Bool, C & v.Ctx]
 //}
-abstract class Join[A,B,D,C](val lhs: StagedSource[A,C], val rhs: StagedSource[B,C]) extends Query[D,C] {
+
+//abstract class Join[A,B,C](val src: StagedSource[A,C]) extends Query[B,C] {
+//  val v: Variable[B]
+//  //val rhs: Query[B, C & v.Ctx]
+//  val rhs: Query[B, C]
+//  val pred: Code[Bool, C & v.Ctx]
+//}
+abstract class Join[A,B,C](val src: StagedSource[A,C]) extends Query[B,C] {
   val lhsv: Variable[A]
   val rhsv: Variable[B]
-  val query: Query[D, C & lhsv.Ctx & rhsv.Ctx]
-  //override def toString = s"Join(${lhsv.rep|>base.showRep},${rhsv.rep|>base.showRep})" +
-  //  s"\n${indentString(lhs.toString)}\n${indentString(rhs.toString)}\n${indentString(query.toString)}"
-  override def toString = s"Join(${lhsv.rep|>base.showRep} = $lhs, ${rhsv.rep|>base.showRep} = $rhs)\n${indentString(query.toString)}"
-    //s"\n${indentString(s"${lhsv.rep|>base.showRep} = $lhs")}\n${indentString(rhs.toString)}\n${indentString(query.toString)}"
+  //val rhs: Query[B, C & v.Ctx]
+  val rhs: Query[B, C & lhsv.Ctx]
+  val pred: Code[Bool, C & lhsv.Ctx & rhsv.Ctx]
 }
-object Join {
-  def apply[A,B,D,C]
-  (lhs: StagedSource[A,C], rhs: StagedSource[B,C])
-  (_lhsv: Variable[A], _rhsv: Variable[B])
-  (_query: Query[D, C & _lhsv.Ctx & _rhsv.Ctx]): Query[D,C] = new Join[A,B,D,C](lhs, rhs) {
-    val lhsv: _lhsv.type = _lhsv
-    val rhsv: _rhsv.type = _rhsv
-    val query = _query
-  }
-}
+
+//abstract class Join[A,B,D,C](val lhs: StagedSource[A,C], val rhs: StagedSource[B,C]) extends Query[D,C] {
+//  val lhsv: Variable[A]
+//  val rhsv: Variable[B]
+//  val query: Query[D, C & lhsv.Ctx & rhsv.Ctx]
+//  //override def toString = s"Join(${lhsv.rep|>base.showRep},${rhsv.rep|>base.showRep})" +
+//  //  s"\n${indentString(lhs.toString)}\n${indentString(rhs.toString)}\n${indentString(query.toString)}"
+//  override def toString = s"Join(${lhsv.rep|>base.showRep} = $lhs, ${rhsv.rep|>base.showRep} = $rhs)\n${indentString(query.toString)}"
+//    //s"\n${indentString(s"${lhsv.rep|>base.showRep} = $lhs")}\n${indentString(rhs.toString)}\n${indentString(query.toString)}"
+//}
+//object Join {
+//  def apply[A,B,D,C]
+//  (lhs: StagedSource[A,C], rhs: StagedSource[B,C])
+//  (_lhsv: Variable[A], _rhsv: Variable[B])
+//  (_query: Query[D, C & _lhsv.Ctx & _rhsv.Ctx]): Query[D,C] = new Join[A,B,D,C](lhs, rhs) {
+//    val lhsv: _lhsv.type = _lhsv
+//    val rhsv: _rhsv.type = _rhsv
+//    val query = _query
+//  }
+//}
 //case class OrderBy[A,C](q: Query[A,C], cmp: Code[Ordering[A],C]) extends Query[A,C] {
 //  //def run = ???
 //}
@@ -190,7 +209,7 @@ object FlatMapWith {
     }
   def apply[A,B,C](x: Variable[A])(src: StagedSource[A,C], qu: Query[B,C & x.Ctx]): Query[B,C] = qu match {
     case fmw: FlatMapWith[a,B,C & x.Ctx] 
-      //if false 
+      if false 
     =>
       type A0 = a
       // TODO handle filtered source
@@ -215,9 +234,25 @@ object FlatMapWith {
               //  val query: Query[B, C & lhsv.Ctx & rhsv.Ctx] = ???
               //}
         
-              //val rhsv = new Variable[a]
-              //Join[A,a,B,C](src, From[a,C](fr.r,None))(x, ???)(???)
-              Join[A,a,B,C](src, fr)(x, fmw.v)(fmw.query) // FIXME missing filter
+              ////val rhsv = new Variable[a]
+              ////Join[A,a,B,C](src, From[a,C](fr.r,None))(x, ???)(???)
+              //Join[A,a,B,C](src, fr)(x, fmw.v)(fmw.query) // FIXME missing filter
+              
+              //new Join[A,B,C](src) {
+              //  val v: fi.v.type = fi.v // no
+              //  val rhs: Query[B, C & v.Ctx] = ??? //FlatMapWith()
+              //  val pred: Code[Bool, C & v.Ctx] = fi.pred
+              //}
+              //fi.v:Int
+              new Join[A,B,C](src) {
+                //val lhsv: fi.v.type = fi.v
+                //val lhsv: Variable[A] = ???
+                val lhsv: x.type = x
+                lazy val rhsv: Variable[B] = ???
+                lazy val rhs: Query[B, C & lhsv.Ctx] = ??? //FlatMapWith()
+                val pred: Code[Bool, C & lhsv.Ctx & rhsv.Ctx] = fi.v.tryClose(fi.pred).getOrElse(throw new AssertionError(s"Some ${fi.v} in ${fi.pred}"))
+              }
+              
       
           }
         //case fi: Filter[a,C @unchecked] =>
