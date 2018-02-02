@@ -37,4 +37,10 @@ Staged interface:
 TODO: make relation types reflect primary keys?
 
 
+TODO: Bag#groupBy should remove the grouping attributes from the row; to do that, make Access[F,R] have a field removal type result and associated removal function
+=> ...or simply have the convetion that 'groupBy' (or just 'group') takes additional keys not present in the aggregation record
+
+
+
+
 

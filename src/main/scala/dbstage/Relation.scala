@@ -57,13 +57,35 @@ sealed trait QuerySource[+A] { self =>
   }
 }
 
+//case class GroupedBag[A,B](as: A*)(bs: B*) {
+class GroupedBag[A,B](val mapping: Map[A,B]) {  // FIXME use ordering!
+  val sorting: Option[Ordering[A]] = None
+  def orderBy[F<:FieldModule](implicit acc: F Access A, ord: Ordering[F#Typ]): GroupedBag[A,B] = new GroupedBag[A,B](mapping) {
+    //override val sorting = Some(the[Ordering[F#Typ]])
+    override val sorting = Some(Ordering.by(acc.fun))
+  }
+  override def toString = s"{${mapping mkString ", "}}"
+}
+object GroupedBag {
+  def apply[A,B](a:A)(b:B) = new GroupedBag(Map(a->b))
+  implicit def semigroupBag[A,B:Monoid]: Monoid[GroupedBag[A,B]] =
+    Monoid.instance[GroupedBag[A,B]](new GroupedBag(Map.empty)){ (xs,ys) => 
+      new GroupedBag(xs.mapping ++ ys.mapping.map { 
+        case (k,v) => k -> xs.mapping.get(k).fold(v)(v0 => Monoid[B].combine(v,v0)) }) } // FIXedME proper merger
+}
 case class Bag[A](xs: A*) { //extends QueryResult[Bag[A]] {
   def orderBy[F<:FieldModule](implicit acc: F Access A, ord: Ordering[F#Typ]): SortedBag[A] = 
     //SortedBag.ofValues(xs map acc.fun: _*)
     SortedBag.ofValues(xs:_*)(Ordering.by(acc.fun))
+  // or name: orderByMulti
   def orderBySeveral[R](implicit proj: A Project R): SortedBag[A] = ??? // TODO request congrued Ordering – have a generic way to do that!
   def sortBy[B](f: A => B)(implicit ord: Ordering[B]): SortedBag[A] = ???
   def nonEmpty = xs.nonEmpty
+  
+  //def groupBy[F<:FieldModule](implicit acc: F Access A): Bag[A] = ???
+  def groupBy[R](r: R)(implicit mon: Monoid[A]): GroupedBag[R,A] = 
+    Monoid[GroupedBag[R,A]].combineAll(xs.map(x => GroupedBag(r)(x)))
+  
   override def toString = s"{${xs mkString ", "}}"
 }
 object Bag {

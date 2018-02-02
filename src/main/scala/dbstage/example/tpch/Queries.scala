@@ -22,9 +22,9 @@ object QueryTests extends App {
   //implicitly[RecordRead[Order]]
   
   //val orders = new InputFile[Order]("data/orders.csv") // .withPrimaryKey[OrderKey] // TODO
-  val orders = new InputFile[Order]("data/orders.tbl.u1.1") // .withPrimaryKey[OrderKey] // TODO
+  val orders = new InputFile[Order]("data/orders.tbl.1") // .withPrimaryKey[OrderKey] // TODO
   //val lineitem = new InputFile[LineItem]("data/lineitem.csv")
-  val lineitem = new InputFile[LineItem]("data/lineitem.tbl.u1.1")
+  val lineitem = new InputFile[LineItem]("data/lineitem.tbl.1")
   
   //println(orders.rr.read('|')("1|2|ok|0.5|0|-1"))
   //println(orders.data)
@@ -79,7 +79,9 @@ object Queries {
     //} yield (Bag(o.select[OrderPriority] :: NoFields).orderBy[OrderPriority], 
     //    //Count())
     //    OrderCount(Count()))
-    } yield (Bag(o.select[OrderPriority] :: OrderCount(Count()) :: NoFields).orderBy[OrderPriority])
+    //} yield (Bag(o.select[OrderPriority] :: OrderCount(Count()) :: NoFields).groupBy[OrderPriority].orderBy[OrderPriority])
+    //} yield (GroupedBag(o.select[OrderPriority] :: NoFields)(OrderCount(Count())).orderBy[OrderPriority])
+    } yield (Bag(OrderCount()).groupBy(o.select[OrderPriority] :: NoFields).orderBy[OrderPriority])
     
     res
   }
@@ -127,7 +129,8 @@ class Date(val underlying: java.util.Date) {
   })
 }
 
-case class OrderCount(value: Count) extends Field[Count]
+//case class OrderCount(value: Count) extends Field[Count]
+case class OrderCount(value: Int = 1) extends Field[Int]
 
 case class OrderKey(value: Int) extends Field[Int]
 case class CustKey(value: Int) extends Field[Int]

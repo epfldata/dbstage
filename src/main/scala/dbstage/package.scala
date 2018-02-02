@@ -29,5 +29,12 @@ package object dbstage {
   //type PreciseCode[T,-C] = Code[T,C]{type Typ = T}
   //def asPreciseCode[T,C](cde: Code[T,C]): PreciseCode[cde.Typ,C] = cde.withUnderlyingTyp.asInstanceOf[PreciseCode[cde.Typ,C]]
   
+  implicit class MonoidHelper(m: Monoid.type) {
+    def instance[A](_empty: A)(_combine: (A,A) => A): Monoid[A] = new Monoid[A] {
+      def empty = _empty
+      def combine(x: A, y: A): A = _combine(x,y)
+    }
+  }
+  
   
 }
