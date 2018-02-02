@@ -34,4 +34,7 @@ Staged interface:
 	circumvent lack of first-class polymorphism: try to have map generate an object with a path-dependent context that can be used in the type of the lambda passed to its apply method...
 
 
+TODO: make relation types reflect primary keys?
+
+
 

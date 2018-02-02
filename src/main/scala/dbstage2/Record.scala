@@ -36,7 +36,7 @@ class AccessOps[T] private[dbstage2](val self: T) {
   def get[A,F<:Field[A]](fm: A => F)(implicit access: Access[F,T]): A = access.fun(self)
   def apply[F<:FieldModule](implicit access: Access[F,T]): F#Typ = access.fun(self)
   def project[R](implicit project: Project[T,R]): R = project.apply(self)
-  def field[F<:FieldModule](implicit access: Access[F,T]): F = access.field(self)
+  def select[F<:FieldModule](implicit access: Access[F,T]): F = access.field(self)
   //def pairUpWith[R](r:R)(implicit pairs: PairUp[T,R]): List[FieldPair[_]] = pairs.ls(self,r)
   def pairUpWith[R](r:R)(implicit pairs: PairUp[T,R]): List[FieldPair] = pairs.ls(self,r)
 }
@@ -44,8 +44,26 @@ class AccessOps[T] private[dbstage2](val self: T) {
 //import RecordOps.NoFields
 
 trait FieldModule extends Any { type Typ; @transparencyPropagating def value: Typ }
+object FieldModule {
+  import dbstage.BuildField
+  //implicit def monoid[T:Monoid]: Monoid[FieldModule { type Typ = T }] = ???
+  //implicit def monoid[T:Monoid,F<:FieldModule { type Typ = T }]: Monoid[F] = ???
+  //implicit def monoid[T:Monoid,F<:FieldModule](implicit ev: F#Typ =:= T): Monoid[F] = ???
+  implicit def monoid[F<:FieldModule:BuildField](implicit ev: Monoid[F#Typ]): Monoid[F] = {
+    val bf = implicitly[BuildField[F]]
+    val mon = Monoid[F#Typ]
+    new Monoid[F] { // TODO require evidence to BUILD objects of type F...
+      def empty = bf(mon.empty)
+      def combine(lhs: F, rhs: F) = bf(mon.combine(lhs.value, rhs.value))
+    }
+  }
+}
 trait Field[T] extends Any with FieldModule { type Typ = T }
 //trait Field[+T] extends Any with FieldModule { type Typ = T @uncheckedVariance }
+object Field {
+  //implicit def monoid[T:Monoid]: Monoid[Field[T]] = ???
+  //implicit def monoid[T:Monoid,F<:Field[T]]: Monoid[F] = ???
+}
 
 abstract class Record {
   override def toString = {

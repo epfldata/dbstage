@@ -8,6 +8,24 @@ import dbstage2.Embedding.ClosedCode
 
 import scala.annotation.unchecked.uncheckedVariance
 
+// TODO StagedSource a case class with a querysource and a set of staged 'filtering predicate' values
+
+//sealed class SelectionPredicate[C]
+//object SelectionPredicate {
+//  def merge(as: Set[SelectionPredicate], bs: Set[SelectionPredicate]) = as ++ bs.map{ b => as get b }
+//}
+//case class EqualityPredicate[C](terms: Set[Code[Any,C]]) extends SelectionPredicate[C]
+//case class UninterpretedPredicate[C](term: Code[Bool,C]) extends SelectionPredicate[C]
+case class SelectionPredicate[C] // TODO forget the context; instead just have a deps:Set[Variable[_]]
+(equalities: Set[Set[Code[Any,C]]], 
+ inequalities: Set[Inequality[_,C]], 
+ uninterpreted: Set[Code[Bool,C]])
+{
+  def ++ (that: SelectionPredicate[C]): SelectionPredicate[C] = ??? // TODO
+}
+case class Inequality[T,C](lhs: Code[T,C], rhs: Code[T,C], strict: Bool)
+
+
 // TODO unify with class Relation? 
 sealed abstract class StagedSource[+T,C] {
 //sealed abstract class StagedSource[+T,-C] {

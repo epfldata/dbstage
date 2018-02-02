@@ -13,12 +13,22 @@ import dbstage2.Embedding.Predef.{CodeType,codeTypeOf}
 import cats.implicits._
 import shapeless.the
 
-abstract class Relation[+A:CodeType] extends QuerySource[A] {
+//abstract class Relation[+A:CodeType] extends QuerySource[A] {
+abstract class Relation[A:CodeType] extends QuerySource[A] {
   def staged = From(this, None)
+  
+  import dbstage2.Embedding.Predef.implicitType
+  
+  //val primaryKeys: Set[] = Set()
+  def withPrimaryKey[K:CodeType](implicit p: A Project (K::NoFields)) = withPrimaryKeys[K::NoFields]
+  def withPrimaryKeys[Ks:CodeType](implicit p: A Project Ks) = Relation[A]//(primaryKeyTypes + codeTypeOf[Ks])
+  //def withForeighKey[K<:FieldModule] = new withForeighKey[K::NoFields]
+  
   //override def toString = s"Relation[${codeTypeOf[A].rep.tpe}]@${System.identityHashCode(this).toHexString}"
   override def toString = s"Relation@${System.identityHashCode(this).toHexString}"
 }
 object Relation {
+  def apply[A:CodeType] = new Relation[A] { def iterator = ??? }
   def of[A:CodeType](it: Iterable[A]) = new Relation[A] { def iterator = it.iterator }
 }
 
@@ -53,6 +63,7 @@ case class Bag[A](xs: A*) { //extends QueryResult[Bag[A]] {
     SortedBag.ofValues(xs:_*)(Ordering.by(acc.fun))
   def orderBySeveral[R](implicit proj: A Project R): SortedBag[A] = ??? // TODO request congrued Ordering – have a generic way to do that!
   def sortBy[B](f: A => B)(implicit ord: Ordering[B]): SortedBag[A] = ???
+  def nonEmpty = xs.nonEmpty
   override def toString = s"{${xs mkString ", "}}"
 }
 object Bag {
@@ -88,7 +99,12 @@ class SortedBag[+A](val xs: Iterable[A]) {
       NonEmptySortedBag(hd, tl: _*)
   }
   //override def toString = s"SortedBag(${xs mkString ", "})"
-  override def toString = s"[${xs mkString ", "}]"
+  //override def toString = s"[${xs mkString ", "}]"
+  override def toString = {
+    val rows = xs mkString ", "
+    if (rows.length > 120) s"[\n${indentString(xs mkString ",\n")}\n]"
+    else s"[$rows]"
+  }
 }
 case object EmptySortedBag extends SortedBag[Nothing](Nil)
 case class NonEmptySortedBag[A](head: A, rest: A*)(implicit val ord: Ordering[A]) extends SortedBag[A](head +: rest)
@@ -113,7 +129,7 @@ object SortedBag {
     semigroupSortedBag[A].asInstanceOf[Monoid[NonEmptySortedBag[A]]]
 }
 
-case class Count(n: Int = 1)
+case class Count(n: Int = 1)   // TODO actually make it a Field, and inherit Field's Monoid? (if it works...)
 object Count {
   implicit val semigroupCount: Monoid[Count] = 
     //implicitly[Monoid[Int]].

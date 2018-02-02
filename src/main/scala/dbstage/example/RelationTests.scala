@@ -33,7 +33,7 @@ object RelationTests extends App {
     //} yield (Count(), Bag(p[Name] :: Salary(j[Salary]) :: NoFields).sortBy[Salary])
     //} yield (Count(), Bag(p[Name] :: Salary(j) :: NoFields).sortBy[Salary])
     //} yield (Count(), Bag(p[Name] :: j.field[Salary] :: NoFields).orderBy[Salary])
-    } yield Count() :: Bag(p[Name] :: j.field[Salary] :: NoFields).orderBy[Salary]  // :: NoFields
+    } yield Count() :: Bag(p[Name] :: j.select[Salary] :: NoFields).orderBy[Salary]  // :: NoFields
   }}
   
   //Debug.show
