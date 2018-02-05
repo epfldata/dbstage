@@ -19,7 +19,7 @@ object BuildImplicitGen {
     //???
     require(T.typeSymbol.companion =/= NoSymbol, s"No companion found for type $T")
     val res = q"_root_.dbstage.BuildField.fromFunction(${T.typeSymbol.companion})"
-    println(s"Generated: $res")
+    //println(s"Generated: $res")
     res
   }
   
