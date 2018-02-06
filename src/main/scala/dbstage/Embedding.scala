@@ -116,7 +116,7 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     //val tmonoid = ma.args.tail.head.tail.head.asInstanceOf[ClosedCode[Monoid[t.Typ]]]
     //println(t,tmonoid)
     //base.debugFor{
-    code"Seq.empty[FB]" match {
+    (code"Seq.empty[FB]":Code[_,C]) match {
       case code"Seq.empty[Field[$t]]" =>
         type F = Field[t.Typ]
         //println(t)
