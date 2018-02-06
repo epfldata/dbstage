@@ -16,6 +16,8 @@ object FieldBase {
   //implicit def monoid[T:Monoid,F<:FieldBase](implicit ev: F#Typ =:= T): Monoid[F] = ???
   @transparencyPropagating
   //implicit def monoid[T:Monoid,F<:Field[T]:BuildField]: Monoid[F] = ??? // diverging implicit expansion
+  //implicit def monoid[T,F<:Field[T]:BuildField]: Monoid[F] = ??? // does not seem to find it
+  //implicit def monoid[F<:Field[_]:BuildField]: Monoid[F] = ??? // resolves, but this uses a type wildcard (not supported by Squid)
   implicit def monoid[F<:FieldBase:BuildField](implicit ev: Monoid[F#Typ]): Monoid[F] = {
     val bf = implicitly[BuildField[F]]
     val mon = Monoid[F#Typ]
@@ -32,6 +34,12 @@ object Field {
   //implicit def monoid[T:Monoid,F<:Field[T]]: Monoid[F] = ???
 }
 
+class FieldModule[F] {
+  
+}
+
+//class CompanionOf[M,T] { def m: M }
+
 
 import Embedding.Predef._
 
@@ -41,7 +49,7 @@ abstract class BuildField[F<:FieldBase] extends (F#Typ => F) {
 }
 object BuildField {
   import scala.language.experimental.macros
-  implicit def build[T]: BuildField[T] = macro BuildImplicitGen.buildImplicitGen[T]
+  //implicit def build[T]: BuildField[T] = macro BuildImplicitGen.buildImplicitGen[T]
   def fromFunction[A,F<:FieldBase{type Typ=A}](f: A => F) = new BuildField[F] {
     def apply(a: A): F = f(a)
     //def staged = ???

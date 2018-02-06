@@ -147,7 +147,8 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
       code"dbstage.~($aev.combine($x.lhs,$y.lhs), $bev.combine($x.rhs,$y.rhs))"
     //case code"${base.MethodApplication(ma)}:($t where (t <:< FieldBase))" if ma.symbol === FieldBase_monoid =>
     //case code"(${MethodApplication(ma)}:Monoid[$t]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
-    case code"(${MethodApplication(ma)}:Monoid[$t where (t <:< FieldBase)]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
+    case e@code"(${MethodApplication(ma)}:Monoid[$t where (t <:< FieldBase)]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
+      println(e)
       //println(ma.args.tail.head.tail.head)
       //val s = ma.targs.head:CodeType[_]
       //val smonoid = ma.args.tail.head.tail.head.asInstanceOf[ClosedCode[Monoid[s.Typ]]]
