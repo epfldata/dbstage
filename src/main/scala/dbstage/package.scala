@@ -1,19 +1,19 @@
-import squid.utils._
-import squid.lib.transparent
+import cats.Monoid
+import squid.lib.transparencyPropagating
 
 package object dbstage {
   
-  val MAX_SCALA_TUPLE_ARITY = 22
-  
-  @inline @transparent
-  def loopWhile(cnd: => Bool) = {
-    while(cnd)()
+  implicit class MonoidHelper(m: Monoid.type) {
+    def instance[A](_empty: A)(_combine: (A,A) => A): Monoid[A] = new Monoid[A] {
+      def empty = _empty
+      def combine(x: A, y: A): A = _combine(x,y)
+    }
   }
   
-  type IteratorRep[T] = () => (() => Bool, () => T)
-  
   import scala.language.implicitConversions
-  import Embedding.Predef._
-  implicit def interop[T](q: Code[T]): IR[T,Any] = q.asClosedIR // because currently Squid requires an IR (eg: for calling .compile and .run)
+  
+  @transparencyPropagating
+  implicit def recordSyntax[A](self: A): RecordSyntax[A] = new RecordSyntax(self)
+  
   
 }
