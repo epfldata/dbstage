@@ -6,6 +6,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import cats.Monoid
 import cats.syntax.all._
 import dbstage.MonoidHelper
+import dbstage2.{Field,FieldModule}
 
 import squid.utils._
 
@@ -30,13 +31,21 @@ object ~ {
 object Ops {
   implicit class RecordSyntax[A](self: A) {
     def ~ [B] (that: B) = new ~(self,that)
-    def apply[B](implicit ev: A RecordAccess B): B = ev(self)
+    def select[B](implicit ev: A RecordAccess B): B = ev(self)
+    // TODO: a selectFirst that is left-biased; use in apply? -- and a selectLast; reformulate RecordAccess in terms of these two?
     def project[B](implicit ev: A Project B): B = ev(self)
+    def apply[F<:FieldModule](implicit access: RecordAccess[A,F]): F#Typ = access(self).value
+    //def apply[F,T](implicit fo: F FieldOf T): T = fo(self).value
   }
 }
 
+//class FieldOf[F,A] extends (F => A) { def apply(f: F) = fun(a) }
+//object FieldOf {
+//  implicit def fieldOf[F,A]: (Field[A] FieldOf A) = ???
+//}
+
 @implicitNotFound("${A} is not known to be a field of ${R}")
-case class RecordAccess[A,R](fun: A => R) extends (A => R) { def apply(a: A) = fun(a) }
+case class RecordAccess[A,R](fun: A => R) extends (A => R) { def apply(a: A) = fun(a) } // TODO rem indirection; make abstract class?
 object RecordAccess {
   implicit def fromLHS[A,B,T](implicit ev: A RecordAccess T): (A ~ B) RecordAccess T = RecordAccess(ev compose (_.lhs))
   implicit def fromRHS[A,B,T](implicit ev: B RecordAccess T): (A ~ B) RecordAccess T = RecordAccess(ev compose (_.rhs))

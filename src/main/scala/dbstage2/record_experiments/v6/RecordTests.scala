@@ -14,14 +14,35 @@ import cats.syntax.semigroup._
 
 
 object RecordTests extends App {
+  import dbstage2.example._
+  
+  //println(Name("A").value)
+  
+  val p = Name("Jo") ~ Age(42) ~ Gender(true) ~ Address("DTC")
+  
+  println(p)
+  println(p[Age])
+  println(p[Address])
+  
+  println(p.project[Name ~ Name])
+  println(p.project[Name ~ Address ~ Gender])
+  println(p.project[Name ~ Address ~ Gender].apply[Address])  // note: doesn't work without explicit `apply`
+  
+  
+  
+  
+  
+}
+
+object TypeRecordTests extends App {
   
   //implicitly[(Int~String) RecordAccess Int] alsoApply println
   
   val r = 1 ~ "ok" ~ 'ko
   
-  println(r[Int])
-  println(r[String])
-  println(r[Symbol])
+  println(r.select[Int])
+  println(r.select[String])
+  println(r.select[Symbol])
   
   val amb = r ~ 42
   //println(amb[Int]) // ambiguous
