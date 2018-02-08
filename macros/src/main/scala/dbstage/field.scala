@@ -20,6 +20,7 @@ object fieldMacros {
       case (cls @ q"$mods class $name[..$tparams]($pname: $ptyp) extends ..$parents") :: Nil => // TODO match body; param modifiers
         import Flag._
         //require(mods.hasFlag(CASE))
+        val tname = name.toTermName
         
         //Flag()
         //tq"_root_.scala.Product"::tq"_root_.scala.Serializable"::
@@ -57,10 +58,12 @@ object fieldMacros {
         //  ${mods} case class $name extends 
         //  $mods class $name[..$tparams](...$params) extends ..$parents with _root_.dbstage.Field[Int]
         //  ${mods.flags | CASE} class $name[..$tparams]($pname: $ptyp) extends ..$parents with _root_.dbstage.Field[$ptyp]
+        //    implicit object builder extends _root_.dbstage.BuildField[$name] { def apply(a: $ptyp): $name = $tname(a) }
+        //    implicit object wraps extends _root_.dbstage.Wraps[$name,$ptyp]($tname.apply,_.$pname)
         val gen = q"""
           case class $name[..$tparams]($pname: $ptyp) extends ..$parents with _root_.dbstage.Field[$ptyp]  // TODO other mods...
-          object ${name.toTermName} {
-            implicit object builder extends _root_.dbstage.BuildField[$name] { def apply(a: $ptyp): $name = ${name.toTermName}(a) }
+          object $tname {
+            implicit val wraps = _root_.dbstage.Wraps[$name,$ptyp]($tname.apply,_.$pname)
           }
         """
         //println(s"Gen: ${showCode(gen)}")

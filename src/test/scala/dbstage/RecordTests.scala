@@ -54,5 +54,33 @@ class RecordEmbeddingTests extends FunSuite {
     
   }
   
+  test("Removal of Abstractions 2") {
+    import RecordDefs._
+    println(Name2("A") ~ Age2(4))
+    
+    val p = code{
+      Name2("A") ~ Age2(4) |+| Name2("B") ~ Age2(6)
+    } alsoApply println
+    
+    code"Age2(Age2.deapply(Age2(3)))" alsoApply println
+    
+  }
+  test("Removal of Abstractions 3") {
+    
+    //implicitly[Name3 Wraps String]//(FieldBase.wraps)
+    //Monoid[Name3](monoidWrap[Name3,String])
+    //Monoid[Name3]
+    println(Name3("A") ~ Age3(4))
+    
+    val p = code{
+      Name3("A") ~ Age3(4) |+| Name3("B") ~ Age3(6)
+    } alsoApply println
+    
+    code"Age3(FieldBase.wraps[Age3].deapply(Age3(3)))" alsoApply println
+    
+  }
+  
 }
+
+import scala.language.higherKinds
 object Lol { type T <: Int; type F[A] <: A }

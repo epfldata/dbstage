@@ -37,6 +37,7 @@ object Embedding
   //embed(Access)
   //embed(PairUp)
   //embed(PairUpLowPriority)
+  embed(EmbeddedDefs)
   
   //import Predef._
   
@@ -102,6 +103,7 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   
   // For Record stuff:
   
+  /*
   val FieldBase_monoid = base.loadMtdSymbol(base.loadTypSymbol("dbstage.FieldBase$"), "monoid")
   //val fieldValue = base.loadMtdSymbol(base.loadTypSymbol("dbstage2.Field"), "value")
   //val FieldBase_apply = base.loadMtdSymbol(base.loadTypSymbol("dbstage.FieldBase"), "apply")
@@ -138,13 +140,7 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     //}
     //???
   }
-  
   rewrite {
-    case code"dbstage.~[$lt,$rt]($l,$r).lhs" => l
-    case code"dbstage.~[$lt,$rt]($l,$r).rhs" => r
-    case code"recordSyntax[$at]($a).~[$bt]($b)" => code"dbstage.~($a,$b)"
-    case code"dbstage.~.monoid[$at,$bt]($aev,$bev).combine($x,$y)" =>
-      code"dbstage.~($aev.combine($x.lhs,$y.lhs), $bev.combine($x.rhs,$y.rhs))"
     //case code"${base.MethodApplication(ma)}:($t where (t <:< FieldBase))" if ma.symbol === FieldBase_monoid =>
     //case code"(${MethodApplication(ma)}:Monoid[$t]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
     case e@code"(${MethodApplication(ma)}:Monoid[$t where (t <:< FieldBase)]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
@@ -155,7 +151,30 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
       //println(s,smonoid)
       //???
       handleFieldBase_monoid(ma,x,y)
+  }
+  */
+  
+  rewrite {
+    case code"dbstage.~[$lt,$rt]($l,$r).lhs" => l
+    case code"dbstage.~[$lt,$rt]($l,$r).rhs" => r
+    case code"recordSyntax[$at]($a).~[$bt]($b)" => code"dbstage.~($a,$b)"
+    case code"dbstage.~.monoid[$at,$bt]($aev,$bev).combine($x,$y)" =>
+      code"dbstage.~($aev.combine($x.lhs,$y.lhs), $bev.combine($x.rhs,$y.rhs))"
     
+    // Note: no need for `if isPure(w)` since we're in ANF
+    case code"($w:Wraps[$a,$b]).deapply((w:Wraps[a,b]).apply($x))" => x
+    case code"($w:Wraps[$a,$b]).apply((w:Wraps[a,b]).deapply($x))" => x
+      
+    case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
+    case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"
+      
+    //case code"dbstage.monoidWrap[$at,$bt]($wev,$mev).combine($x,$y)" =>
+    //  code"$wev..monoidWrap[$at,$bt]($wev,$mev).combine($x,$y)"
+    
+    case code"cats.implicits.catsKernelStdMonoidForString.empty" => Const("")
+    case code"cats.implicits.catsKernelStdMonoidForString.combine($x,$y)" => code"$x + $y"
+    case code"cats.implicits.catsKernelStdGroupForInt.empty" => Const(0)
+    case code"cats.implicits.catsKernelStdGroupForInt.combine($x,$y)" => code"$x + $y"
   }
   
   /*

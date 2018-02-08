@@ -13,6 +13,9 @@ import squid.utils._
 @field class JobTitle(value: String)
 @field class Salary(value: Int)
 
+case class Age3(value: Int) extends Field[Int]
+case class Name3(value: String) extends Field[String]
+
 //case class Age2(value: Int) extends Field[Int]
 //object Age2 extends (Int => Age2) {
 //  //implicit object comp extends CompanionOf
@@ -55,16 +58,18 @@ object RecordDefs {
     //implicit object comp extends CompanionOf
   }
   */
-  //type Age2 <: Int
-  type Age2 <: Field[Int]
+  type Age2 <: Int
+  //type Age2 <: Field[Int]
   //object Age2 extends (Int => Age2) { def apply(x:Int) = x.asInstanceOf[Age2] }
   //implicit object Age2 extends Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x)
-  implicit object Age2 extends Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x.asInstanceOf[Int])
-  //type Name2 <: String
-  type Name2 <: Field[String]
+  implicit val Age2 = Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x)
+  //implicit object Age2 extends Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x.asInstanceOf[Int])
+  type Name2 <: String
+  //type Name2 <: Field[String]
   //object Name2 extends (String => Name2) { def apply(x:String) = x.asInstanceOf[Name2] }
   //implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x)
-  implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x.asInstanceOf[String])
+  implicit val Name2 = Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x)
+  //implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x.asInstanceOf[String])
   
   type Person = Name ~ Age ~ Gender ~ Address
   type IdPerson = PersonId ~ Person
