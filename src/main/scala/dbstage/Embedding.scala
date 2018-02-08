@@ -40,6 +40,9 @@ object Embedding
   //embed(PairUpLowPriority)
   embed(EmbeddedDefs)
   embed(CanAccess)
+  embed(ProjectsOn)
+  embed(ProjectLowPrio)
+  embed(ProjectLowPrio2)
   
   override val bindEffects = true
   
@@ -52,6 +55,7 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[Any~Any]("lhs")
   transparencyPropagatingMtds += methodSymbol[Any~Any]("rhs")
   transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
+  transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
   
   object ClosedCode {
     def unapply[T,C](c:Code[T,C]): Option[ClosedCode[T]] = {
@@ -176,10 +180,15 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
       
     case code"recordSyntax[$at]($a).apply[$f]($acc, $w: f Wraps $v)" => code"$w.instance.deapply($acc($a))"
     case code"recordSyntax[$at]($a).apply[$f,$v]($w)($acc)" => code"$w.deapply($acc($a))"
+    case code"recordSyntax[$at]($a).project[$rt]($proj)" => code"$proj($a)"
       
     case code"CanAccess[$at,$rt]($f).fun" => f
     case code"CanAccess[$at,$rt]($f).apply($x)" => code"$f($x)"
     case code"(CanAccess[$at,$rt]($f):at=>rt)($x)" => code"$f($x)" // for when the apply symbol of Function1 is used
+      
+    case code"ProjectsOn[$at,$rt]($f).fun" => f
+    case code"ProjectsOn[$at,$rt]($f).apply($x)" => code"$f($x)"
+    case code"(ProjectsOn[$at,$rt]($f):at=>rt)($x)" => code"$f($x)" // for when the apply symbol of Function1 is used
       
     case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
     case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"

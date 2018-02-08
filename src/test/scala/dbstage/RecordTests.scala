@@ -85,4 +85,10 @@ class RecordEmbeddingTests extends FunSuite {
     
   }
   
+  test("Removal of Project Abstraction") {
+    
+    assert(code"p.project[Age ~ Name]" =~= code"p.lhs.lhs.rhs ~ p.lhs.lhs.lhs")
+    
+  }
+  
 }

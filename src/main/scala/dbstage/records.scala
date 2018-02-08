@@ -43,17 +43,25 @@ object CanAccess {
 
 @implicitNotFound("Type ${A} cannot be projected onto type ${B}")
 case class ProjectsOn[A,B](fun: A => B) extends (A => B) { def apply(a: A) = fun(a) }
+@embed
 object ProjectsOn extends ProjectLowPrio {
   //implicit object projectUnit extends Project[Any,Unit](_ => ())  // TODO make Project contravariant?
+  @phase('Sugar)
   implicit def projectUnit[T] = ProjectsOn[T,Unit](_ => ())
+  @phase('Sugar)
   implicit def projectLHS[A,B,T](implicit ev: A CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.lhs))
+  @phase('Sugar)
   implicit def projectRHS[A,B,T](implicit ev: B CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.rhs))
   //implicit def projectBoth[A,B,T](implicit evLHS: T Project A, evRHS: T Project B): T Project (A ~ B) = Project(t => evLHS(t) ~ evRHS(t))
 }
+@embed
 class ProjectLowPrio extends ProjectLowPrio2 {
+  @phase('Sugar)
   implicit def projectBoth[A,B,T](implicit evLHS: T ProjectsOn A, evRHS: T ProjectsOn B): T ProjectsOn (A ~ B) =
     ProjectsOn(t => evLHS(t) ~ evRHS(t))
 }
+@embed
 class ProjectLowPrio2 {
+  @phase('Sugar)
   implicit def projectT[T]: T ProjectsOn T = ProjectsOn(identity)
 }
