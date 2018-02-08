@@ -164,6 +164,7 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     // Note: no need for `if isPure(w)` since we're in ANF
     case code"($w:Wraps[$a,$b]).deapply((w:Wraps[a,b]).apply($x))" => x
     case code"($w:Wraps[$a,$b]).apply((w:Wraps[a,b]).deapply($x))" => x
+    case code"($w:Wraps[$a,$b]).instance" => w
       
     case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
     case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"

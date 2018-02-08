@@ -5,6 +5,8 @@ import scala.language.experimental.macros
 import scala.annotation.{StaticAnnotation, compileTimeOnly}
 import scala.reflect.macros.whitebox
 
+// TODO a `thinField` annot that expands into a type and an implicit companion object (upcasted to Wraps[A,B] so we get rid of Squid's explicit upcasting ascriptions in printed code)
+
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
 class field extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro fieldMacros.impl
@@ -60,10 +62,22 @@ object fieldMacros {
         //  ${mods.flags | CASE} class $name[..$tparams]($pname: $ptyp) extends ..$parents with _root_.dbstage.Field[$ptyp]
         //    implicit object builder extends _root_.dbstage.BuildField[$name] { def apply(a: $ptyp): $name = $tname(a) }
         //    implicit object wraps extends _root_.dbstage.Wraps[$name,$ptyp]($tname.apply,_.$pname)
+        //val gen = q"""
+        //  case class $name[..$tparams]($pname: $ptyp) extends ..$parents with _root_.dbstage.Field[$ptyp]  // TODO other mods...
+        //  object $tname {
+        //    implicit val wraps = _root_.dbstage.Wraps[$name,$ptyp]($tname.apply,_.$pname)
+        //  }
+        //"""
+        
+        // TODO check ptyp does not refer to tparams... or rm tparams (but they could be used as phantom types, or in `parents`)
+        // In fact, a more elaborate scheme could be used allowing for a parametrized parameter,
+        // whereby the companion object does not directly extend Wraps but some other type (with standard apply/deapply symbols)
+        // and that contains a (possibly polymorphic) def for the implicit Wraps instance
         val gen = q"""
-          case class $name[..$tparams]($pname: $ptyp) extends ..$parents with _root_.dbstage.Field[$ptyp]  // TODO other mods...
-          object $tname {
-            implicit val wraps = _root_.dbstage.Wraps[$name,$ptyp]($tname.apply,_.$pname)
+          abstract case class $name[..$tparams]($pname: $ptyp) extends ..$parents  // TODO propagate other mods...?
+          object $tname extends Wraps[$name,$ptyp] {
+            protected def applyImpl(v: $ptyp) = new $name(v){}
+            protected def deapplyImpl(x: $name) = x.$pname
           }
         """
         //println(s"Gen: ${showCode(gen)}")

@@ -42,6 +42,24 @@ case class Salary(value: Int) extends AnyVal with Field[Int]
 //@field class Age(value: Int)
 //@field case class Age(value: Int)
 
+
+//case class Age2(value: Int)
+////object Age2 extends Wraps[Age2,Int] { /*def apply(v:Int) = new Age2(v);*/ def deapply(x: Age2) = x.value }
+//object Age2 extends WrapsWith[Age2,Int](v => new Age2(v), x => x.value)
+
+/*
+abstract case class Age2(value: Int)
+object Age2 extends Wraps[Age2,Int] { def apply(v:Int) = new Age2(v){}; def deapply(x: Age2) = x.value }
+//object Age2 extends WrapsWith[Age2,Int](v => new Age2(v){}, x => x.value)
+abstract case class Name2(value: String)
+object Name2 extends Wraps[Name2,String] { def apply(v:String) = new Name2(v){}; def deapply(x: Name2) = x.value }
+*/
+
+abstract case class Age2(value: Int)
+object Age2 extends Wraps[Age2,Int] { protected def applyImpl(v:Int) = new Age2(v){}; protected def deapplyImpl(x: Age2) = x.value }
+abstract case class Name2(value: String)
+object Name2 extends Wraps[Name2,String] { protected def applyImpl(v:String) = new Name2(v){}; protected def deapplyImpl(x: Name2) = x.value }
+
 object RecordDefs {
   /*
   //@field type Age = Int
@@ -58,6 +76,7 @@ object RecordDefs {
     //implicit object comp extends CompanionOf
   }
   */
+  /*
   type Age2 <: Int
   //type Age2 <: Field[Int]
   //object Age2 extends (Int => Age2) { def apply(x:Int) = x.asInstanceOf[Age2] }
@@ -70,6 +89,7 @@ object RecordDefs {
   //implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x)
   implicit val Name2 = Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x)
   //implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x.asInstanceOf[String])
+  */
   
   type Person = Name ~ Age ~ Gender ~ Address
   type IdPerson = PersonId ~ Person

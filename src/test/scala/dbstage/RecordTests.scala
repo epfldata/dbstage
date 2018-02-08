@@ -25,6 +25,7 @@ class RecordTests extends FunSuite {
     //val a = Age2(123) ~ Name2("OK") ~ Address2("DTC")
     //val b: Age ~ Name2 ~ Address2 = 123 ~ "OK" ~ "DTC" // nope
     
+    
   }
   
   
@@ -46,11 +47,22 @@ class RecordEmbeddingTests extends FunSuite {
     //println(dbg_code"??? : Lol.T") // FIXME uses a TypeTag
     //println(dbg_code"??? : Lol.F[Int]")
     
-    val p = code{
-      Name("A") ~ Age(4) |+| Name("B") ~ Age(6)
-    } alsoApply println
-    //println(p.compile)
+    //val p = code{
+    //  Name("A") ~ Age(4) |+| Name("B") ~ Age(6)
+    //} alsoApply println
+    ////println(p.compile)
     
+    assert(code{Name("A") ~ Age(4) |+| Name(readLine) ~ Age(readInt)} =~= 
+           code{Name("A" + readLine) ~ Age(4 + readInt)})
+    
+    assert(code{Name(readDouble.toString) ~ Age(readDouble.toInt) |+| Name(readLine) ~ Age(readInt)} =~= 
+           code{ // effects order is maintained:
+             val rds = readDouble.toString
+             val rdi = readDouble.toInt
+             Name(rds + readLine) ~ Age(rdi + readInt)})
+    
+    assert(code{Name("A") ~ Age(4) |+| Name("B") ~ Age(6)} =~= 
+           code{Name("A" + ${Const("B")}) ~ Age(4 + ${Const(6)})})
     
   }
   
