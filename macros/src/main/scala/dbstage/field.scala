@@ -77,9 +77,9 @@ object fieldMacros {
         // and that contains a (possibly polymorphic) def for the implicit Wraps instance
         val gen = q"""
           abstract case class $name[..$tparams]($pname: $ptyp) extends ..$parents  // TODO propagate other mods...?
-          object $tname extends Wraps[$name,$ptyp] {
-            protected def applyImpl(v: $ptyp) = new $name(v){}
-            protected def deapplyImpl(x: $name) = x.$pname
+          final object $tname extends Wraps[$name,$ptyp] {
+            final protected def applyImpl(v: $ptyp) = new $name(v){}
+            final protected def deapplyImpl(x: $name) = x.$pname
           }
         """
         //println(s"Gen: ${showCode(gen)}")

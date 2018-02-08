@@ -6,6 +6,7 @@ import squid.anf.transfo.EqualityNormalizer
 import squid.anf.transfo.LogicFlowNormalizer
 import squid.anf.transfo.LogicNormalizer
 import squid.anf.transfo.OptionNormalizer
+import squid.anf.transfo.{FunctionNormalizer,EffectsNormalizer}
 import squid.anf.transfo.StandardNormalizer
 import squid.anf.transfo.VarFlattening
 import squid.ir.CrossStageAST
@@ -38,6 +39,9 @@ object Embedding
   //embed(PairUp)
   //embed(PairUpLowPriority)
   embed(EmbeddedDefs)
+  embed(CanAccess)
+  
+  override val bindEffects = true
   
   //import Predef._
   
@@ -47,6 +51,7 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[~.type]("apply")
   transparencyPropagatingMtds += methodSymbol[Any~Any]("lhs")
   transparencyPropagatingMtds += methodSymbol[Any~Any]("rhs")
+  transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
   
   object ClosedCode {
     def unapply[T,C](c:Code[T,C]): Option[ClosedCode[T]] = {
@@ -75,7 +80,9 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   //with StandardNormalizer 
   with LogicNormalizer
   with OptionNormalizer
+  with FunctionNormalizer
   with EqualityNormalizer
+  with EffectsNormalizer
   with CurryEncoding.ApplicationNormalizer
 {
   import base.Predef._
@@ -155,16 +162,24 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   */
   
   rewrite {
+      
     case code"dbstage.~[$lt,$rt]($l,$r).lhs" => l
     case code"dbstage.~[$lt,$rt]($l,$r).rhs" => r
     case code"recordSyntax[$at]($a).~[$bt]($b)" => code"dbstage.~($a,$b)"
     case code"dbstage.~.monoid[$at,$bt]($aev,$bev).combine($x,$y)" =>
       code"dbstage.~($aev.combine($x.lhs,$y.lhs), $bev.combine($x.rhs,$y.rhs))"
-    
+      
     // Note: no need for `if isPure(w)` since we're in ANF
     case code"($w:Wraps[$a,$b]).deapply((w:Wraps[a,b]).apply($x))" => x
     case code"($w:Wraps[$a,$b]).apply((w:Wraps[a,b]).deapply($x))" => x
     case code"($w:Wraps[$a,$b]).instance" => w
+      
+    case code"recordSyntax[$at]($a).apply[$f]($acc, $w: f Wraps $v)" => code"$w.instance.deapply($acc($a))"
+    case code"recordSyntax[$at]($a).apply[$f,$v]($w)($acc)" => code"$w.deapply($acc($a))"
+      
+    case code"CanAccess[$at,$rt]($f).fun" => f
+    case code"CanAccess[$at,$rt]($f).apply($x)" => code"$f($x)"
+    case code"(CanAccess[$at,$rt]($f):at=>rt)($x)" => code"$f($x)" // for when the apply symbol of Function1 is used
       
     case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
     case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"

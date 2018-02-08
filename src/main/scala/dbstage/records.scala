@@ -5,6 +5,7 @@ import squid.utils._
 import cats.Monoid
 import cats.syntax.all._
 import squid.lib.transparencyPropagating
+import squid.quasi.{embed,phase}
 
 case class ~[A,B](lhs: A, rhs: B) {
   override def toString: String = rhs match {
@@ -24,15 +25,19 @@ final class RecordSyntax[A](private val self: A) extends AnyVal {
   // TODO: a selectFirst that is left-biased; use in apply? -- and a selectLast; reformulate RecordAccess in terms of these two?
   def project[B](implicit ev: A ProjectsOn B): B = ev(self)
   //def apply[F](implicit access: CanAccess[A,F]): F#Typ = access(self).value
-  def apply[F](implicit accessF: CanAccess[A,F], ws: WrapsSome[F]): ws.Typ = apply(ws.w)
+  def apply[F](implicit accessF: CanAccess[A,F], ws: WrapsBase[F]): ws.Typ = apply(ws.instance)
   def apply[F,V](w: F Wraps V)(implicit accessF: A CanAccess F): V = accessF(self) |> w.deapply
 }
 
 @implicitNotFound("Type ${A} is not known to be accessible in ${R}")
 case class CanAccess[A,R](fun: A => R) extends (A => R) { def apply(a: A) = fun(a) } // TODO rem indirection; make abstract class?
+@embed
 object CanAccess {
+  @phase('Sugar)
   implicit def fromLHS[A,B,T](implicit ev: A CanAccess T): (A ~ B) CanAccess T = CanAccess(ev compose (_.lhs))
+  @phase('Sugar)
   implicit def fromRHS[A,B,T](implicit ev: B CanAccess T): (A ~ B) CanAccess T = CanAccess(ev compose (_.rhs))
+  @phase('Sugar)
   implicit def fromT[T]: T CanAccess T = CanAccess(identity)
 }
 
