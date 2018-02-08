@@ -7,6 +7,8 @@ import scala.reflect.macros.whitebox
 
 // TODO a `thinField` annot that expands into a type and an implicit companion object (upcasted to Wraps[A,B] so we get rid of Squid's explicit upcasting ascriptions in printed code)
 
+// TODO generalize to handle classes with several parameters, associated with WrapsN classes
+
 @compileTimeOnly("Enable macro paradise to expand macro annotations.")
 class field extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro fieldMacros.impl

@@ -23,8 +23,9 @@ final class RecordSyntax[A](private val self: A) extends AnyVal {
   def select[B](implicit ev: A CanAccess B): B = ev(self)
   // TODO: a selectFirst that is left-biased; use in apply? -- and a selectLast; reformulate RecordAccess in terms of these two?
   def project[B](implicit ev: A ProjectsOn B): B = ev(self)
-  def apply[F<:FieldBase](implicit access: CanAccess[A,F]): F#Typ = access(self).value
-  //def apply[F,T](implicit fo: F FieldOf T): T = fo(self).value
+  //def apply[F](implicit access: CanAccess[A,F]): F#Typ = access(self).value
+  def apply[F](implicit accessF: CanAccess[A,F], ws: WrapsSome[F]): ws.Typ = apply(ws.w)
+  def apply[F,V](w: F Wraps V)(implicit accessF: A CanAccess F): V = accessF(self) |> w.deapply
 }
 
 @implicitNotFound("Type ${A} is not known to be accessible in ${R}")
@@ -43,15 +44,10 @@ object ProjectsOn extends ProjectLowPrio {
   implicit def projectLHS[A,B,T](implicit ev: A CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.lhs))
   implicit def projectRHS[A,B,T](implicit ev: B CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.rhs))
   //implicit def projectBoth[A,B,T](implicit evLHS: T Project A, evRHS: T Project B): T Project (A ~ B) = Project(t => evLHS(t) ~ evRHS(t))
-  //implicit def projectT[T]: T Project T = Project(identity)
-  
-  //implicit def projectLHS[F<:FieldModule,T,R](implicit acc: Access[F,T], proj: Project[T,R]): Project[T,F::R] = {
-  //  import Record.RecordOps
-  //  Project(t => acc.field(t) :: proj.apply(t))
-  //}
 }
 class ProjectLowPrio extends ProjectLowPrio2 {
-  implicit def projectBoth[A,B,T](implicit evLHS: T ProjectsOn A, evRHS: T ProjectsOn B): T ProjectsOn (A ~ B) = ProjectsOn(t => evLHS(t) ~ evRHS(t))
+  implicit def projectBoth[A,B,T](implicit evLHS: T ProjectsOn A, evRHS: T ProjectsOn B): T ProjectsOn (A ~ B) =
+    ProjectsOn(t => evLHS(t) ~ evRHS(t))
 }
 class ProjectLowPrio2 {
   implicit def projectT[T]: T ProjectsOn T = ProjectsOn(identity)

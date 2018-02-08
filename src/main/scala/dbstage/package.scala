@@ -23,13 +23,6 @@ package object dbstage extends EmbeddedDefs {
   implicit def recordSyntax[A](self: A): RecordSyntax[A] = new RecordSyntax(self)
   
   
-  //import cats.syntax.all._
-  
-  //@transparencyPropagating
-  //implicit def monoidWrap[A,B](implicit ev: A Wraps B, m: Monoid[B]): Monoid[A] = {
-  //  Monoid.instance(ev.apply(Monoid[B].empty))((x,y) => ev.apply(ev.getValue(x) |+| ev.getValue(y)))
-  //}
-  
   import Embedding.Predef._
   
   def isPure(cde: OpenCode[Any]) = cde.rep.effect === SimpleEffect.Pure

@@ -3,93 +3,17 @@ package example
 
 import squid.utils._
 
-@field class PersonId(value: Int)
-@field class Name(value: String)
-@field class Age(value: Int)
-@field class Gender(value: Bool)
-@field class Address(value: String)
+@field class PersonId(v: Int)
+@field class Name(v: String)
+@field class Age(v: Int)
+@field class Gender(v: Bool)
+@field class Address(v: String)
 
-@field class JobId(value: Int)
-@field class JobTitle(value: String)
-@field class Salary(value: Int)
-
-case class Age3(value: Int) extends Field[Int]
-case class Name3(value: String) extends Field[String]
-
-//case class Age2(value: Int) extends Field[Int]
-//object Age2 extends (Int => Age2) {
-//  //implicit object comp extends CompanionOf
-//}
-
-/*
-case class PersonId(value: Int) extends AnyVal with Field[Int]
-case class Name(value: String) extends AnyVal with Field[String]
-case class Age(value: Int) extends AnyVal with Field[Int]
-case class Gender(value: Bool) extends AnyVal with Field[Bool]
-case class Address(value: String) extends AnyVal with Field[String]
-
-case class JobId(value: Int) extends AnyVal with Field[Int]
-case class JobTitle(value: String) extends AnyVal with Field[String]
-case class Salary(value: Int) extends AnyVal with Field[Int]
-*/
-
-//case class Age(value: Int) extends AnyVal with Field[Int]
-//object Age extends FieldModule[Age] {
-//  implicit object builder extends BuildField[Age] { def apply(a: Int): Age = Age(a) }
-//}
-//@field type Age = Int
-//@field class Age extends Int
-//@field class Age(value: Int)
-//@field case class Age(value: Int)
-
-
-//case class Age2(value: Int)
-////object Age2 extends Wraps[Age2,Int] { /*def apply(v:Int) = new Age2(v);*/ def deapply(x: Age2) = x.value }
-//object Age2 extends WrapsWith[Age2,Int](v => new Age2(v), x => x.value)
-
-/*
-abstract case class Age2(value: Int)
-object Age2 extends Wraps[Age2,Int] { def apply(v:Int) = new Age2(v){}; def deapply(x: Age2) = x.value }
-//object Age2 extends WrapsWith[Age2,Int](v => new Age2(v){}, x => x.value)
-abstract case class Name2(value: String)
-object Name2 extends Wraps[Name2,String] { def apply(v:String) = new Name2(v){}; def deapply(x: Name2) = x.value }
-*/
-
-abstract case class Age2(value: Int)
-object Age2 extends Wraps[Age2,Int] { protected def applyImpl(v:Int) = new Age2(v){}; protected def deapplyImpl(x: Age2) = x.value }
-abstract case class Name2(value: String)
-object Name2 extends Wraps[Name2,String] { protected def applyImpl(v:String) = new Name2(v){}; protected def deapplyImpl(x: Name2) = x.value }
+@field class JobId(v: Int)
+@field class JobTitle(v: String)
+@field class Salary(v: Int)
 
 object RecordDefs {
-  /*
-  //@field type Age = Int
-  case class Age2(value: Int) extends Field[Int]
-  implicit object Age2 extends (Int => Age2) {
-    //implicit object comp extends CompanionOf
-  }
-  case class Name2(value: String) extends Field[String]
-  implicit object Name2 extends (String => Name2) {
-    //implicit object comp extends CompanionOf
-  }
-  case class Address2(value: String) extends Field[String]
-  implicit object Address2 extends (String => Address2) {
-    //implicit object comp extends CompanionOf
-  }
-  */
-  /*
-  type Age2 <: Int
-  //type Age2 <: Field[Int]
-  //object Age2 extends (Int => Age2) { def apply(x:Int) = x.asInstanceOf[Age2] }
-  //implicit object Age2 extends Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x)
-  implicit val Age2 = Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x)
-  //implicit object Age2 extends Wraps[Age2,Int]((x:Int) => x.asInstanceOf[Age2], x => x.asInstanceOf[Int])
-  type Name2 <: String
-  //type Name2 <: Field[String]
-  //object Name2 extends (String => Name2) { def apply(x:String) = x.asInstanceOf[Name2] }
-  //implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x)
-  implicit val Name2 = Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x)
-  //implicit object Name2 extends Wraps[Name2,String]((x:String) => x.asInstanceOf[Name2], x => x.asInstanceOf[String])
-  */
   
   type Person = Name ~ Age ~ Gender ~ Address
   type IdPerson = PersonId ~ Person
