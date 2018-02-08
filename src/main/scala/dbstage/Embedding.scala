@@ -190,6 +190,9 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"ProjectsOn[$at,$rt]($f).apply($x)" => code"$f($x)"
     case code"(ProjectsOn[$at,$rt]($f):at=>rt)($x)" => code"$f($x)" // for when the apply symbol of Function1 is used
       
+    case code"RecordRead.read(Read.readWrapped[$ft,$vt]($w,$rdv)).read($sep)" =>
+      code"(str:String) => $w($rdv(str))"
+      
     case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
     case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"
       

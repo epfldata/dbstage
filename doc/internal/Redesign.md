@@ -55,5 +55,11 @@ the main annoyance is that we don't get a way to automatically attach implicits 
 
 
 
+# Push/Pull
+
+There's no need to have both capabilities in staged world;
+indeed, in staged world it is easy to _compile_ a `ClosedCode[Iterator[T]]` to an efficient loop,
+because the code fragment contains all the info that's needed to do the streamlining
+
 
 

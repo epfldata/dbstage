@@ -5,6 +5,8 @@ import squid.lib.transparencyPropagating
 
 package object dbstage extends EmbeddedDefs {
   
+  implicit def the[A <: AnyRef](implicit ev: A): ev.type = ev
+  
   implicit class MonoidHelper(m: Monoid.type) {
     def instance[A](_empty: A)(_combine: (A,A) => A): Monoid[A] = new Monoid[A] {
       def empty = _empty

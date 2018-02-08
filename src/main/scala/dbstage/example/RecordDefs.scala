@@ -1,17 +1,32 @@
 package dbstage
 package example
 
+import squid.quasi.embed
 import squid.utils._
 
 @field class PersonId(v: Int)
 @field class Name(v: String)
 @field class Age(v: Int)
-@field class Gender(v: Bool)
+//@field class Gender(v: Bool)
 @field class Address(v: String)
 
 @field class JobId(v: Int)
 @field class JobTitle(v: String)
 @field class Salary(v: Int)
+
+sealed abstract class Gender
+case object Male extends Gender
+case object Female extends Gender
+//@embed trait EmbeddedGenderDefs { }
+//object Gender extends (Gender Wraps Bool) with EmbeddedGenderDefs {
+object Gender extends (Gender Wraps Bool) {
+  protected def applyImpl(v: Bool) = if (v) Male else Female
+  protected def deapplyImpl(x: Gender) = x === Male
+  implicit object Read extends Read[Gender] { def apply(str: String) = str match {
+    case "M" => Male
+    case "F" => Female
+  }}
+}
 
 object RecordDefs {
   
