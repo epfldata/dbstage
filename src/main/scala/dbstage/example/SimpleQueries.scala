@@ -77,7 +77,23 @@ object SimpleQueries2 extends App {
   (
     for {
       p <- persons
-    } yield Min(p.select[Age]) ~ (Bag(p.project[PersonId ~ Name]).orderBy[PersonId] groupBy p[Age]).orderByKey
+    //} yield Min(p.select[Age]) ~ (Bag(p.project[PersonId ~ Name]).orderBy[PersonId] groupBy p[Age]).orderByKey
+    } yield Min(p.select[Age]) ~ (Bag(p.project[PersonId ~ Name]) orderBy p[PersonId] groupBy p[Age]).orderByKey
+  ) alsoApply println
+  
+  (
+    for {
+      male   <- persons where (_[Gender] == Male)
+      female <- persons where (_[Gender] == Female)
+    } yield Bag(male[Name] ~ female[Name]) orderBy (female[PersonId], male[PersonId])
+  ) alsoApply println
+  
+  (
+    for {
+      p <- persons
+      lastName <- Bag(p[Name].dropWhile(_ != ' ').tail)
+    //} yield Bag(lastName).unique
+    } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName  // TODO order by Count
   ) alsoApply println
   
   

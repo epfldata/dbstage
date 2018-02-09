@@ -21,6 +21,7 @@ object ~ {
 
 final class RecordSyntax[A](private val self: A) extends AnyVal {
   def ~ [B] (that: B) = new ~(self,that)
+  /** Note that when defined, this is equivalent to project; but project can additionally reorder fields */
   def select[B](implicit ev: A CanAccess B): B = ev(self)
   // TODO: a selectFirst that is left-biased; use in apply? -- and a selectLast; reformulate RecordAccess in terms of these two?
   def project[B](implicit ev: A ProjectsOn B): B = ev(self)

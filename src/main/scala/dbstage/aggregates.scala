@@ -58,14 +58,27 @@ object Min {
   def apply[T](t:T): ArgMin[T,Unit] = SomeMin(t,())
 }
 
+class Count(val n: Int) {
+  override def toString: String = s"Count(${n})"
+}
+object Count extends (Count Wraps Int) {
+  def apply(where: Bool = true): Count = Count(if (where) 1 else 0)
+  protected def applyImpl(v: Int) = new Count(v)
+  protected def deapplyImpl(x: Count) = x.n
+}
+
 
 // TODO make SortedBag<:Bag and add method `.having(condition)`
 // TODO actually, only have GroupedBag and possibly unit keys, and an optional ordering... encoded in the fact it wraps a TreeMap...
 
-case class Bag[A](xs: A*) {
+case class Bag[A](xs: A*) extends DataSource[A] {
+  
+  def iterator = xs.iterator
   
   //def orderBy[T:Ordering](implicit proj: A ProjectsOn T) = TreeMap(xs map (x => proj(x) -> x): _*)  // ugly: exposes a map where a sequence is expected
-  def orderBy[T:Ordering](implicit proj: A ProjectsOn T) = new SortedBag(TreeMap(xs map (x => proj(x) -> x): _*))
+  def orderByProject[T:Ordering](implicit proj: A ProjectsOn T) = new SortedBag(TreeMap(xs map (x => proj(x) -> x): _*))
+  def orderBy[T:Ordering](t: T) = new SortedBag(TreeMap(xs map (t -> _): _*))
+  def unique = Set(xs: _*)
   
   override def toString = s"{${xs mkString ", "}}"
 }
