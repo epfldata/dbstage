@@ -17,11 +17,17 @@ import squid.utils._
 sealed abstract class Gender
 case object Male extends Gender
 case object Female extends Gender
+
 //@embed trait EmbeddedGenderDefs { }
 //object Gender extends (Gender Wraps Bool) with EmbeddedGenderDefs {
-object Gender extends (Gender Wraps Bool) {
-  protected def applyImpl(v: Bool) = if (v) Male else Female
-  protected def deapplyImpl(x: Gender) = x === Male
+
+//object Gender extends (Gender Wraps Bool) {
+//  protected def applyImpl(v: Bool) = if (v) Male else Female
+//  protected def deapplyImpl(x: Gender) = x === Male
+object Gender extends (Gender Wraps Gender) {
+  protected def applyImpl(v: Gender) = v
+  protected def deapplyImpl(x: Gender) = x
+  
   implicit object Read extends Read[Gender] { def apply(str: String) = str match {
     case "M" => Male
     case "F" => Female
@@ -36,7 +42,7 @@ object RecordDefs {
   type IdJob = JobId ~ Job
   type HasJob = PersonId ~ JobId
   
-  val p = Name("Jo") ~ Age(42) ~ Gender(true) ~ Address("DTC")
+  val p = Name("Jo") ~ Age(42) ~ Gender(Male) ~ Address("DTC")
   val j = JobTitle("Researcher") ~ Salary(420) ~ Address("NYC")
   
   val recordSet = p ~ j

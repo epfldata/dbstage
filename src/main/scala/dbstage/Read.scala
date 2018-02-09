@@ -1,5 +1,6 @@
 package dbstage
 
+import Predef.{implicitly=>the,_}
 import squid.lib.transparencyPropagating
 import squid.lib.transparent
 import squid.utils._

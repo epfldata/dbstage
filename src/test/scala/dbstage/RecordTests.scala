@@ -77,10 +77,10 @@ class RecordEmbeddingTests extends FunSuite {
     
     assert(code"p(Age)" =~= code"Age.deapply(p.lhs.lhs.rhs)")
     
-    assert(code{ val a = Name("Jo") ~ Age(readInt) ~ Gender(true); a[Age] + a[Age] }
+    assert(code{ val a = Name("Jo") ~ Age(readInt) ~ Gender(Male); a[Age] + a[Age] }
        =~= code{ val r = readInt; r + r })
     
-    assert(code{ val a = Name(readLine) ~ Age(readInt) ~ Gender(true); a[Age] + (Address("DTC") ~ Age(1))[Age] }
+    assert(code{ val a = Name(readLine) ~ Age(readInt) ~ Gender(Male); a[Age] + (Address("DTC") ~ Age(1))[Age] }
        =~= code{ readLine; readInt + 1 })
     
   }

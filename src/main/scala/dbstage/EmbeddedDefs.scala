@@ -1,8 +1,11 @@
 package dbstage
 
-import squid.quasi.{embed,phase}
+import squid.quasi.{phase, embed}
 import cats.Monoid
 import cats.syntax.all._
+import squid.lib.transparencyPropagating
+
+import scala.collection.immutable.TreeMap
 
 @embed
 class EmbeddedDefs {
@@ -14,5 +17,21 @@ class EmbeddedDefs {
   implicit def monoidWrap[A,B](implicit ev: A Wraps B, m: Monoid[B]): Monoid[A] = {
     monoidInstance(ev(m.empty))((x,y) => ev(ev.deapply(x) |+| ev.deapply(y)))
   }
+  
+  @phase('Sugar)
+  implicit def orderingWrap[A,B](implicit ev: A Wraps B, ord: Ordering[B]): Ordering[A] = {
+    Ordering.by(ev.deapply)
+  }
+  
+  //import scala.collection.immutable.TreeMap  // FIXME handling of those in @embed'ed code
+  
+  @transparencyPropagating
+  implicit def monoidTreeMap[A:Ordering,B:Monoid]: Monoid[TreeMap[A,B]] = monoidInstance[TreeMap[A,B]](TreeMap.empty)((xs,ys) => xs ++ ys.map {
+    //case (k,v) =>  // Embedding Error: Unsupported feature
+    kv =>
+      val k = kv._1
+      val v = kv._2
+      k -> xs.get(k).fold(v)(Monoid[B].combine(v,_))
+  })
   
 }

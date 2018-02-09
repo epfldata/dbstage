@@ -43,6 +43,7 @@ object Embedding
   embed(ProjectsOn)
   embed(ProjectLowPrio)
   embed(ProjectLowPrio2)
+  embed(MonoidSyntax)
   
   override val bindEffects = true
   

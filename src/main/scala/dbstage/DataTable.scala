@@ -1,15 +1,29 @@
 package dbstage
 
+import Predef.{implicitly=>the,_}
 import squid.utils._
+import cats.Monoid
+import squid.lib.transparencyPropagating
 
 // TODO a type class for storage of non-bijective wrappers (ie: for which things like Monoid's wrapper instance don't make sense)
 
-trait DataSource[Row] {
+trait DataSource[Row] { self =>
   
   // TODO:
   //def materialize[M:Materalizer[Row]]
   
   def iterator: Iterator[Row]
+  
+  @transparencyPropagating
+  def map[B:Monoid](f: Row => B): B = flatMap(f)
+  
+  @transparencyPropagating
+  def flatMap[B:Monoid](f: Row => B): B = iterator.map(f).fold(Monoid[B].empty)(Monoid[B].combine)
+  
+  @transparencyPropagating
+  def withFilter(pred: Row => Bool): DataSource[Row] = new DataSource[Row] { def iterator = self.iterator.filter(pred) }
+  @transparencyPropagating
+  def where(pred: Row => Bool): DataSource[Row] = withFilter(pred)
   
 }
 

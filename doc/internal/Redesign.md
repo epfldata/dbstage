@@ -62,4 +62,9 @@ indeed, in staged world it is easy to _compile_ a `ClosedCode[Iterator[T]]` to a
 because the code fragment contains all the info that's needed to do the streamlining
 
 
+# Queries Interface
+
+It is not actually necessary that the yielded expression of a for-comprehension be a Monoid –
+it is sufficient that it be a Magma with an associated Zero/Identity element;
+unfortunately, neither Cats nor Scalaz has a type class for that.
 
