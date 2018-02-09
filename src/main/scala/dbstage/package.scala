@@ -6,8 +6,7 @@ import scala.language.implicitConversions
 
 package object dbstage extends EmbeddedDefs {
   
-  //implicit def the[A <: AnyRef](implicit ev: A): ev.type = ev
-  // ^ this seems to let all hell break loose (but for some reason the one from shapeless worked)
+  def the[A <: AnyRef](implicit ev: A): ev.type = ev
   
   implicit class MonoidHelper(m: Monoid.type) {
     def instance[A](_empty: A)(_combine: (A,A) => A): Monoid[A] = new Monoid[A] {

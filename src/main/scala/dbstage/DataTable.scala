@@ -1,6 +1,5 @@
 package dbstage
 
-import Predef.{implicitly=>the,_}
 import squid.utils._
 import cats.Monoid
 import squid.lib.transparencyPropagating
