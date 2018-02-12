@@ -68,3 +68,9 @@ It is not actually necessary that the yielded expression of a for-comprehension 
 it is sufficient that it be a Magma with an associated Zero/Identity element;
 unfortunately, neither Cats nor Scalaz has a type class for that.
 
+
+# TODO
+
+Implement different strategies for automatic parallelization
+
+

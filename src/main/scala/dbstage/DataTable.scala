@@ -6,7 +6,7 @@ import squid.lib.transparencyPropagating
 
 // TODO a type class for storage of non-bijective wrappers (ie: for which things like Monoid's wrapper instance don't make sense)
 
-trait DataSource[Row] { self =>
+trait DataSource[+Row] { self =>
   
   // TODO:
   //def materialize[M:Materalizer[Row]]
@@ -20,9 +20,11 @@ trait DataSource[Row] { self =>
   def flatMap[B:Monoid](f: Row => B): B = iterator.map(f).fold(Monoid[B].empty)(Monoid[B].combine)
   
   @transparencyPropagating
-  def withFilter(pred: Row => Bool): DataSource[Row] = new DataSource[Row] { def iterator = self.iterator.filter(pred) }
+  def filter(pred: Row => Bool): DataSource[Row] = new DataSource[Row] { def iterator = self.iterator.filter(pred) }
   @transparencyPropagating
-  def where(pred: Row => Bool): DataSource[Row] = withFilter(pred)
+  def withFilter(pred: Row => Bool): DataSource[Row] = filter(pred)
+  @transparencyPropagating
+  def where(pred: Row => Bool): DataSource[Row] = filter(pred)
   
 }
 

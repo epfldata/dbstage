@@ -78,8 +78,60 @@ object SimpleQueries2 extends App {
     for {
       p <- persons
     //} yield Min(p.select[Age]) ~ (Bag(p.project[PersonId ~ Name]).orderBy[PersonId] groupBy p[Age]).orderByKey
-    } yield Min(p.select[Age]) ~ (Bag(p.project[PersonId ~ Name]) orderBy p[PersonId] groupBy p[Age]).orderByKey
+    } yield Min(p.select[Age]) ~ (Bag(p.project[PersonId ~ Name]) orderBy p[PersonId] groupBy p[Age]).orderByGroupKey
   ) alsoApply println
+  
+  (
+    for {
+      male   <- persons where (_[Gender] == Male)
+      female <- persons where (_[Gender] == Female)
+    } yield Bag(male[Name] ~ female[Name]) orderBy (female[PersonId], male[PersonId])
+  ) alsoApply println
+  
+  
+  
+  //(
+  //  for {
+  //    p <- persons
+  //    lastName <- Bag(p[Name].dropWhile(_ != ' ').tail)
+  //  //} yield Bag(lastName).distinct
+  //  } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName  // TODO order by Count
+  //) alsoApply println
+  (
+    for {
+      p <- persons
+      lastName <- Bag(p[Name].dropWhile(_ != ' ').tail)
+    //} yield Bag(lastName).distinct
+    } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName  // TODO order by Count
+  ) alsoApply println
+  
+  // TODO: using a nested query:
+  /*
+  (
+    for {
+      (lname, info) <- for {
+        p <- persons
+        lastName <- Bag(p[Name].dropWhile(_ != ' ').tail)
+      } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName
+    //} yield Bag(info) orderBy lname   // FIXME doesn't work!
+    //} yield Bag(info) orderBy info[Count] //descending   // FIXME doesn't work!
+    } yield (Bag(info) orderBy info[Count]:SortedBag[Count~Bag[Name ~ Age],Int]) //descending   // FIXME doesn't work!
+  ) alsoApply println
+  */
+  
+  //import scala.collection.immutable.TreeMap
+  //import cats.implicits._
+  //import cats.instances.map.catsKernelStdMonoidForMap
+  //println(TreeMap(4->5,1 -> 2) ++ TreeMap(6->7,1 -> 3))
+  //println(TreeMap(4->5,1 -> 2) |+| TreeMap(6->7,1 -> 3))
+  //TreeMap(4->5,1 -> 2).foldLeft()
+  //println(TreeMap(1 -> 1).updated(2, 2).updated(0, 0).updated(3, 3).getClass)
+  
+  
+}
+
+object SimpleQueries3 extends App {
+  val persons = new InputFile[IdPerson]("data/Persons.csv")
   
   (
     for {
@@ -92,10 +144,34 @@ object SimpleQueries2 extends App {
     for {
       p <- persons
       lastName <- Bag(p[Name].dropWhile(_ != ' ').tail)
-    //} yield Bag(lastName).unique
-    } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName  // TODO order by Count
+    //} yield Bag(lastName).distinct
+    //} yield Count() ~ Bag2(p.project[Name ~ Age]) groupBy2 lastName orderingBy (_[Count]) // TODO descending
+    } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName orderBy (_[Count]) descending() limit 3
   ) alsoApply println
   
+  // TODO having (_[Count] > 1); aka persistent filter (also make filter itself persistent?)
+  // TODO orderingBy on Bag2
+  // TODO limit?
+  
+  //println(the[Ordering[Unit]])
+  //println(implicitly[Ordering[Unit]] == implicitly[Ordering[Unit]]) // false when using cat's instance...
+  
+  
+  (
+    for {
+      p <- persons
+    } yield Bag(p) orderBy p[Name]
+  ) alsoApply println
+  
+  (
+    for {
+      p <- persons
+    } yield Bag(p[Name] ~ p[Age]) orderBy p[Age] limit 7
+  ) alsoApply println
+  
+  
+  
+  //println(implicitly[Monoid[Gender]])
   
   
 }

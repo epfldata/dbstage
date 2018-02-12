@@ -22,9 +22,6 @@ package object dbstage extends EmbeddedDefs {
   @transparencyPropagating
   implicit def monoidSyntax[A:Monoid](self: A): MonoidSyntax[A] = new MonoidSyntax(self)
   
-  @transparencyPropagating
-  implicit def mapSyntax[A,B](self: Map[A,B]): MapSyntax[A,B] = new MapSyntax(self)
-  
   
   @transparencyPropagating
   implicit def recordSyntax[A](self: A): RecordSyntax[A] = new RecordSyntax(self)
