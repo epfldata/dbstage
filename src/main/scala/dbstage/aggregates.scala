@@ -5,6 +5,7 @@ import cats.{Semigroup, Monoid}
 import cats.syntax.semigroup._
 import cats.instances.unit._
 import cats.instances.map._
+import squid.lib.transparencyPropagating
 import squid.quasi.{phase, embed}
 
 import scala.collection.immutable.SortedMap
@@ -30,6 +31,7 @@ case class SomeMin[T,A](res: T, a: A) extends ArgMin[T,A] {
 }
 case object NoMin extends ArgMin[Nothing,Nothing]
 object ArgMin {
+  @transparencyPropagating
   implicit def monoid[T:Ordering,A:Semigroup]: Monoid[ArgMin[T,A]] =
     Monoid.instance(NoMin:ArgMin[T,A]){ (x, y) =>
       x -> y match {

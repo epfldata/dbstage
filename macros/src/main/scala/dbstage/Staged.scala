@@ -26,11 +26,12 @@ object Staged {
     val sqd = q"_root_.squid"
     //q"new $dbs.Staged[$T] { def embedded(base: $sqd.lang.Base with $sqd.lang.CrossStageEnabled) = ??? }"
     val paramName = TermName(c.freshName("base"))
+    val isDebug = c.macroApplication.symbol.name.toString == "dbg"
     q"""new $dbs.Staged[$T] {
       def embedded($paramName: $sqd.lang.Base with $sqd.lang.CrossStageEnabled) = {
         import $paramName.Predef._
         import $paramName.Quasicodes._
-        code{$cde}
+        ${if (isDebug) q"dbg_code" else q"code"}{$cde}
       }
       def plain = $cde
     }"""
@@ -40,5 +41,6 @@ object Staged {
   
   import scala.language.implicitConversions
   implicit def apply[T](cde: T): Staged[T] = macro stageImpl[T]
+  def dbg[T](cde: T): Staged[T] = macro stageImpl[T]
   
 }

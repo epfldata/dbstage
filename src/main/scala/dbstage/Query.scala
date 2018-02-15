@@ -20,6 +20,9 @@ sealed abstract class Query[T:CodeType,-C] {
       code"() => $cde"
     case wq: WrappedQuery[T,C] =>
       die
+    case wc: WithComputation[T,C] =>
+      val v: wc.v.type = wc.v
+      code"() => { val ${v} = ${wc.computation}; ${wc.query.naivePlan}() }"
   }
 }
 
@@ -35,8 +38,10 @@ case class StagedSource[T:CodeType,C](ds: DataSource[T], cde: ClosedCode[DataSou
   def iterateCode = ds match {
     case ds: StagedDataSource[T] => ds.stagedIterator
     case _ => 
-      val it = ds.iterator
-      code"it"
+      //val it = ds.iterator
+      //code"it"
+      val d = ds
+      code"d.iterator"
   }
   
   override def toString: String = s"${cde map show getOrElse ds}" + pred.fold("")(" % " concat _ |> show)
@@ -58,7 +63,7 @@ abstract class FlatMap[A:CodeType,B:CodeType,C](val src: StagedSource[A,C], val 
     }) k(${query.naivePlan}()) } }"
   }
   
-  override def toString = s"FlatMap ($mon)\n${indentString(s"${v.rep|>base.showRep} = $src")}\n${indentString(query.toString)}"
+  override def toString = s"FlatMap ($mon)\n${indentString(s"${v.rep|>base.showRep} <- $src")}\n${indentString(query.toString)}"
 }
 object FlatMap {
   def build[A:CodeType,B:CodeType,C](x: Variable[A])(src: StagedSource[A,C], qu: Query[B,C & x.Ctx], mon: StagedMonoid[B,C]): FlatMap[A,B,C] { val v: x.type } =
@@ -71,6 +76,14 @@ object FlatMap {
   //}
   def unapply[A,B,C](fmw: FlatMap[A,B,C]): Some[(StagedSource[A,C], fmw.v.type,Query[B, C & fmw.v.Ctx])] =
     Some(fmw.src,fmw.v,fmw.query)
+}
+
+abstract class WithComputation[T:CodeType,C] extends Query[T,C] {
+  type V
+  val v: Variable[V]
+  val computation: Code[V,C]
+  val query: Query[T, C & v.Ctx]
+  override def toString = s"${v.rep|>base.showRep} = $computation\n$query"
 }
 
 case class Produce[T:CodeType,C](r: Code[T,C]) extends Query[T,C]
@@ -101,25 +114,27 @@ sealed abstract class StagedMonoid[T:CodeType,C] {
 
 import squid.lib.MutVar
 
-case class RawStagedMonoid[T:CodeType,C](cde: Code[Monoid[T],C]) extends StagedMonoid[T,C] {
-  
-  type Rep = MutVar[T]
-  //val Rep = the[CodeType[T]]
-  val Rep = codeTypeOf[MutVar[T]]
-  val init = ???
-  val update = ???
-  val get = ???
-  
+case class RawStagedMonoid[T:CodeType,C](cde: Code[Monoid[T],C]) 
+  extends VariableBasedStagedMonoid[T,C](code"$cde.empty", code"$cde.combine _") 
+{
   override def toString = show(cde)
 }
-case object IntMonoid extends StagedMonoid[Int,Any] {
+class VariableBasedStagedMonoid[T:CodeType,C](zero: Code[T,C], combine: Code[(T,T)=>T,C]) extends StagedMonoid[T,C] {
   
-  type Rep = Int |> MutVar
-  val Rep = codeTypeOf[MutVar[Int]]
-  val init = code"MutVar(0)"
-  val update = code"(r:Rep,n:Int) => r := r.! + n"
+  type Rep = MutVar[T]
+  val Rep = codeTypeOf[MutVar[T]]
+  val init = code"MutVar($zero)"
+  val update = code"(r:Rep,n:T) => r := $combine(r.!, n)"
   val get = code"(r:Rep) => r.!"
   
+  override def toString = s"Monoid(${show(zero)}, ${show(combine)})"
 }
+case object IntMonoid extends VariableBasedStagedMonoid(code"0", code"(_:Int)+(_:Int)")
+
+case class ArgMinMonoid[T:CodeType,S:CodeType,C](ord: Code[Ordering[T],C], sg: Code[cats.Semigroup[S],C])
+  extends VariableBasedStagedMonoid[ArgMin[T,S],C](code"NoMin", 
+    //code"???"
+    code"ArgMin.monoid[T,S]($ord,$sg).combine _"  // (stupid)
+  )
 
 

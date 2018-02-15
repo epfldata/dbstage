@@ -7,6 +7,8 @@ import Embedding.ClosedCode
 
 object QueryCompiler {
   
+  // TOOD: make all operators wrap the result into some Query data type; warn when only partially lifting queries
+  
   def compile[T:CodeType](cde: ClosedCode[T]) = {
     val q = lift(cde)
     println(s"Query:\n$q")
@@ -27,6 +29,18 @@ object QueryCompiler {
         FlatMap.build(x)(liftSource(qs),lift(body),liftMonoid(ev))
       case code"($qs:DataSource[$ta]).flatMap[T]($f)($ev)" =>
         die
+      case code"$effect; $body:T" => new WithComputation[T,C] {
+        type V = Unit
+        val v = new Variable[Unit]{ type Ctx = Any } // Note: unsafe usage of Variable type!
+        val computation = code"$effect; ()"
+        val query = lift(body)
+      }
+      case code"val $x: $xt = $xv; $body:T" => new WithComputation[T,C] {
+        type V = xt.Typ
+        val v: x.type = x
+        val computation = xv
+        val query = lift(body)
+      }
       case els => Produce(els)
     }
     //???
@@ -53,6 +67,9 @@ object QueryCompiler {
     //case code"cats.instances.all.catsKernelStdGroupForInt" => IntMonoid
     case code"($_:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt" =>
       IntMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
+    case code"ArgMin.monoid[$tt,$ta]($tord,$asem)" =>
+      ArgMinMonoid(tord,asem)
+          .asInstanceOf[StagedMonoid[S,C]] // FIXME
     case _ => RawStagedMonoid(cde)
   }
   

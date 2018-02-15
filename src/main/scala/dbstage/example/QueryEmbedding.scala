@@ -8,7 +8,12 @@ import scala.util.Try
 import scala.util.control.NonFatal
 //import RecordDefs._
 import Embedding.Predef._
-import cats.instances.all._
+//import cats.instances.all._
+import cats.instances.all.{
+  catsKernelOrderingForOrder=>_,
+  catsKernelStdAlgebraForUnit => _,
+  // ^ exposes: Unsupported feature: Refinement type 'cats.kernel.BoundedSemilattice[Unit] with cats.kernel.CommutativeGroup[Unit]'
+  _}
 //import scala.math.Ordering.Int
 import cats.Monoid
 import Gender.Read
@@ -106,7 +111,7 @@ object QueryEmbedding extends App {
   
   println(exec())
   
-  val N = 10000
+  val N = 100
   
   for (_ <- 1 to 5) {
     time(N)(t => println(s"Plain : $t ms"))(sq.plain)  alsoApply println
@@ -119,3 +124,26 @@ object QueryEmbedding extends App {
   
   
 }
+
+object QueryEmbedding2 extends App {
+  
+  val sq = Staged/*.dbg*/ { //() =>
+    
+    for {
+      male   <- persons where (_[Gender] == Male)
+      female <- persons where (_[Gender] == Female)
+    } yield Min(math.abs(male[Age] - female[Age]),0)
+    
+  }
+  
+  val cq = QueryEmbedding.compileQuery(sq)
+  
+  println(cq.compile.apply())
+  println(sq.plain)
+  
+  
+  
+  
+}
+
+
