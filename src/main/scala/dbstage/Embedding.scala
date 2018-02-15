@@ -44,13 +44,18 @@ object Embedding
   embed(ProjectLowPrio)
   embed(ProjectLowPrio2)
   embed(MonoidSyntax)
+  embed(Read)
+  embed(RecordRead)
+  embed(RecordReadLowPrio)
   
-  override val bindEffects = true
+  //override val bindEffects = true  // FIXME causes SOF
   
   //import Predef._
   
   //def pipeline = OnlineRewritings.pipeline
   def pipeline = OnlineTransformations.pipeline
+  
+  //transparencyPropagatingMtds += methodSymbol[Iterator[Any]]("map") // nah good without scheduling! and wrong anyway, as Iterator is stateful...
   
   transparencyPropagatingMtds += methodSymbol[~.type]("apply")
   transparencyPropagatingMtds += methodSymbol[Any~Any]("lhs")
@@ -58,6 +63,15 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
   transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
   
+  transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
+  // does not seem to work:
+  transparentMtds += loadMtdSymbol(loadTypSymbol("java.lang.Integer"), "parseInt", None, true) //alsoApply println
+  
+  //transparentTyps += typeSymbol[RecordRead.type]
+  //transparentTyps += typeSymbol[RecordRead[Any]]
+  
+  
+  // TODO move to Squid
   object ClosedCode {
     def unapply[T,C](c:Code[T,C]): Option[ClosedCode[T]] = {
       Code(c.rep) optionIf c.rep.dfn.unboundVals.isEmpty
@@ -112,8 +126,22 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._5" => x4
   }
   
+  rewrite {
+    case code"the[$t where (t <:< AnyRef)]($x:t)" => x
+    case code"squid.utils.GenHelper[$t]($x).|>[$s]($f)" => code"$f($x)"
+  }
   
-  // For Record stuff:
+  rewrite {
+    case code"val $ite = ($it:Iterator[$ta]).map[$tb]($f); $body: $bt" =>
+      val body0 = body rewrite {
+        case code"$$ite.hasNext" => code"$it.hasNext"
+        case code"$$ite.next" => code"$f($it.next)"
+      }
+      ite.substitute[bt.Typ, ite.OuterCtx](body0, Abort())
+  }
+  
+  
+  // For Record stuff and type classes:
   
   /*
   val FieldBase_monoid = base.loadMtdSymbol(base.loadTypSymbol("dbstage.FieldBase$"), "monoid")
@@ -191,8 +219,14 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"ProjectsOn[$at,$rt]($f).apply($x)" => code"$f($x)"
     case code"(ProjectsOn[$at,$rt]($f):at=>rt)($x)" => code"$f($x)" // for when the apply symbol of Function1 is used
       
-    case code"RecordRead.read(Read.readWrapped[$ft,$vt]($w,$rdv)).read($sep)" =>
-      code"(str:String) => $w($rdv(str))"
+    //case code"RecordRead.read(Read.readWrapped[$ft,$vt]($w,$rdv)).read($sep)" =>
+    //  code"(str:String) => $w($rdv(str))"
+    //case code"RecordRead.readLHS[$ta,$tb]($ra,$rrb).read($sep)" =>
+    case code"Read.instance[$ta]($f).apply($str)" => code"$f($str)"
+    //case code"($rr:RecordRead[$rrt]).read($sep)" => code"(str: String) => splitString(str)"
+    case code"RecordRead.instance[$ta]($f).apply($ite)" => code"$f($ite)"
+      
+    case code"augmentString($str).toInt" => code"java.lang.Integer.parseInt($str)"
       
     case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
     case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"

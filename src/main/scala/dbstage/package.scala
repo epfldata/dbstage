@@ -31,5 +31,35 @@ package object dbstage extends EmbeddedDefs {
   
   def isPure(cde: OpenCode[Any]) = cde.rep.effect === SimpleEffect.Pure
   
+  def show(cde: OpenCode[Any]) = cde.rep|>base.showRep
+  
+  
+  def indentString(str: String) = {
+    val lines = str.splitSane('\n')
+    val pre = "| "
+    lines map (Debug.GREY + pre + Console.RESET + _) mkString "\n"
+  }
+  
+  //def consumeString(str: String, untilSep: Char): String = str.takeWhile(_ != untilSep)
+  
+  //def parseInt(str: String): Int = str.readInt
+  
+  def splitString(str: String, sep: Char): Iterator[String] = str.splitSane(sep).iterator
+  
+  
+  
+  
+  def time[R](n: Int)(ktime: Long => Unit)(mkResult: => R): R = {  
+    val t0 = System.nanoTime()
+    val result = mkResult
+    var i = 1
+    while(i < n) {
+      i += 1
+      mkResult
+    }
+    val t1 = System.nanoTime()
+    ktime((t1 - t0)/1000/1000)
+    result
+  }
   
 }

@@ -174,4 +174,10 @@ object SimpleQueries3 extends App {
   //println(implicitly[Monoid[Gender]])
   
   
+  // NOTE: don't yet have a good way to do:
+  //   ORDER BY Country ASC, CustomerName DESC;
+  
+  // NOTE: outer [left|right]joins can probably be emulated by just adding a null/None value to the head of a joined data source... which is incidentally much clearer semantically
+  
+  
 }

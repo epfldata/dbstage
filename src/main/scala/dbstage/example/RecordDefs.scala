@@ -34,7 +34,8 @@ object Gender extends (Gender Wraps Gender) {
   }}
 }
 
-object RecordDefs {
+object RecordDefs extends RecordDefs
+class RecordDefs {
   
   type Person = Name ~ Age ~ Gender ~ Address
   type IdPerson = PersonId ~ Person

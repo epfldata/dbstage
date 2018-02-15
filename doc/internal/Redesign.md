@@ -74,3 +74,12 @@ unfortunately, neither Cats nor Scalaz has a type class for that.
 Implement different strategies for automatic parallelization
 
 
+
+Implement advanced multi-staging: given a filtered query source, always compile and execute it to retrive the first, say, 64 elements,
+gathering information about that source (its number of elements and their nature or whether it has more than 64),
+allowing for more informed query compilation decisions.  
+This could be enormously beneficial for cases where we have small collections with a few different values
+
+
+
+

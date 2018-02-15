@@ -36,12 +36,19 @@ trait DataTable[Row] extends DataSource[Row] {
 class InputFile[Row:RecordRead](fileName: String)(implicit codec: scala.io.Codec, sep: Separator) extends DataSource[Row] {
   def sepChr = sep.chr
   
-  def iterator: Iterator[Row] = scala.io.Source.fromFile(fileName).getLines.map(the[RecordRead[Row]].read(sepChr))
+  //def iterator: Iterator[Row] = scala.io.Source.fromFile(fileName).getLines.map(the[RecordRead[Row]].read(sepChr))
+  lazy val bufSrc = scala.io.Source.fromFile(fileName).getLines.toBuffer
+  def iterator: Iterator[Row] = {
+    //bufSrc.reset()
+    //bufSrc.reset().getLines.map(the[RecordRead[Row]].read(sepChr))
+    bufSrc.iterator.map(the[RecordRead[Row]].read(sepChr))
+  }
 }
 
 import Embedding.Predef._
 
-trait StagedDataSource[Row] {
+//trait StagedDataSource[Row] {
+trait StagedDataSource[+Row] extends DataSource[Row] {
   def stagedIterator: ClosedCode[Row |> Iterator]
 }
 
@@ -49,16 +56,31 @@ class StagedInputFile[Row:RecordRead:CodeType](fileName: String)(implicit sread:
 extends InputFile[Row](fileName) with StagedDataSource[Row]
 {
   
+  //def stagedIterator = {
+  //  val readCode = the[Staged[RecordRead[Row]]].embedded(Embedding)
+  //  
+  //  // TODO fix Squid so this is not necessary:
+  //  val fileName_ = fileName
+  //  val sepChr_ = sepChr
+  //  val codec_ = codec
+  //  
+  //  code"""
+  //    scala.io.Source.fromFile(fileName_)(codec_).getLines.map($readCode.read(sepChr_))
+  //  """
+  //}
+  
+  //val openFile = scala.io.Source.fromFile(fileName)
+  
   def stagedIterator = {
     val readCode = the[Staged[RecordRead[Row]]].embedded(Embedding)
     
     // TODO fix Squid so this is not necessary:
-    val fileName_ = fileName
+    val bufSrc_ = bufSrc
     val sepChr_ = sepChr
-    val codec_ = codec
     
+    // bufSrc_.reset().getLines.map($readCode.read(sepChr_))
     code"""
-      scala.io.Source.fromFile(fileName_)(codec_).getLines.map($readCode.read(sepChr_))
+      bufSrc_.iterator.map($readCode.read(sepChr_))
     """
   }
   
