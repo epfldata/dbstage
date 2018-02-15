@@ -17,6 +17,13 @@ class MonoidSyntax[A](private val self: A)(implicit mon: A |> Monoid) {
   def pairWith[B](f: A => B) = self ~ f(self)
   @phase('Sugar)
   def whereMin[T:Ordering](t:T): ArgMin[T,A] = ???
+  //@phase('Sugar)
+  //def groupBy[B](that: B) = GroupedBag(Map(that -> self),None,None,None,None)
+  //@phase('Sugar)
+  //def groupByAndSelect[B](that: B) = GroupedBag(Map(that -> that ~ self),None,None,None,None)
+}
+@embed
+class SemigroupSyntax[A](private val self: A)(implicit sem: A |> Semigroup) {
   @phase('Sugar)
   def groupBy[B](that: B) = GroupedBag(Map(that -> self),None,None,None,None)
 }
@@ -83,13 +90,18 @@ case class Bag[A](it: Iterable[A], pred: Option[A => Bool], lim: Option[Int]) ex
   def distinct = ??? // TODOdef distinct = Set(xs: _*)
   
   def limit(n: Int) = copy(lim = Some(lim.fold(n)(_ min n)))
+  def head = iterator.next
   
   override def filter(p: A => Bool): Bag[A] = copy(pred = Some(pred.fold(p)(pred => x => pred(x) && p(x))))
   override def where(p: A => Bool): Bag[A] = filter(p)
   
+  def isEmpty = iterator.isEmpty
+  def nonEmpty = !isEmpty
+  
   override def toString = s"{ ${iterator mkString "; "} }"
 }
 object Bag {
+  @transparencyPropagating
   def apply[A](a: A): Bag[A] = Bag(a::Nil,None,None)
   implicit def monoidBag[A]: Monoid[Bag[A]] =
     Monoid.instance(Bag[A](Nil,None,None)) {
@@ -128,6 +140,14 @@ case class GroupedBag[K,A](toMap: Map[K,A], pred: Option[A => Bool], app: Option
       lim.fold(it2)(it2.take)
     }
   }
+  def withKey () = projectingKey[K]
+  def projectingKey[K0]()(implicit ev: K ProjectsOn K0): GroupedBag[K,Key[K]~A] =
+    GroupedBag[K,Key[K]~A](
+      toMap.map{case k->v=>k->(Key(k)~v)}, 
+      pred.map(_ compose (_.rhs)), 
+      app.map(f => {case k ~ v => k ~ f(v)}), 
+      postOrd.map(implicit oa => Ordering.by(_.rhs)), 
+      lim)
   override def filter(p: A => Bool): GroupedBag[K,A] = copy(pred = Some(pred.fold(p)(pred => x => pred(x) && p(x))))
   override def where(p: A => Bool): GroupedBag[K,A] = filter(p)
   def applying(f: A => A) = copy(app = Some(app.fold(f)(_ andThen f)))
@@ -136,11 +156,11 @@ case class GroupedBag[K,A](toMap: Map[K,A], pred: Option[A => Bool], app: Option
   def limit(n: Int) = copy(lim = Some(lim.fold(n)(_ min n)))
   def descending() = copy(postOrd = postOrd.map(_.reverse))
   // ^ TODO restrict: only available if some Sorted boolean type parameter is True
-  override def toString = if (toMap.isInstanceOf[SortedMap[_,_]] || postOrd.isDefined) s"[ ${iterator mkString ", "} ]" else super.toString
+  override def toString = if (toMap.isInstanceOf[SortedMap[_,_]] || postOrd.isDefined) s"[ ${iterator mkString ", "} ]" else s"{ ${iterator mkString "; "} }"
 }
 object GroupedBag {
   def empty[K,A] = GroupedBag[K,A](Map.empty,None,None,None,None)
-  implicit def monoidGroups[K,A:Monoid]: Monoid[GroupedBag[K,A]] =
+  implicit def monoidGroupedBag[K,A:Semigroup]: Monoid[GroupedBag[K,A]] =
     Monoid.instance(empty[K,A]) {
       case GroupedBag(it0,p0,a0,o0,l0) -> GroupedBag(it1,p1,a1,o1,l1) =>
         GroupedBag(if (it1.isInstanceOf[SortedMap[K,A]]) it1 |+| it0 else it0 |+| it1, // tries to preserve a possible existing 'sortedness' of the merged maps
@@ -148,4 +168,14 @@ object GroupedBag {
     }
 }
 
-
+//@field class Key[T](value: T)
+case class Key[T](value: T)
+object Key { // it's actually not wanted to have `Key[T] Wraps T`, as it would expose unwanted semantics based on T
+  //implicit def wraps[T]: (Key[T] Wraps T) = new (Key[T] Wraps T) {
+  //  def applyImpl(v: T) = Key(v)
+  //  def deapplyImpl(x: Key[T]) = x.value
+  //}
+  implicit def semigroupKey[T]: Semigroup[Key[T]] = Semigroup.instance((a,b) => require(a == b) thenReturn a)
+  //implicit def monoidKey[T]: Monoid[Key[T]] = forget it, not wanted!
+  implicit def ordKey[T:Ordering]: Ordering[Key[T]] = Ordering.by(_.value)
+}

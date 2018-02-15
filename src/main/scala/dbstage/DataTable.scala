@@ -28,6 +28,10 @@ trait DataSource[+Row] { self =>
   @transparencyPropagating
   def where(pred: Row => Bool): DataSource[Row] = filter(pred)
   
+  // TODO port from old impl:
+  //def naturallyJoining[A0>:A,B](b: B)(implicit pairs: A0 PairUp B): QuerySource[A] = 
+  
+  
 }
 
 trait DataTable[Row] extends DataSource[Row]

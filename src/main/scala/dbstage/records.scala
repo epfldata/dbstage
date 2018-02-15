@@ -3,9 +3,10 @@ package dbstage
 import scala.annotation.implicitNotFound
 import squid.utils._
 import cats.Monoid
+import cats.Semigroup
 import cats.syntax.all._
 import squid.lib.transparencyPropagating
-import squid.quasi.{embed,phase}
+import squid.quasi.{phase, embed}
 
 case class ~[A,B](lhs: A, rhs: B) {
   override def toString: String = rhs match {
@@ -17,6 +18,9 @@ object ~ {
   @transparencyPropagating
   implicit def monoid[A:Monoid,B:Monoid]: Monoid[A ~ B] =
     Monoid.instance(Monoid[A].empty ~ Monoid[B].empty)((x,y) => (x.lhs |+| y.lhs) ~ (x.rhs |+| y.rhs))
+  @transparencyPropagating
+  implicit def semigroup[A:Semigroup,B:Semigroup]: Semigroup[A ~ B] =
+    Semigroup.instance((x,y) => (x.lhs |+| y.lhs) ~ (x.rhs |+| y.rhs))
 }
 
 final class RecordSyntax[A](private val self: A) extends AnyVal {
@@ -25,12 +29,15 @@ final class RecordSyntax[A](private val self: A) extends AnyVal {
   def select[B](implicit ev: A CanAccess B): B = ev(self)
   // TODO: a selectFirst that is left-biased; use in apply? -- and a selectLast; reformulate RecordAccess in terms of these two?
   def project[B](implicit ev: A ProjectsOn B): B = ev(self)
+  /** shortcut for project */
+  def p[B](implicit ev: A ProjectsOn B): B = project(ev)
   //def apply[F](implicit access: CanAccess[A,F]): F#Typ = access(self).value
   def apply[F](implicit accessF: CanAccess[A,F], ws: WrapsBase[F]): ws.Typ = apply(ws.instance)
   def apply[F,V](w: F Wraps V)(implicit accessF: A CanAccess F): V = accessF(self) |> w.deapply
 }
 
-@implicitNotFound("Type ${A} is not known to be accessible in ${R}")
+// TODO rename to `contains`?
+@implicitNotFound("Type ${R} is not known to be accessible in ${A}")
 case class CanAccess[A,R](fun: A => R) extends (A => R) { def apply(a: A) = fun(a) } // TODO rem indirection; make abstract class?
 @embed
 object CanAccess {

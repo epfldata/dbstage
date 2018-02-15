@@ -2,6 +2,7 @@ package dbstage
 
 import squid.quasi.{phase, embed}
 import cats.Monoid
+import cats.Semigroup
 import cats.syntax.all._
 import squid.lib.transparencyPropagating
 
@@ -16,6 +17,10 @@ class EmbeddedDefs {
   @phase('Sugar)
   implicit def monoidWrap[A,B](implicit ev: A Wraps B, m: Monoid[B]): Monoid[A] = {
     monoidInstance(ev(m.empty))((x,y) => ev(ev.deapply(x) |+| ev.deapply(y)))
+  }
+  @phase('Sugar)
+  implicit def semigroupWrap[A,B](implicit ev: A Wraps B, m: Semigroup[B]): Semigroup[A] = {
+    semigroupInstance((x,y) => ev(ev.deapply(x) |+| ev.deapply(y)))
   }
   
   @phase('Sugar)

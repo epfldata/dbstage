@@ -1,7 +1,9 @@
 import cats.Monoid
+import cats.Semigroup
 import squid.utils._
 import squid.ir.SimpleEffect
 import squid.lib.transparencyPropagating
+
 import scala.language.implicitConversions
 
 package object dbstage extends EmbeddedDefs {
@@ -18,9 +20,13 @@ package object dbstage extends EmbeddedDefs {
   // for use in embedded code:
   @transparencyPropagating
   def monoidInstance[A](_empty: A)(_combine: (A,A) => A): Monoid[A] = Monoid.instance(_empty)(_combine)
+  @transparencyPropagating
+  def semigroupInstance[A](_combine: (A,A) => A): Semigroup[A] = Semigroup.instance(_combine)
   
   @transparencyPropagating
   implicit def monoidSyntax[A:Monoid](self: A): MonoidSyntax[A] = new MonoidSyntax(self)
+  @transparencyPropagating
+  implicit def semigroupSyntax[A:Semigroup](self: A): SemigroupSyntax[A] = new SemigroupSyntax(self)
   
   
   @transparencyPropagating

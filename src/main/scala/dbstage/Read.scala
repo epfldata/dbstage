@@ -44,6 +44,7 @@ object Read {
   @phase('Sugar) implicit def readInt = Read.instance[Int] { (str: String) => str.toInt }
   @phase('Sugar) implicit def readLong = Read.instance[Long] { (str: String) => str.toLong }
   @phase('Sugar) implicit def readString = Read.instance[String] { (str: String) => str }
+  @phase('Sugar) implicit def readDate = Read.instance[example.tpch.Date] { (str: String) => example.tpch.Date(str) }
   
 }
 

@@ -47,6 +47,7 @@ object Embedding
   embed(Read)
   embed(RecordRead)
   embed(RecordReadLowPrio)
+  embed(SemigroupSyntax)
   
   //override val bindEffects = true  // FIXME causes SOF
   
