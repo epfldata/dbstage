@@ -1,6 +1,8 @@
 package dbstage
 package example.tpch
 
+import squid.lib.transparencyPropagating
+import squid.lib.transparent
 import squid.utils._
 
 @field class OrderKey(value: Int)
@@ -29,18 +31,23 @@ import squid.utils._
 case class Interval(months: Int) extends AnyVal
 object Date {
   val df = new java.text.SimpleDateFormat("yyyy-mm-dd")
+  @transparent
   def apply(strRep: String) = new Date(df.parse(strRep))
 }
 class Date(val underlying: java.util.Date) extends AnyVal {
+  @transparent
   def < (that: Date): Bool = underlying before that.underlying
+  @transparent
   def >= (that: Date): Bool = (underlying compareTo that.underlying) >= 0
   import java.util.Calendar
+  @transparent
   def + (invl: Interval): Date = new Date({
     val cal = Calendar.getInstance()
     cal.setTime(underlying)
     cal.add(Calendar.MONTH, +1)
     cal.getTime
   })
+  @transparent
   override def toString = underlying.toString
 }
 

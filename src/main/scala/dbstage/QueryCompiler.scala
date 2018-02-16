@@ -25,6 +25,8 @@ object QueryCompiler {
         die  
       case code"($qs:DataSource[$ta]).map[T]($f)($ev)" =>
         lift(code"$qs.flatMap($f)($ev)")
+      case code"($ds:DataSource[Unit]).flatMap[T]($f)($ev)" if isPure(ds) =>
+        lift(code"$f(Unit)")
       case code"($qs:DataSource[$ta]).flatMap[T]($x => $body)($ev)" =>
         FlatMap.build(x)(liftSource(qs),lift(body),liftMonoid(ev))
       case code"($qs:DataSource[$ta]).flatMap[T]($f)($ev)" =>

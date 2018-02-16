@@ -83,3 +83,14 @@ This could be enormously beneficial for cases where we have small collections wi
 
 
 
+
+# Bugs encountered so far while developing
+
+runtime compilation failed after I used `code"???"` upcasted to `Code[MyThing,C]`, where `apply` was selected on that thing (no upcasts were inserted so I got the error "apply not a member of Nothing") 
+
+I @embedded some code that ended up having references to a private member of a class, failing runtime compilation
+
+impl stuf that I forgot to complete: I was replacing the pred predicate of a filter instead of composing it
+
+
+

@@ -83,7 +83,15 @@ object QueryTests extends App {
   
   println(Q4(orders, lineitem))
   
-  println(Staged(Q4(orders, lineitem)).embedded(Embedding))
+  ///*
+  //println(Staged(Q4(orders, lineitem)).embedded(Embedding))
+  import Embedding.Predef._
+  //import Staged.apply
+  val q = example.QueryEmbedding.compileQuery(Staged(Q4(orders, lineitem)))
+  //println(q)
+  println(q.compile.apply())
+  //*/
+  
   
   
   

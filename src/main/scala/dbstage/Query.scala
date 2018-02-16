@@ -3,6 +3,7 @@ package dbstage
 import squid.utils._
 import Embedding.Predef._
 import Embedding.Quasicodes._
+import cats.Semigroup
 //import Embedding.ClosedCode
 
 import scala.annotation.unchecked.uncheckedVariance
@@ -33,7 +34,7 @@ abstract class WrappedQuery[T:CodeType,-C] extends Query[T,C] {
 }
 
 case class StagedSource[T:CodeType,C](ds: DataSource[T], cde: ClosedCode[DataSource[T]] |> Option, pred: Code[T => Bool,C] |> Option) {
-  def filter(pred: Code[T => Bool,C]) = copy[T,C](pred = Some(pred))
+  def filter(p: Code[T => Bool,C]) = copy[T,C](pred = Some(pred.fold(p)(pred => code"(x:T) => $pred(x) && $p(x)")))
   
   def iterateCode = ds match {
     case ds: StagedDataSource[T] => ds.stagedIterator

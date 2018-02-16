@@ -211,6 +211,7 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"recordSyntax[$at]($a).apply[$f]($acc, $w: f Wraps $v)" => code"$w.instance.deapply($acc($a))"
     case code"recordSyntax[$at]($a).apply[$f,$v]($w)($acc)" => code"$w.deapply($acc($a))"
     case code"recordSyntax[$at]($a).project[$rt]($proj)" => code"$proj($a)"
+    case code"recordSyntax[$at]($a).p[$rt]($proj)" => code"$proj($a)"
       
     case code"CanAccess[$at,$rt]($f).fun" => f
     case code"CanAccess[$at,$rt]($f).apply($x)" => code"$f($x)"
@@ -235,10 +236,10 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     //case code"dbstage.monoidWrap[$at,$bt]($wev,$mev).combine($x,$y)" =>
     //  code"$wev..monoidWrap[$at,$bt]($wev,$mev).combine($x,$y)"
     
-    case code"cats.implicits.catsKernelStdMonoidForString.empty" => Const("")
-    case code"cats.implicits.catsKernelStdMonoidForString.combine($x,$y)" => code"$x + $y"
-    case code"cats.implicits.catsKernelStdGroupForInt.empty" => Const(0)
-    case code"cats.implicits.catsKernelStdGroupForInt.combine($x,$y)" => code"$x + $y"
+    case code"($m:cats.kernel.instances.StringInstances).catsKernelStdMonoidForString.empty" => Const("")
+    case code"($m:cats.kernel.instances.StringInstances).catsKernelStdMonoidForString.combine($x,$y)" => code"$x + $y"
+    case code"($m:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt.empty" => Const(0)
+    case code"($m:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt.combine($x,$y)" => code"$x + $y"
   }
   
   /*

@@ -13,9 +13,9 @@ import scala.collection.immutable.SortedMap
 
 @embed
 class MonoidSyntax[A](private val self: A)(implicit mon: A |> Monoid) {
-  @phase('Sugar)
+  //@phase('Sugar)
   def pairWith[B](f: A => B) = self ~ f(self)
-  @phase('Sugar)
+  //@phase('Sugar)
   def whereMin[T:Ordering](t:T): ArgMin[T,A] = ???
   //@phase('Sugar)
   //def groupBy[B](that: B) = GroupedBag(Map(that -> self),None,None,None,None)
@@ -24,7 +24,7 @@ class MonoidSyntax[A](private val self: A)(implicit mon: A |> Monoid) {
 }
 @embed
 class SemigroupSyntax[A](private val self: A)(implicit sem: A |> Semigroup) {
-  @phase('Sugar)
+  //@phase('Sugar)  // exposes private value `self`
   def groupBy[B](that: B) = GroupedBag(Map(that -> self),None,None,None,None)
 }
 
@@ -140,6 +140,7 @@ case class GroupedBag[K,A](toMap: Map[K,A], pred: Option[A => Bool], app: Option
       lim.fold(it2)(it2.take)
     }
   }
+  @transparencyPropagating
   def withKey () = projectingKey[K]
   def projectingKey[K0]()(implicit ev: K ProjectsOn K0): GroupedBag[K,Key[K]~A] =
     GroupedBag[K,Key[K]~A](
@@ -159,7 +160,9 @@ case class GroupedBag[K,A](toMap: Map[K,A], pred: Option[A => Bool], app: Option
   override def toString = if (toMap.isInstanceOf[SortedMap[_,_]] || postOrd.isDefined) s"[ ${iterator mkString ", "} ]" else s"{ ${iterator mkString "; "} }"
 }
 object GroupedBag {
+  @transparencyPropagating
   def empty[K,A] = GroupedBag[K,A](Map.empty,None,None,None,None)
+  @transparencyPropagating
   implicit def monoidGroupedBag[K,A:Semigroup]: Monoid[GroupedBag[K,A]] =
     Monoid.instance(empty[K,A]) {
       case GroupedBag(it0,p0,a0,o0,l0) -> GroupedBag(it1,p1,a1,o1,l1) =>
@@ -175,7 +178,9 @@ object Key { // it's actually not wanted to have `Key[T] Wraps T`, as it would e
   //  def applyImpl(v: T) = Key(v)
   //  def deapplyImpl(x: Key[T]) = x.value
   //}
+  @transparencyPropagating
   implicit def semigroupKey[T]: Semigroup[Key[T]] = Semigroup.instance((a,b) => require(a == b) thenReturn a)
   //implicit def monoidKey[T]: Monoid[Key[T]] = forget it, not wanted!
+  @transparencyPropagating
   implicit def ordKey[T:Ordering]: Ordering[Key[T]] = Ordering.by(_.value)
 }

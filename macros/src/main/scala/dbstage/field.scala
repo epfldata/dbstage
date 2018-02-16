@@ -71,12 +71,19 @@ object fieldMacros {
         //  }
         //"""
         
+        // Problems with extending AnyVal:
+        //   illegal inheritance from final class X
+        //   value class may not wrap another user-defined value class
+        //val newParents = parents filter { case tq"scala.AnyRef" => false case _ => true}
+        //println(newParents,q"class A extends AnyVal with ..$newParents")
+        
         // TODO check ptyp does not refer to tparams... or rm tparams (but they could be used as phantom types, or in `parents`)
         // In fact, a more elaborate scheme could be used allowing for a parametrized parameter,
         // whereby the companion object does not directly extend Wraps but some other type (with standard apply/deapply symbols)
         // and that contains a (possibly polymorphic) def for the implicit Wraps instance
         val gen = q"""
-          abstract case class $name[..$tparams]($pname: $ptyp) extends ..$parents  // TODO propagate other mods...?
+          // TODO propagate other mods...?
+          abstract case class $name[..$tparams]($pname: $ptyp) extends ..$parents
           final object $tname extends Wraps[$name,$ptyp] {
             final protected def applyImpl(v: $ptyp) = new $name(v){}
             final protected def deapplyImpl(x: $name) = x.$pname
