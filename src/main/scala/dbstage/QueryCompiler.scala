@@ -12,9 +12,9 @@ object QueryCompiler {
   def compile[T:CodeType](cde: ClosedCode[T]) = {
     val q = lift(cde)
     println(s"Query:\n$q")
-    val p = q.naivePlan
+    val p = q.directPlan
     println(s"Plan:\n${p}")
-    p
+    code"() => $p"
     //liftParametrized(cde) // TODO
   }
   //def lift[T:CodeType,C](cde: Code[T,C]): Either[String,Query[T,C]] = {
@@ -69,6 +69,10 @@ object QueryCompiler {
     //case code"cats.instances.all.catsKernelStdGroupForInt" => IntMonoid
     case code"($_:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt" =>
       IntMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
+    case code"($_:cats.kernel.instances.StringInstances).catsKernelStdMonoidForString" =>
+      StringMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME
+    case code"GroupedBag.monoidGroupedBag[$tk,$ta]($asem)" =>
+      GroupedBagMonoid[tk.Typ,ta.Typ,C](asem).asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
     case code"ArgMin.monoid[$tt,$ta]($tord,$asem)" =>
       ArgMinMonoid(tord,asem)
           .asInstanceOf[StagedMonoid[S,C]] // FIXME

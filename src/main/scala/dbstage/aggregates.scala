@@ -25,6 +25,7 @@ class MonoidSyntax[A](private val self: A)(implicit mon: A |> Monoid) {
 @embed
 class SemigroupSyntax[A](private val self: A)(implicit sem: A |> Semigroup) {
   //@phase('Sugar)  // exposes private value `self`
+  @transparencyPropagating
   def groupBy[B](that: B) = GroupedBag(Map(that -> self),None,None,None,None)
 }
 
@@ -132,6 +133,7 @@ object IndexedBag {
 }
 
 case class GroupedBag[K,A](toMap: Map[K,A], pred: Option[A => Bool], app: Option[A => A], postOrd: Option[Ordering[A]], lim: Option[Int]) extends DataSource[A] {
+  @transparencyPropagating
   def iterator = {
     val it0 = toMap.valuesIterator
     val it1 = pred.fold(it0)(it0.filter)

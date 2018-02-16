@@ -63,6 +63,8 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[Any~Any]("rhs")
   transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
   transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
+  transparencyPropagatingMtds += methodSymbol[GroupedBag.type]("apply")
+  transparencyPropagatingMtds += methodSymbol[TraversableOnce[Any]]("toMap")
   
   transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
   // does not seem to work:
@@ -240,6 +242,10 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"($m:cats.kernel.instances.StringInstances).catsKernelStdMonoidForString.combine($x,$y)" => code"$x + $y"
     case code"($m:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt.empty" => Const(0)
     case code"($m:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt.combine($x,$y)" => code"$x + $y"
+      
+    //case code"GroupedBagMonoid.updateFrom[$tk,$ta]($self,GroupedBagMonoid.reconstruct[tk,ta]($that)($asem))" =>
+    //  code"GroupedBagMonoid.updateFromReconstructed[$tk,$ta]($self,$that)($asem)" // FIXME check asem?
+      
   }
   
   /*
