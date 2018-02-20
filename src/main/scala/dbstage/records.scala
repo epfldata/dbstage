@@ -61,6 +61,10 @@ object ProjectsOn extends ProjectLowPrio {
   @phase('Sugar)
   implicit def projectRHS[A,B,T](implicit ev: B CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.rhs))
   //implicit def projectBoth[A,B,T](implicit evLHS: T Project A, evRHS: T Project B): T Project (A ~ B) = Project(t => evLHS(t) ~ evRHS(t))
+  
+  @phase('Sugar)
+  implicit def projectSet[A,B](implicit ev: A ProjectsOn B): Set[A] ProjectsOn Set[B] = ProjectsOn(_ map ev)
+  
 }
 @embed
 class ProjectLowPrio extends ProjectLowPrio2 {

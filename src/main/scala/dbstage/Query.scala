@@ -222,5 +222,34 @@ object GroupedBagMonoid {
   }
 }
 
+//case class GroupedBagMonoid2[K:CodeType,A:CodeType,C](asem: Code[Semigroup[A],C]) extends SingleValueStagedMonoid[GroupedBag[K,A],C](true) {
+//  
+//}
+/*
+case class StagedBagGrouping[A:CodeType,C](asem: Code[Semigroup[A],C])
+case class StagedBagOrdering[A:CodeType,C](asem: Code[Semigroup[A],C])
+case class StagedBagLike[K:CodeType,T:CodeType,O:CodeType,C]
+(grouping: Option[StagedBagGrouping[T,C]], ordering: StagedBagOrdering[O,C]) extends StagedMonoid[T,C](true) 
+{
+  
+  def mkContext: MonoidContext[T,C,_] = ???
+  
+}
+*/
+
+sealed abstract class StagedBagLike[B:CodeType,E:CodeType,C] extends StagedMonoid[B,C](true) {
+//sealed abstract class StagedBagLike[B:CodeType,C] extends StagedMonoid[B,C](true) {
+//  type E
+  def mkContext: MonoidContext[B,C,_] = ???
+  def ord[O:CodeType](proj: Code[E ProjectsOn O,C], ord: Code[Ordering[O],C], asc: Bool): StagedBagOrdering[B,E,O,C] =
+    StagedBagOrdering[B,E,O,C](this, proj, ord, asc)
+  //def group[K:CodeType,V:CodeType](vsem: Code[Semigroup[V],C]): StagedBagGrouping[K,V,C] = ???
+}
+case class StagedBagProjection[B:CodeType,E:CodeType,C]() extends StagedBagLike[B,E,C]
+case class StagedBagOrdering[B:CodeType,E:CodeType,O:CodeType,C]
+(bl: StagedBagLike[B,E,C], proj: Code[E ProjectsOn O,C], ord: Code[Ordering[O],C], asc: Bool) extends StagedBagLike[BagOrdering[B,E,O,BoolT],E,C]
+//case class StagedBagGrouping[K:CodeType,A:CodeType,T:CodeType,C]() extends StagedBagLike[GroupedBag[K,A],K~A,C]
+case class StagedBagGrouping[K:CodeType,V:CodeType,C](vsem: Code[Semigroup[V],C]) extends StagedBagLike[GroupedBag[K,V],K~V,C]
+
 
 

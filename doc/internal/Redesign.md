@@ -82,6 +82,16 @@ This could be enormously beneficial for cases where we have small collections wi
 
 
 
+Use `obj[Field]` to select, and `obj[Field].value` or `obj[Field].v` to access the wrapped value...
+
+
+## TODO next
+
+repr filter predicates in useful NF  
+move predicates up to outermost input possible (cf. pred on order stated in lineitem pred)
+
+
+
 
 
 # Bugs encountered so far while developing

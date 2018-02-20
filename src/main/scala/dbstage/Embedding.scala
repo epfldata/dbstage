@@ -48,6 +48,7 @@ object Embedding
   embed(RecordRead)
   embed(RecordReadLowPrio)
   embed(SemigroupSyntax)
+  //embed(Count)
   
   //override val bindEffects = true  // FIXME causes SOF
   
@@ -65,6 +66,7 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
   transparencyPropagatingMtds += methodSymbol[GroupedBag.type]("apply")
   transparencyPropagatingMtds += methodSymbol[TraversableOnce[Any]]("toMap")
+  transparencyPropagatingMtds += methodSymbol[scala.Ordering.type]("by")
   
   transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
   // does not seem to work:

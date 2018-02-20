@@ -22,6 +22,7 @@ lazy val commonSettings = Seq(
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   scalacOptions ++= Seq("-feature", "-language:postfixOps", "-unchecked", "-deprecation"
     //, "-Xprint:typer", "-Xlog-implicits"
+    //, "-Yliteral-types" // yields error:  bad option: '-Yliteral-types'
   ),
   scalacOptions += "-Ypartial-unification" // for Cats (https://github.com/typelevel/cats#getting-started)
 )

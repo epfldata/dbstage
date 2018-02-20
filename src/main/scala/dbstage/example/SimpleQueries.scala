@@ -181,3 +181,60 @@ object SimpleQueries3 extends App {
   
   
 }
+
+
+object SimpleQueries4 extends App {
+  import cats.syntax.all._
+  import BagLike.BagLikeSyntax
+  import BagLike.BagDataSource
+  
+  val s = Set(p)
+  
+  //println(s.project[Set[Age]])
+  //println((1 ~ s).project[Set[Age]]) // nope
+  
+  //println(s.selecting[Age])
+  
+  //val m = Map(1 -> Bag(p))
+  //val m = Map(1 -> Set(p))
+  //println(m.selecting[Set[Age]])
+  
+  val m = Map(1 -> Count() ~ Bag(p))
+  
+  //val m2 = m.selecting[Age]
+  val m2 = m.selecting[Count].orderingBy[Count].desc
+  println(m2)
+  val m3 = m2 |+| Map(1 -> Count() ~ Bag(p),2->Count()~Bag(p)).selecting[Count].orderingBy[Count].desc
+  println(m3)
+  println(m3.iterator.toList)
+  
+  //import shapeless.syntax.singleton._
+  
+  //println(s.limiting(2.narrow))
+  
+  //implicitly[Monoid[Set[Person]]]
+  //implicitly[Monoid[BagProjection[Set[Person],Age]]]
+  //implicitly[BagLike[BagProjection[Set[Person],Age],Age]]
+  
+  println()
+  
+  //code"2.narrow"
+  
+  //def nar[T](x:T):T{}=x
+  //def nar[T](x:T{}):T{}=x
+  //code"nar(2)" alsoApply println
+  
+  //(1 ~ p):dbstage.~[Int,dbstage.Bag[dbstage.~[dbstage.~[dbstage.~[dbstage.example.Name,dbstage.example.Age],dbstage.example.Gender],dbstage.example.Address]]]
+  //(1 ~ p).project[Age]
+  //implicitly[dbstage.~[Int,dbstage.Bag[dbstage.~[dbstage.~[dbstage.~[dbstage.example.Name,dbstage.example.Age],dbstage.example.Gender],dbstage.example.Address]]] ProjectsOn dbstage.example.Age]
+  
+  
+  
+  
+  //new BagLikeSyntax(m) // nope
+  //new BagLikeSyntax(m)(BagLike.map[Int]) // nope
+  //new BagLikeSyntax[λ[T => Map[Int,Bag[T]]],Person](m)
+  
+  //implicitly[BagLike[]]
+  
+}

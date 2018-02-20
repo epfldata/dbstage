@@ -64,8 +64,15 @@ object QueryCompiler {
       else die
   }
   
+  // TODO
+  //import cats.Semigroup
+  //def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = BagLike.unapply(cde) getOrElse (cde:Code[Any,C]) match {
+  //  case 
+  //}
+  
   import cats.Monoid
-  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = cde match {
+  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = BagLike.unapply(cde) getOrElse ((cde:Code[Any,C]) match {
+    //case BagLike(sbl) => sbl
     //case code"cats.instances.all.catsKernelStdGroupForInt" => IntMonoid
     case code"($_:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt" =>
       IntMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
@@ -73,10 +80,51 @@ object QueryCompiler {
       StringMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME
     case code"GroupedBag.monoidGroupedBag[$tk,$ta]($asem)" =>
       GroupedBagMonoid[tk.Typ,ta.Typ,C](asem).asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
+    //case code"BagOrdering.bagLike[$bt,$tt,$ot,False]($choice,$bl,$p,$ord)" =>
+    //  //println(choice)
+    //  assert(choice =~= code"Choice.FalseChoice")
+    //  System.err.println(cde)
+    //  ???.asInstanceOf[StagedMonoid[S,C]] // FIXME
     case code"ArgMin.monoid[$tt,$ta]($tord,$asem)" =>
       ArgMinMonoid(tord,asem)
           .asInstanceOf[StagedMonoid[S,C]] // FIXME
     case _ => RawStagedMonoid(cde)
+  })
+  //def liftBagLike[S:CodeType,C](cde: Code[Monoid[S],C]): Option[StagedBagLike[S,C]] = (cde:Code[Any,C]) |>? {
+  //  case code"BagOrdering.bagLike[$bt,$tt,$ot,False]($choice,$bl,$p,$ord)" =>
+  //    liftBagLike(bl).map(_.ord[ot.Typ](p,ord,false))
+  //}
+  object BagLike {
+    //def unapply[S:CodeType,C](cde: Code[Monoid[S],C]) = cde |>? {
+    def unapply[S:CodeType,C](cde: Code[Monoid[S],C]) = cde match {
+      case code"$bl:BagLike[S,$te]" => 
+        //println(s"??????? ${liftBagLike(bl)}")
+        liftBagLike(bl)
+    //def unapply[C](cde: Code[Any,C]) = cde |>? {
+    //  case code"$bl:BagLike[$ts,$te]" => liftBagLike(bl)
+      case _ => None
+    }
+  }
+  def liftBagLike[B:CodeType,E:CodeType,C](cde: Code[BagLike[B,E],C]): Option[StagedBagLike[B,E,C]] = (cde:Code[Any,C]) match {
+    //case code"BagOrdering.bagLike[$bt,$tt,$ot,False]($choice,$bl,$p,$ord)" =>
+    case code"BagOrdering.bagLike[$bt,E,$ot,False]($choice,$bl,$p,$ord)" =>
+    //case code"BagOrdering.bagLike[B,E,$ot,False]($choice,$bl,$p,$ord)" =>
+    //case code"BagOrdering.bagLike[BagOrdering[B,E,ot,False],E,$ot,False]($choice,$bl,$p,$ord)" =>
+      liftBagLike(bl).map(_.ord[ot.Typ](p,ord,false).asInstanceOf[StagedBagLike[B,E,C]])
+    case code"GroupedBag2.bagLike[$kt,$vt]($vsem)" =>
+      //liftBagLike(bl).map(_.group[kt.Typ,vt.Typ](vsem).asInstanceOf[StagedBagLike[B,E,C]])
+      Some(StagedBagGrouping[kt.Typ,vt.Typ,C](vsem).asInstanceOf[StagedBagLike[B,E,C]])
+    case _ =>
+      //cde match {
+      //  case code"BagOrdering.bagLike[$bt,$et,$ot,False]($choice,$bl,$p,$ord)" =>
+      //    println(bt,et)
+      //    println(bt=:=codeTypeOf[B])
+      //    println(et=:=codeTypeOf[E])
+      //}
+      //System.err.println(s"${codeTypeOf[B]} ${codeTypeOf[E]}")
+      System.err.println(cde.toString)
+      //???
+      None
   }
   
   
