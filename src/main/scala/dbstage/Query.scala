@@ -177,6 +177,7 @@ case class ArgMinMonoid[T:CodeType,S:CodeType,C](ord: Code[Ordering[T],C], sg: C
 // TODO remove the wrapper in case K is a wrapper type...
 
 /*
+/*
 case class GroupedBagMonoid[K:CodeType,A:CodeType,C](asem: Code[Semigroup[A],C]) extends StagedMonoid[GroupedBag[K,A],C] {
   import java.util.HashMap
   //(new HashMap[Int,Int]).
@@ -221,6 +222,7 @@ object GroupedBagMonoid {
     self ++= that // FIXME semigroup not used..?
   }
 }
+*/
 
 //case class GroupedBagMonoid2[K:CodeType,A:CodeType,C](asem: Code[Semigroup[A],C]) extends SingleValueStagedMonoid[GroupedBag[K,A],C](true) {
 //  

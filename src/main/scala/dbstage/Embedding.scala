@@ -64,7 +64,8 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[Any~Any]("rhs")
   transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
   transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
-  transparencyPropagatingMtds += methodSymbol[GroupedBag.type]("apply")
+  transparencyPropagatingMtds += methodSymbol[Bag.type]("empty")
+  transparencyPropagatingMtds += methodSymbol[Bag.type]("apply")
   transparencyPropagatingMtds += methodSymbol[TraversableOnce[Any]]("toMap")
   transparencyPropagatingMtds += methodSymbol[scala.Ordering.type]("by")
   

@@ -43,6 +43,14 @@ trait DataSource[+Row] { self =>
   def orderBy[O:Ordering](desc: Bool = false)(implicit p: Row ProjectsOn O): DataSource[Row] =
     sortBy(p)(if (desc) Ordering[O].reverse else Ordering[O])
   
+  def project[R](implicit p: Row ProjectsOn R): DataSource[R] = new DataSource[R] {
+    def iterator: Iterator[R] = self.iterator.map(p)
+  }
+  
+  def isEmpty = iterator.isEmpty
+  final def nonEmpty = !isEmpty
+  
+  def distinct = ??? // TODO def distinct = Set(xs: _*) ?
   
 }
 
@@ -50,10 +58,11 @@ trait OrderedDataSource[+Row] extends DataSource[Row]
 trait BufferedDataSource[Row] extends DataSource[Row] {
   def buf: mutable.Buffer[Row]
   def iterator: Iterator[Row] = buf.iterator
-  override def toString = s"[${iterator mkString ","}]"
+  override def toString = s"{${iterator mkString "; "}}"
 }
 class BufferedOrderedDataSource[Row:Ordering](it: Iterator[Row]) extends BufferedDataSource[Row] with OrderedDataSource[Row] {
   val buf = it.toBuffer.sorted
+  override def toString = s"[${iterator mkString ","}]"
 }
 
 

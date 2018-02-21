@@ -47,6 +47,7 @@ object SimpleQueries2 extends App {
   //implicitly[Semigroup[String]]
   //implicitly[Monoid[ForMin[Int,String]]]
   
+  /*
   (
     for {
       male <- persons
@@ -104,6 +105,7 @@ object SimpleQueries2 extends App {
     //} yield Bag(lastName).distinct
     } yield Count() ~ Bag(p.project[Name ~ Age]) groupBy lastName  // TODO order by Count
   ) alsoApply println
+  */
   
   // TODO: using a nested query:
   /*
@@ -133,6 +135,7 @@ object SimpleQueries2 extends App {
 object SimpleQueries3 extends App {
   val persons = new InputFile[IdPerson]("data/Persons.csv")
   
+  /*
   (
     for {
       male   <- persons where (_[Gender] == Male)
@@ -169,6 +172,7 @@ object SimpleQueries3 extends App {
     } yield Bag(p[Name] ~ p[Age]) orderBy p[Age] limit 7
   ) alsoApply println
   
+  */
   
   
   //println(implicitly[Monoid[Gender]])

@@ -81,8 +81,8 @@ object QueryCompiler {
       IntMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
     case code"($_:cats.kernel.instances.StringInstances).catsKernelStdMonoidForString" =>
       StringMonoid.asInstanceOf[StagedMonoid[S,C]] // FIXME
-    case code"GroupedBag.monoidGroupedBag[$tk,$ta]($asem)" =>
-      GroupedBagMonoid[tk.Typ,ta.Typ,C](asem).asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
+    //case code"GroupedBag.monoidGroupedBag[$tk,$ta]($asem)" =>
+    //  GroupedBagMonoid[tk.Typ,ta.Typ,C](asem).asInstanceOf[StagedMonoid[S,C]] // FIXME Squid utility for external coercion
     //case code"BagOrdering.bagLike[$bt,$tt,$ot,False]($choice,$bl,$p,$ord)" =>
     //  //println(choice)
     //  assert(choice =~= code"Choice.FalseChoice")
