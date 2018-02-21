@@ -182,9 +182,50 @@ object SimpleQueries3 extends App {
   
 }
 
+//trait Base { type Rep; implicit class RepOps(private val rep: Rep) { def foo = 123 } }
+//trait Base { self => type Rep[T]; implicit class RepOps[T](private val rep: Rep[T]) { def foo = 123 }; object Predef { type Rep[T] = self.Rep[T] } }
+//trait Base { self => type Rep[T]; object Predef { type Rep[T] = self.Rep[T] } }
+//trait Base2 extends Base { self => implicit class RepOps[T](private val rep: Rep[T]) { def foo = 123 } }
+//object Derived extends Base2
 
 object SimpleQueries4 extends App {
   import cats.syntax.all._
+  
+  //import Derived.RepOps
+  //Option.empty[Derived.Rep].map(x => x.foo)
+  //Option.empty[Derived.Rep[Int]].map(x => x.foo)
+  //import Derived.Rep
+  //import Derived.Predef._
+  //Option.empty[Rep[Int]].map(x => x.foo)
+  
+  
+  //println(_) $ the[Monoid[Bag2[Int]]]
+  //implicitly[Monoid[Bag2[Int]]] alsoApply println
+  
+  //def foo[T:Monoid](x:T)=x
+  //foo(SingletonBag(1):Bag2[Int])
+  //foo(SingletonBag(1)) // nope
+  
+  //def foo[T<:T0,T0](x:T)(implicit mon: Monoid[T0])=x
+  //def foo[T0,T<:T0](x:T)(implicit mon: Monoid[T0])=x
+  //foo(SingletonBag(1):Bag2[Int])
+  //foo(SingletonBag(1)) // nope
+  
+  /*
+  Debug show
+  println(
+    for {
+      x <- Bag2(1,2,3,4)
+      //y <- Bag2('a,'b,'c)
+      y <- Bag2("a","b","c")
+      if y.startsWith("a") || x%2==0
+    //} yield Indexed(x,y ~ Count())
+    } yield new PostOrdering[Indexed[Int,String~Count],Count](Indexed(x,y ~ Count()))
+  )
+  */
+  
+  
+  /*
   import BagLike.BagLikeSyntax
   import BagLike.BagDataSource
   
@@ -207,6 +248,7 @@ object SimpleQueries4 extends App {
   val m3 = m2 |+| Map(1 -> Count() ~ Bag(p),2->Count()~Bag(p)).selecting[Count].orderingBy[Count].desc
   println(m3)
   println(m3.iterator.toList)
+  */
   
   //import shapeless.syntax.singleton._
   

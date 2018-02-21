@@ -23,6 +23,7 @@ object QueryCompiler {
     cde match {
       case code"() => $body:T" => // TODO parametrized
         die  
+        /*
       case code"($qs:DataSource[$ta]).map[T]($f)($ev)" =>
         lift(code"$qs.flatMap($f)($ev)")
       case code"($ds:DataSource[Unit]).flatMap[T]($f)($ev)" if isPure(ds) =>
@@ -31,6 +32,7 @@ object QueryCompiler {
         FlatMap.build(x)(liftSource(qs),lift(body),liftMonoid(ev))
       case code"($qs:DataSource[$ta]).flatMap[T]($f)($ev)" =>
         die
+        */
       case code"$effect; $body:T" => new WithComputation[T,C] {
         type V = Unit
         val v = new Variable[Unit]{ type Ctx = Any } // Note: unsafe usage of Variable type!
@@ -71,7 +73,8 @@ object QueryCompiler {
   //}
   
   import cats.Monoid
-  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = BagLike.unapply(cde) getOrElse ((cde:Code[Any,C]) match {
+  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = ((cde:Code[Any,C]) match {
+  //def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = BagLike.unapply(cde) getOrElse ((cde:Code[Any,C]) match {
     //case BagLike(sbl) => sbl
     //case code"cats.instances.all.catsKernelStdGroupForInt" => IntMonoid
     case code"($_:cats.kernel.instances.IntInstances).catsKernelStdGroupForInt" =>
@@ -90,6 +93,7 @@ object QueryCompiler {
           .asInstanceOf[StagedMonoid[S,C]] // FIXME
     case _ => RawStagedMonoid(cde)
   })
+  /*
   //def liftBagLike[S:CodeType,C](cde: Code[Monoid[S],C]): Option[StagedBagLike[S,C]] = (cde:Code[Any,C]) |>? {
   //  case code"BagOrdering.bagLike[$bt,$tt,$ot,False]($choice,$bl,$p,$ord)" =>
   //    liftBagLike(bl).map(_.ord[ot.Typ](p,ord,false))
@@ -126,7 +130,7 @@ object QueryCompiler {
       //???
       None
   }
-  
+  */
   
   //Nil.foldRight()
   //(Nil:Traversable[Int]).foldRight()

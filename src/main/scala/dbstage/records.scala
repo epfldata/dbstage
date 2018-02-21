@@ -49,8 +49,11 @@ object CanAccess {
   implicit def fromT[T]: T CanAccess T = CanAccess(identity)
 }
 
+//trait ProjectsOnVar[-A,+B] extends (A => B)  // implicit search doesn't find it
+
 @implicitNotFound("Type ${A} cannot be projected onto type ${B}")
-case class ProjectsOn[A,B](fun: A => B) extends (A => B) { def apply(a: A) = fun(a) }
+case class ProjectsOn[-A,B](fun: A => B) extends (A => B) { def apply(a: A) = fun(a) }
+//case class ProjectsOn[A,B](fun: A => B) extends (A => B) with ProjectsOnVar[A,B] { def apply(a: A) = fun(a) }
 @embed
 object ProjectsOn extends ProjectLowPrio {
   //implicit object projectUnit extends Project[Any,Unit](_ => ())  // TODO make Project contravariant?

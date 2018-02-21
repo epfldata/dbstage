@@ -237,6 +237,7 @@ case class StagedBagLike[K:CodeType,T:CodeType,O:CodeType,C]
 }
 */
 
+/*
 sealed abstract class StagedBagLike[B:CodeType,E:CodeType,C] extends StagedMonoid[B,C](true) {
 //sealed abstract class StagedBagLike[B:CodeType,C] extends StagedMonoid[B,C](true) {
 //  type E
@@ -250,6 +251,7 @@ case class StagedBagOrdering[B:CodeType,E:CodeType,O:CodeType,C]
 (bl: StagedBagLike[B,E,C], proj: Code[E ProjectsOn O,C], ord: Code[Ordering[O],C], asc: Bool) extends StagedBagLike[BagOrdering[B,E,O,BoolT],E,C]
 //case class StagedBagGrouping[K:CodeType,A:CodeType,T:CodeType,C]() extends StagedBagLike[GroupedBag[K,A],K~A,C]
 case class StagedBagGrouping[K:CodeType,V:CodeType,C](vsem: Code[Semigroup[V],C]) extends StagedBagLike[GroupedBag[K,V],K~V,C]
+*/
 
 
 

@@ -29,7 +29,7 @@ class SemigroupSyntax[A](private val self: A)(implicit sem: A |> Semigroup) {
   @transparencyPropagating
   def groupBy[B](that: B) = GroupedBag(Map(that -> self),None,None,None,None)
   @transparencyPropagating
-  def groupingBy[B](that: B) = GroupedBag2(Map(that -> self))
+  def groupingBy[B](that: B) = Groups(Map(that -> self))
 }
 
 // TODO have a reified Bool type parameter saying whether it should be displayed as a Min or a Max
@@ -199,6 +199,184 @@ object Key { // it's actually not wanted to have `Key[T] Wraps T`, as it would e
 
 import scala.language.higherKinds
 
+
+//class DelayedTransfo[A,B](a: A: f: A => B) {
+//  def result = f(a)
+//}
+//sealed abstract class QueryResult[R] { def result: R }
+//implicit case class SimpleResult[R:Monoid](result: R) extends QueryResult[R]
+//case class MappedResult[A:Monoid,R](preResult: A, f: A => R) extends QueryResult[R] {
+//  def result = f(preResult)
+//}
+
+
+
+case class Bag2[A](it: Iterable[A]) extends DataSource[A] {
+  def iterator = it.iterator
+}
+object Bag2 {
+  implicit def monoid[E]: Monoid[Bag2[E]] = Monoid.instance(new Bag2[E](Nil))((a,b) => new Bag2[E](new ConcatIterable(a.it,b.it)))
+}
+//case class OrderedBag2[K,A](toMap: SortedMap[K,Bag[A]]) extends DataSource[K~A] {
+case class OrderedBag2[K,V](toMap: Map[K,Bag[V]]) extends DataSource[K~V] {
+  def iterator = toMap.iterator.flatMap{case(k,v)=>v.iterator.map(k~_)} //((dbstage.~.apply _).tupled)
+}
+object OrderedBag2 {
+  implicit def monoidOrderedBag[K:Ordering,A]: Monoid[OrderedBag2[K,A]] =
+    Monoid.instance(OrderedBag2[K,A](SortedMap.empty)) {
+      (a,b) => OrderedBag2(a.toMap |+| b.toMap)
+    }
+}
+
+case class Groups[K,V](toMap: Map[K,V]) extends DataSource[K~V] {
+  def iterator = toMap.iterator.map{case(k,v)=>(k~v)} 
+}
+object Groups {
+  //@transparencyPropagating
+  //def empty[K,A] = GroupedBag[K,A](Map.empty,None,None,None,None)
+  @transparencyPropagating
+  implicit def monoidGroups[K,A:Semigroup]: Monoid[Groups[K,A]] =
+    Monoid.instance(Groups[K,A](Map.empty)) {
+      (a,b) => Groups(a.toMap |+| b.toMap)
+    }
+}
+
+
+
+
+
+
+
+/*
+
+
+// does not embed well: 'Embedding Error: Unknown type `qr.R` does not have a TypeTag to embed it as uninterpreted.'
+/*
+trait QueryResult[A] {
+  type R
+  def apply(as: Iterator[A]): R
+}
+object QueryResult {
+  type Aux[A,B] = QueryResult[A] { type R = B }
+  implicit def monoid[M:Monoid]: QueryResult.Aux[M,M] = ???
+}
+*/
+trait QueryResult[A,R] {
+  def apply(as: Iterator[A]): R
+}
+object QueryResult {
+  def instance[A,R](f: Iterator[A] => R): QueryResult[A,R] = new QueryResult[A,R] { def apply(as: Iterator[A]) = f(as) }
+  //def instance[A,R](f: (=> Iterator[A]) => R): QueryResult[A,R] = new QueryResult[A,R] { def apply(as: Iterator[A]) = f(as) }
+  implicit def monoid[M:Monoid]: (M QueryResult M) = QueryResult.instance(xs => Monoid[M].combineAll(xs))
+  implicit def dataSource[E]: (DataSource[E] QueryResult DataSource[E]) =
+    //QueryResult.instance(dss => new DataSource[E] { def iterator = dss.flatMap(_.iterator) })
+    QueryResult.instance(new ConcatDataSource(_))
+}
+class ConcatDataSource[E](dss: => Iterator[DataSource[E]]) extends DataSource[E] {
+  //val buf = Lazy(dss.flatMap(_.iterator))
+  def iterator = dss.flatMap(_.iterator)
+  final val initNb = 16
+  def init = iterator.take(initNb).toBuffer
+  override def toString = s"{${(init mkString "; ")+(if (init.size>initNb) "..." else "")}}"
+}
+
+//class BagOrdering[T,O:Ordering]()
+//class PostOrdering[T](t: T)
+class PostOrdering[T,O](val t: T)
+object PostOrdering {
+  //implicit def queryResult[T,R,O:Ordering](implicit qr: (T QueryResult DataSource[R]), p: R ProjectsOn O): (PostOrdering[T,O] QueryResult DataSource[R]) =
+  //  QueryResult.instance(xs => new DataSource[R] {
+  //    //val buf = xs.map(_.t).flatMap(qr.apply)//.toBu
+  //    //val buf = xs.flatMap(po => qr(po.t).iterator)
+  //    val buf = {
+  //      //println(s"Sorting ${qr(xs.map(_.t)).iterator.toBuffer}")
+  //      (qr(xs.map(_.t)).iterator.toBuffer alsoApply (r=>println(s"Sorting $r"))).sortBy(p)
+  //    }
+  //    override def iterator: Iterator[R] = buf.iterator
+  //  })
+  implicit def queryResult[T,R,O:Ordering](implicit qr: (T QueryResult DataSource[R]), p: R ProjectsOn O): (PostOrdering[T,O] QueryResult OrderedBag[R,O]) =
+    QueryResult.instance(xs => new OrderedBag({
+      val buf = {
+        (qr(xs.map(_.t)).iterator.toBuffer alsoApply (r=>println(s"Sorting $r"))).sortBy(p)
+      }
+      buf
+    }))
+}
+
+class OrderedBag[E,O](xs: Iterable[E]) extends Bag2[E](xs) {
+  println(s"OrderedBag $this")
+  override def toString = s"[${iterator mkString ","}]"
+}
+object OrderedBag {
+  //implicit def queryResult[E,O:Ordering]: (OrderedBag[E,O] QueryResult OrderedBag[E,O]) = ???
+  implicit def monoid[E,O:Ordering](implicit p: E ProjectsOn O): Monoid[OrderedBag[E,O]] =
+    Monoid.instance[OrderedBag[E,O]](new OrderedBag(Nil))((a,b) => new OrderedBag(mergeSort(a.iterator,b.iterator).toBuffer))
+  def mergeSort[E,O:Ordering](lhs:Iterator[E], rhs:Iterator[E])(implicit p: E ProjectsOn O): Iterator[E] = new Iterator[E] {
+    val blhs = lhs.buffered
+    val brhs = rhs.buffered
+    //println(blhs,brhs)
+    //???
+    def hasNext: Bool = blhs.hasNext || brhs.hasNext
+    def next = {
+      require(hasNext)
+      if (!blhs.hasNext) brhs.next
+      else if (!brhs.hasNext) blhs.next
+      else Ordering[O].compare(p(blhs.head),p(brhs.next)) match {
+        case n if n <= 0 => blhs.next
+        case _ => brhs.next
+      }
+    }
+  }
+}
+
+
+
+// TODO
+// make bagordering that can wrap any QueryResult[_,DS[E]]; make Indexed that can accumulate non-semigroup stuff
+
+
+
+// Note: indexed groups have NOTHING to do with groups, and should NOT be mixed with them (if anything, they're closer to set semantics)
+
+//sealed abstract class Bag2[E] extends DataSource[E]
+sealed class Bag2[E](val it: Iterable[E]) extends DataSource[E] 
+{ def iterator = it.iterator }
+//{ def iterator = it.iterator.map(e=>println(s"it $e") thenReturn e) }
+object Bag2 {
+  def apply[E](xs: E*) = new Bag2[E](xs)
+  implicit def monoid[E]: Monoid[Bag2[E]] = Monoid.instance(new Bag2[E](Nil))((a,b) => new Bag2[E](new ConcatIterable(a.it,b.it)))
+  //implicit def monoid[E,B<:Bag2[E]]: Monoid[BagProjection[B,R]] = //???
+  //  Monoid.instance(BagProjection[B,R](Monoid[B].empty,()=>Iterator.empty))((x,y) => BagProjection(x.b |+| y.b, ))
+  //implicit def queryResult[E]: (Bag2[E] QueryResult DataSource[E]) = ???
+}
+//case class SingletonBag[E](e: E) extends Bag2[E] {
+//  def iterator = Iterator(e)
+//  def orderingBy[K](key: K) = ???
+//}
+
+
+//case class Indexed[K,V](k: K, v: V)
+case class Indexed[K,V](kv: (K,V)) extends AnyVal
+object Indexed {
+  //implicit def monoid[K,V:Semigroup]: Monoid[Indexed[K,V]] =
+  //implicit def queryResult[K,V]: (Indexed[K,V] QueryResult DataSource[K~V]) =
+  //  //QueryResult.instance(kvs => kvs.map(_.kv).toMap.iterator.map{case (k,v)=>k~v})
+  //  //QueryResult.instance(kvs => MapDataSource(kvs.map(_.kv).toMap))
+  //  QueryResult.instance(kvs => MapDataSource(kvs.map(_.kv).toMap alsoApply(r => println(s"> $r"))))
+  implicit def queryResult[K,V,VR](implicit qr: (V QueryResult VR)): (Indexed[K,V] QueryResult DataSource[K~VR]) =
+    QueryResult.instance(kvs => MapDataSource(kvs.map(_.kv).toBuffer.groupBy((_:(K,V))._1).mapValues(xs => qr(xs.unzip._2.iterator))))
+}
+case class MapDataSource[K,V](toMap: Map[K,V]) extends DataSource[K~V] {
+  def iterator = toMap.iterator.map{case (k,v)=>k~v}
+}
+
+*/
+
+
+
+
+
+
 /*
 trait BagLike[F[_]] { type Elem[T] }
 object BagLike {
@@ -216,6 +394,8 @@ object BagLike {
   
 }
 */
+
+/*
 
 //trait BagLike[B] { type Elem }
 //class BagLike[B,E] extends Monoid[B] { def empty = ??? ; def combine(x:B,y:B) = ??? }
@@ -256,7 +436,8 @@ object BagLike {
     @transparencyPropagating
     def orderingBy[O]()(implicit p: T ProjectsOn O, ord: Ordering[O]): BagOrdering[B,T,O,True] =
       //new BagOrdering[B,T,O,True](self, ???)
-      new BagOrdering[B,T,O,True](bl.iterator(self), BagOrdering.orderIterator(bl.iterator(self),true)(ord on p))
+      //new BagOrdering[B,T,O,True](bl.iterator(self), BagOrdering.orderIterator(bl.iterator(self),true)(ord on p))
+      new BagOrdering[B,T,O,True](bl.iterator(self), it => BagOrdering.orderIterator(bl.iterator(self),true)(ord on p))
     
   }
   
@@ -357,10 +538,11 @@ object BagOrdering {
 }
 */
 
-class BagOrdering[B,T,O,Asc<:BoolT](_src: => Iterator[T], _ordered: => Iterator[T]) extends DataSource[T] {
+//class BagOrdering[B,T,O,Asc<:BoolT](_src: => Iterator[T], _ordered: => Iterator[T]) extends DataSource[T] {
+class BagOrdering[B,T,O,Asc<:BoolT](_src: => Iterator[T], transfo: Iterator[T] => Iterator[T]) extends DataSource[T] {
   def src = _src
   //def ordered = _ordered
-  def iterator = _ordered
+  def iterator = transfo(src)
   @transparencyPropagating
   override def toString: String = s"[${iterator.mkString(",")}]"
 }
@@ -372,8 +554,8 @@ object BagOrdering {
       //def asc = choice[Asc].reify
       def empty = new BagOrdering(Iterator.empty, Iterator.empty) // FIXME what if bl.empty's iterator is not empty?!
       def combine(x: BagOrdering[B,T,O,Asc], y: BagOrdering[B,T,O,Asc]) = 
-        new BagOrdering(x.src ++ y.src, 
-          orderIterator(x.src ++ y.src, choice[Asc].reify)(ord.on(p)))
+        new BagOrdering(x.transfo(x.src ++ y.src), 
+          orderIterator(_ |> x.transfo, choice[Asc].reify)(ord.on(p)))
           //orderIterator(x.src ++ y.src, asc)(tord))
       def iterator(b: BagOrdering[B,T,O,Asc]): Iterator[T] = b.iterator
     }
@@ -413,5 +595,6 @@ object GroupedBag2 {
       def iterator(b: GroupedBag2[K,V]): Iterator[K~V] = b.iterator
     }
 }
+*/
 
 

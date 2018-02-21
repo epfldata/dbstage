@@ -17,9 +17,15 @@ trait DataSource[+Row] { self =>
   
   @transparencyPropagating
   def map[B:Monoid](f: Row => B): B = flatMap(f)
+  //def map[B](f: Row => B)(implicit qr: QueryResult[B]): qr.R = flatMap(f)
+  //def map[B,R](f: Row => B)(implicit qr: QueryResult[B,R]): R = flatMap(f)
+  //def map[B](f: Row => QueryResult[B]): QueryResult[B] = flatMap(f)
   
   @transparencyPropagating
   def flatMap[B:Monoid](f: Row => B): B = iterator.map(f).fold(Monoid[B].empty)(Monoid[B].combine)
+  //def flatMap[B](f: Row => B)(implicit qr: QueryResult[B]): qr.R = qr(iterator.map(f))
+  //def flatMap[B,R](f: Row => B)(implicit qr: QueryResult[B,R]): R = qr(iterator.map(f))
+  //def flatMap[B](f: Row => QueryResult[B]): QueryResult[B] = ??? //qr(iterator.map(f))
   
   @transparencyPropagating
   def filter(pred: Row => Bool): DataSource[Row] = new DataSource[Row] { def iterator = self.iterator.filter(pred) }
@@ -31,8 +37,25 @@ trait DataSource[+Row] { self =>
   // TODO port from old impl:
   //def naturallyJoining[A0>:A,B](b: B)(implicit pairs: A0 PairUp B): QuerySource[A] = 
   
+  def sortBy[O:Ordering](f: Row => O): OrderedDataSource[Row] // TOOD make it BufferedDataSource
+  = new BufferedOrderedDataSource(iterator)(Ordering by f)
+  
+  def orderBy[O:Ordering](desc: Bool = false)(implicit p: Row ProjectsOn O): DataSource[Row] =
+    sortBy(p)(if (desc) Ordering[O].reverse else Ordering[O])
+  
   
 }
+
+trait OrderedDataSource[+Row] extends DataSource[Row]
+trait BufferedDataSource[Row] extends DataSource[Row] {
+  def buf: mutable.Buffer[Row]
+  def iterator: Iterator[Row] = buf.iterator
+  override def toString = s"[${iterator mkString ","}]"
+}
+class BufferedOrderedDataSource[Row:Ordering](it: Iterator[Row]) extends BufferedDataSource[Row] with OrderedDataSource[Row] {
+  val buf = it.toBuffer.sorted
+}
+
 
 trait DataTable[Row] extends DataSource[Row]
 

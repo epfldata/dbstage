@@ -86,6 +86,7 @@ package object dbstage extends EmbeddedDefs {
   //def ite[B<:BoolT,R](thn: => R)(els: => R)(implicit b: B) = b match { case True => thn case False => els }
   
   
+  /*
   // Note: AnyVal causes method resolution problem
   //implicit class BagOrderingSyntax[B,T,O](private val self: BagOrdering[B,T,O,True]) { //extends AnyVal {
   @transparencyPropagating
@@ -97,6 +98,7 @@ package object dbstage extends EmbeddedDefs {
     def desc() = new BagOrdering[B,T,O,False](self.src, BagOrdering.orderIterator(self.src,false)(Ordering[O].on(p)))
     // ^ note that this impl of desc()'s _ordered is not the one that will be used in the result of usual queries (obtained from the Monoid instance)
   }
+  */
   
   
 }

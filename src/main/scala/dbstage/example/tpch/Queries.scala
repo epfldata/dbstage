@@ -8,7 +8,7 @@ import cats.instances.all.{
   _}
 import squid.quasi.{embed,phase}
 
-// TODO @embed to be able to compile
+// TODO @embed to be able to inline and optimize the code of these queries
 @embed
 object Queries extends App {
   
@@ -55,7 +55,8 @@ object Queries extends App {
       //_ <- Bag(println(s"J $o >< $l"))
       
       //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1993-11-01")  // original – too selective for small data set
-      if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1994-11-01")
+      //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1994-11-01")
+      if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1996-11-01")
       
       _ <- Bag(println(s"S $o"))
       
@@ -64,6 +65,7 @@ object Queries extends App {
     //} yield Bag(o.p[OrderPriority]).limit(1) ~ Count() groupBy o[OrderPriority] orderBy (_.lhs.head[OrderPriority]) // works, but ugly!
     //} yield Key(o.p[OrderPriority]) ~ Count() groupBy o[OrderPriority] orderBy /*(_.p[Key[String]].value)*/ (_.p[Key[OrderPriority]]) // works, but direct usage of Key is unsafe.../
     } yield Count() groupBy o.p[OrderPriority] withKey() orderBy (_.p[Key[OrderPriority]]) // works
+    //} yield Count() groupBy o.p[OrderPriority] withKey() orderBy (_.p[Count]) // works
     
   }
   
@@ -71,7 +73,7 @@ object Queries extends App {
   
   // FIXME allow syntax `_[Key[OrderPriority]]` without requiring full Wraps (have an Unwrap subclass without re-wrapping capa)
   
-  
+  /*
   import BagLike.BagLikeSyntax // FIXME
   
   @phase('Sugar)
@@ -93,6 +95,25 @@ object Queries extends App {
     //} yield Count() groupingBy o.p[OrderPriority] selecting[Count]()
 )//.iterator.toList
   }
+  */
+  @phase('Sugar)
+  def Q4_2(orders: DataSource[Order], lineitem: DataSource[LineItem]) = {
+    (for {
+      o <- orders
+      l <- lineitem
+      if o[OrderKey] == l[OrderKey] && l[CommitDate] < l[ReceiptDate]  // join predicates
+      
+      //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1993-11-01")  // original – too selective for small data set
+      //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1994-11-01")
+      if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1996-11-01")
+      
+      _ <- Bag(println(s"S $o"))
+      
+    //} yield Count() groupingBy o.p[OrderPriority]).orderBy[OrderPriority](desc = true) // original
+    } yield Count() groupingBy o.p[OrderPriority]).orderBy[Count](desc = true)
+    //(the[Ordering[Count]],the[OrderPriority~Count ProjectsOn Count])
+  }
+  
   
 }
 
@@ -134,13 +155,16 @@ object QueryTests2 extends App {
   import Embedding.Quasicodes._
   ///*
   val q = example.QueryEmbedding.compileQuery(Staged/*.dbg*/(Q4_2(orders, lineitem)))
-  //println(q.compile.apply())
+  println(q.compile.apply())
   //*/
   
+  //println(code"1".Typ)
+  //println(code"1".typ)
   
-  val __b__ : Embedding.type = Embedding
   
-  import BagLike.BagLikeSyntax
+  //val __b__ : Embedding.type = Embedding
+  
+  //import BagLike.BagLikeSyntax
   
   //__b__.staticModule("dbstage") alsoApply println
   //__b__.staticModule("dbstage$") alsoApply println

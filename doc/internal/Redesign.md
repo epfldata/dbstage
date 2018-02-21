@@ -104,3 +104,10 @@ impl stuf that I forgot to complete: I was replacing the pred predicate of a fil
 
 
 
+
+# Related
+
+Haskell's `TransformListComp` extension & related  
+https://www.reddit.com/r/haskell/comments/7le8h5/some_notes_about_how_i_write_haskell/drn2ktn/  
+https://www.schoolofhaskell.com/school/to-infinity-and-beyond/pick-of-the-week/guide-to-ghc-extensions/list-and-comprehension-extensions
+
