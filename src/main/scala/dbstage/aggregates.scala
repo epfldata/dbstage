@@ -23,10 +23,10 @@ class MonoidSyntax[A](private val self: A)(implicit mon: A |> Monoid) {
 class SemigroupSyntax[A](private val self: A)(implicit sem: A |> Semigroup) {
   //@phase('Sugar)  // exposes private value `self`
   @transparencyPropagating
-  def groupBy[B](that: B) = Groups(Map(that -> self))
+  def groupBy[B](that: B) = Groups.single(that, self)
 }
 
-// TODO have a reified Bool type parameter saying whether it should be displayed as a Min or a Max
+// TODO have a reified Bool type parameter saying whether it should be displayed as a Min or a Max; rename to Extremum
 sealed abstract class ArgMin[+T,+A]  // TODO change to Option[ArgMin] with only one ArgMin ctor?
 case class SomeMin[T,A](res: T, a: A) extends ArgMin[T,A] {
   override def toString = a match {
@@ -98,8 +98,10 @@ case class Groups[K,V](toMap: Map[K,V]) extends DataSource[K~V] {
 }
 object Groups {
   @transparencyPropagating
-  implicit def monoidGroups[K,A:Semigroup]: Monoid[Groups[K,A]] =
-    Monoid.instance(Groups[K,A](Map.empty)){(a,b) => Groups(a.toMap |+| b.toMap)}
+  def single[K,V](k: K, v: V) = Groups(Map(k -> v))
+  @transparencyPropagating
+  implicit def monoidGroups[K,V:Semigroup]: Monoid[Groups[K,V]] =
+    Monoid.instance(Groups[K,V](Map.empty)){(a,b) => Groups(a.toMap |+| b.toMap)}
 }
 
 

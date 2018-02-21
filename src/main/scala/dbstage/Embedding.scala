@@ -251,6 +251,10 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     //case code"GroupedBagMonoid.updateFrom[$tk,$ta]($self,GroupedBagMonoid.reconstruct[tk,ta]($that)($asem))" =>
     //  code"GroupedBagMonoid.updateFromReconstructed[$tk,$ta]($self,$that)($asem)" // FIXME check asem?
       
+    case code"semigroupSyntax[$ta]($self)($asem).groupBy[$tb]($b)" => code"Groups.single($b,$self)"
+    case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.single($k,$v))" => code"$self += (($k,$v)); ()"
+    //case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.reconstruct[tk,ta]($that)($asem))" =>
+      
   }
   
   /*

@@ -196,84 +196,28 @@ case class ArgMinMonoid[T:CodeType,S:CodeType,C](ord: Code[Ordering[T],C], sg: C
 
 // TODO remove the wrapper in case K is a wrapper type...
 
-/*
-/*
-case class GroupedBagMonoid[K:CodeType,A:CodeType,C](asem: Code[Semigroup[A],C]) extends StagedMonoid[GroupedBag[K,A],C] {
-  import java.util.HashMap
-  //(new HashMap[Int,Int]).
-  import scala.collection.JavaConverters._
-  type Rep = HashMap[K,A]
+case class GroupsMonoid[K:CodeType,V:CodeType,C](asem: Code[Semigroup[V],C]) extends SingleValueStagedMonoid[Groups[K,V],C](true) {
+  type Rep = mutable.ArrayBuffer[(K,V)]
   val Rep = codeTypeOf[Rep]
-  val init = code"new HashMap[K,A]"
-  val update = code"(r:Rep,t:GroupedBag[K,A]) => r.putAll(t.toMap.asJava)" // FIXME proper merge
-  val get = code"(r:Rep) => GroupedBag(r.asScala.iterator.toMap,None,None,None,None)"
+  val init = code"new mutable.ArrayBuffer[(K,V)]"
+  val update = code"(r:Rep,t:Groups[K,V]) => GroupsMonoid.updateFrom(r,t)"
+  val get = code"(r:Rep) => GroupsMonoid.reconstruct(r)($asem)"
 }
-*/
-case class GroupedBagMonoid[K:CodeType,A:CodeType,C](asem: Code[Semigroup[A],C]) extends SingleValueStagedMonoid[GroupedBag[K,A],C](true) {
-  type Rep = mutable.ArrayBuffer[(K,A)]
-  val Rep = codeTypeOf[Rep]
-  val init = code"new mutable.ArrayBuffer[(K,A)]"
-  //val update = code"(r:Rep,t:GroupedBag[K,A]) => {r ++= t.toMap.iterator;()}"
-  val update = code"(r:Rep,t:GroupedBag[K,A]) => GroupedBagMonoid.updateFrom(r,t)"
-  //val get = code"(r:Rep) => GroupedBag(r.toMap,None,None,None,None)" // FIXME proper merge
-  val get = code"(r:Rep) => GroupedBagMonoid.reconstruct(r)($asem)"
-}
-object GroupedBagMonoid {
-  def updateFrom[K,A](self: mutable.ArrayBuffer[(K,A)], that: GroupedBag[K,A]): Unit = {
+object GroupsMonoid {
+  def updateFrom[K,A](self: mutable.ArrayBuffer[(K,A)], that: Groups[K,A]): Unit = {
     self ++= that.toMap.iterator
   }
-  //@transparent
-  //@transparencyPropagating  // actually not true, as this value changes if `self` changes
-  def reconstruct[K,A:Semigroup](self: mutable.ArrayBuffer[(K,A)]): GroupedBag[K,A] = {
+  def reconstruct[K,A:Semigroup](self: mutable.ArrayBuffer[(K,A)]): Groups[K,A] = {
     import cats.syntax.all._
-    //GroupedBag(self.toMap,None,None,None,None) // FIXME proper merge
-    //val it = self.iterator
     var i = 0
     var res = Map.empty[K,A]
     while (i < self.size) {
       val (k,a) = self(i)
-      //res += res.getOrElse(k,)
       res = res.updated(k, res get k match { case Some(a0) => a |+| a0  case None => a })
       i += 1
     }
-    GroupedBag(res,None,None,None,None)
-  }
-  def updateFromReconstructed[K,A:Semigroup](self: mutable.ArrayBuffer[(K,A)], that: mutable.ArrayBuffer[(K,A)]): Unit = {
-    self ++= that // FIXME semigroup not used..?
+    Groups(res)
   }
 }
-*/
-
-//case class GroupedBagMonoid2[K:CodeType,A:CodeType,C](asem: Code[Semigroup[A],C]) extends SingleValueStagedMonoid[GroupedBag[K,A],C](true) {
-//  
-//}
-/*
-case class StagedBagGrouping[A:CodeType,C](asem: Code[Semigroup[A],C])
-case class StagedBagOrdering[A:CodeType,C](asem: Code[Semigroup[A],C])
-case class StagedBagLike[K:CodeType,T:CodeType,O:CodeType,C]
-(grouping: Option[StagedBagGrouping[T,C]], ordering: StagedBagOrdering[O,C]) extends StagedMonoid[T,C](true) 
-{
-  
-  def mkContext: MonoidContext[T,C,_] = ???
-  
-}
-*/
-
-/*
-sealed abstract class StagedBagLike[B:CodeType,E:CodeType,C] extends StagedMonoid[B,C](true) {
-//sealed abstract class StagedBagLike[B:CodeType,C] extends StagedMonoid[B,C](true) {
-//  type E
-  def mkContext: MonoidContext[B,C,_] = ???
-  def ord[O:CodeType](proj: Code[E ProjectsOn O,C], ord: Code[Ordering[O],C], asc: Bool): StagedBagOrdering[B,E,O,C] =
-    StagedBagOrdering[B,E,O,C](this, proj, ord, asc)
-  //def group[K:CodeType,V:CodeType](vsem: Code[Semigroup[V],C]): StagedBagGrouping[K,V,C] = ???
-}
-case class StagedBagProjection[B:CodeType,E:CodeType,C]() extends StagedBagLike[B,E,C]
-case class StagedBagOrdering[B:CodeType,E:CodeType,O:CodeType,C]
-(bl: StagedBagLike[B,E,C], proj: Code[E ProjectsOn O,C], ord: Code[Ordering[O],C], asc: Bool) extends StagedBagLike[BagOrdering[B,E,O,BoolT],E,C]
-//case class StagedBagGrouping[K:CodeType,A:CodeType,T:CodeType,C]() extends StagedBagLike[GroupedBag[K,A],K~A,C]
-case class StagedBagGrouping[K:CodeType,V:CodeType,C](vsem: Code[Semigroup[V],C]) extends StagedBagLike[GroupedBag[K,V],K~V,C]
-*/
-
 
 
