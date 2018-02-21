@@ -67,25 +67,29 @@ object Queries extends App {
   
 }
 
-object QueryTests extends App {
+object QueryTests {
   import Queries._
   Embedding.embed(Queries)
   
   val orders = new InputFile[Order]("data/orders.tbl.1")
+    .withPrimaryKey[OrderKey]
   val lineitem = new InputFile[LineItem]("data/lineitem.tbl.1")
+  // .withPrimaryKey[?]
   
-  println(Q4(orders, lineitem))
-  
-  ///*
-  //println(Staged(Q4(orders, lineitem)).embedded(Embedding))
-  import Embedding.Predef._
-  //import Staged.apply
-  val q = example.QueryEmbedding.compileQuery(Staged(Q4(orders, lineitem)))
-  //println(q)
-  println(q.compile.apply())
-  //*/
-  
-  
+  def main(args: Array[String]) = {
+    
+    println(Q4(orders, lineitem))
+    
+    ///*
+    //println(Staged(Q4(orders, lineitem)).embedded(Embedding))
+    import Embedding.Predef._
+    //import Staged.apply
+    val q = example.QueryEmbedding.compileQuery(Staged(Q4(orders, lineitem)))
+    //println(q)
+    println(q.compile.apply())
+    //*/
+    
+  }
   
 }
 

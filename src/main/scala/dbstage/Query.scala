@@ -66,19 +66,16 @@ abstract class WrappedQuery[T:CodeType,-C] extends Query[T,C] {
   //def map(f: )
 }
 
-case class StagedSource[T:CodeType,C](ds: DataSource[T], cde: ClosedCode[DataSource[T]] |> Option, pred: Code[T => Bool,C] |> Option) {
+case class StagedSource[T:CodeType,C](cde: Code[DataSource[T],C], currentStageValue: DataSource[T] |> Option, pred: Code[T => Bool,C] |> Option) {
   def filter(p: Code[T => Bool,C]) = copy[T,C](pred = Some(pred.fold(p)(pred => code"(x:T) => $pred(x) && $p(x)")))
-  
-  def iterateCode = ds match {
-    case ds: StagedDataSource[T] => ds.stagedIterator
-    case _ => 
-      //val it = ds.iterator
-      //code"it"
+  def iterateCode = currentStageValue match {
+    case Some(ds: StagedDataSource[T]) => ds.stagedIterator
+    case Some(ds) =>
       val d = ds
       code"d.iterator"
+    case None => code"$cde.iterator"
   }
-  
-  override def toString: String = s"${cde map show getOrElse ds}" + pred.fold("")(" % " concat _ |> show)
+  override def toString: String = s"${cde |> show}" + pred.fold("")(" % " concat _ |> show)
 }
 
 abstract class FlatMap[A:CodeType,B:CodeType,C](val src: StagedSource[A,C], val mon: StagedMonoid[B,C]) extends Query[B,C] {

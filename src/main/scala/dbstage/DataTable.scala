@@ -52,10 +52,19 @@ trait DataSource[+Row] { self =>
   
   def distinct = ??? // TODO def distinct = Set(xs: _*) ?
   
+  def withPrimaryKey[Key](implicit proj: Row ProjectsOn Key) = new IndexedDataSource[Key,Row](this)
+  
 }
 
+class IndexedDataSource[Key,+Row](src: DataSource[Row])(implicit proj: Row ProjectsOn Key) extends MaterializedDataSource[Row] {
+  val values = Lazy(src.iterator.map(v => proj(v)->v).toMap)
+  def iterator = values.value.valuesIterator
+}
+
+
 trait OrderedDataSource[+Row] extends DataSource[Row]
-trait BufferedDataSource[Row] extends DataSource[Row] {
+trait MaterializedDataSource[+Row] extends DataSource[Row]
+trait BufferedDataSource[Row] extends MaterializedDataSource[Row] {
   def buf: mutable.Buffer[Row]
   def iterator: Iterator[Row] = buf.iterator
   override def toString = s"{${iterator mkString "; "}}"

@@ -7,9 +7,12 @@ import Embedding.ClosedCode
 
 object QueryCompiler {
   
+  case class Config(persistValues: Bool)
+  
   // TOOD: make all operators wrap the result into some Query data type; warn when only partially lifting queries
   
   def compile[T:CodeType](cde: ClosedCode[T]) = {
+    implicit val cfg = Config(true)
     val q = lift(cde)
     println(s"Query:\n$q")
     val p = q.directPlan
@@ -22,7 +25,7 @@ object QueryCompiler {
     * TODO match on tubtype of T...
     * 
     * @throws */
-  def lift[T:CodeType,C](cde: Code[T,C]): Query[T,C] = {
+  def lift[T:CodeType,C](cde: Code[T,C])(implicit cfg: Config): Query[T,C] = {
     cde match {
       case code"() => $body:T" => // TODO parametrized
         die  
@@ -53,21 +56,23 @@ object QueryCompiler {
       case els => Produce(els)
     }
   }
-  def liftSource[S:CodeType,C](cde: Code[DataSource[S],C]): StagedSource[S,C] = cde match {
+  def liftSource[S:CodeType,C](cde: Code[DataSource[S],C])(implicit cfg: Config): StagedSource[S,C] = cde match {
     case code"($qs:DataSource[S]).withFilter($pred)" =>
       //Filter(liftSource(qs), pred)
       liftSource(qs).filter(pred)
     case code"($qs:DataSource[S]).filter($pred)" => liftSource(qs).filter(pred)
     case code"($qs:DataSource[S]).where($pred)"  => liftSource(qs).filter(pred)
-    case ClosedCode(cc) =>
+    case ClosedCode(cc) if cfg.persistValues =>
       if (!cc.rep.effect.immediate) {
         //if (!(codeTypeOf[S] <:< codeTypeOf[Relation[Any]]))
         if (!(cde.Typ <:< codeTypeOf[StagedDataSource[Any]]))
           System.err.println(s"Warning: running unrecognized source $cc")
         //From(cc.run, Some(cc))
-        StagedSource(cc.run,Some(cc),None)
+        //StagedSource(cc.run,Some(cc),None)
+        StagedSource(cc,Some(cc.run),None)
       }
       else die
+    case cde => StagedSource(cde,None,None)
   }
   
   // TODO
