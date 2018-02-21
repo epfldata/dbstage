@@ -84,8 +84,9 @@ object Bag {
   implicit def monoid[E]: Monoid[Bag[E]] = Monoid.instance(empty[E])((a, b) => new Bag[E](new ConcatIterable(a.it,b.it)))
 }
 
-//case class OrderedBag2[K,A](toMap: SortedMap[K,Bag[A]]) extends DataSource[K~A] {
-case class OrderedBag[K,V](toMap: Map[K,Bag[V]]) extends DataSource[K~V] {
+/* Note: shouldn't extend WithPrimaryKey[K] as the iterator lists each K several times! 
+ * Note: perhaps exposing that toMap is a SortedMap would make sense (but it complicates the impl slightly) */
+case class OrderedBag[K,V] private[dbstage](toMap: Map[K,Bag[V]]) extends DataSource[K~V] {
   def iterator = toMap.iterator.flatMap{case(k,v)=>v.iterator.map(k~_)}
 }
 object OrderedBag {
@@ -93,9 +94,10 @@ object OrderedBag {
     Monoid.instance(OrderedBag[K,A](SortedMap.empty)){(a,b) => OrderedBag(a.toMap |+| b.toMap)}
 }
 
-case class Groups[K,V](toMap: Map[K,V]) extends DataSource[K~V] {
+case class Groups[K,V](toMap: Map[K,V]) extends DataSource[K~V] with WithPrimaryKey[K] {
   def iterator = toMap.iterator.map{case(k,v)=>(k~v)} 
 }
+//case class Groups[K,V](toMap: Map[K,V]) extends IndexedDataSource[K,K~V](toMap)
 object Groups {
   @transparencyPropagating
   def single[K,V](k: K, v: V) = Groups(Map(k -> v))

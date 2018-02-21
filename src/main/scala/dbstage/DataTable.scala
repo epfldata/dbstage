@@ -56,9 +56,19 @@ trait DataSource[+Row] { self =>
   
 }
 
-class IndexedDataSource[Key,+Row](src: DataSource[Row])(implicit proj: Row ProjectsOn Key) extends MaterializedDataSource[Row] {
-  val values = Lazy(src.iterator.map(v => proj(v)->v).toMap)
-  def iterator = values.value.valuesIterator
+/** Marker trait used to indicate that K is a primary key of this source; used by the query optimizer.
+  * This means that while iterating the rows of this DataSource, each possible combination of values for columns
+  * represented by K will appear at most once. */
+trait WithPrimaryKey[K] { self: DataSource[_] => }
+//trait WithPrimaryKey[K,Row] extends DataSource[Row]
+
+//class IndexedDataSource[Key,+Row](src: DataSource[Row])(implicit proj: Row ProjectsOn Key) extends MaterializedDataSource[Row] {
+//  val values = Lazy(src.iterator.map(v => proj(v)->v).toMap)
+//  def iterator = values.value.valuesIterator
+//}
+class IndexedDataSource[Key,+Row](toMap: Map[Key,Row]) extends MaterializedDataSource[Row] with WithPrimaryKey[Key] {
+  def this(src: DataSource[Row])(implicit proj: Row ProjectsOn Key) = this(src.iterator.map(v => proj(v)->v).toMap)
+  def iterator = toMap.valuesIterator
 }
 
 

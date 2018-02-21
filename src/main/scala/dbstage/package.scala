@@ -37,7 +37,11 @@ package object dbstage extends EmbeddedDefs {
   
   def isPure(cde: OpenCode[Any]) = cde.rep.effect === SimpleEffect.Pure
   
-  def show(cde: OpenCode[Any]) = cde.rep|>base.showRep
+  def showC(cde: OpenCode[Any]) = cde.rep|>base.showRep
+  def showCT(cdeTyp: CodeType[_]) = cdeTyp.rep.tpe.toString|>trimPrefixes
+  def trimPrefixes(str: String) = str
+    .replaceAll("dbstage.example.","")
+    .replaceAll("dbstage.","")
   
   
   def indentString(str: String) = {

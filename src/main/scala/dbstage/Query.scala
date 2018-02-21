@@ -7,8 +7,8 @@ import cats.Semigroup
 import squid.lib.transparencyPropagating
 import squid.lib.transparent
 
+import scala.annotation.compileTimeOnly
 import scala.collection.mutable
-
 import scala.annotation.unchecked.uncheckedVariance
 
 //sealed abstract class Query[T:CodeType,-C] {
@@ -75,7 +75,21 @@ case class StagedSource[T:CodeType,C](cde: Code[DataSource[T],C], currentStageVa
       code"d.iterator"
     case None => code"$cde.iterator"
   }
-  override def toString: String = s"${cde |> show}" + pred.fold("")(" % " concat _ |> show)
+  val primaryKeys = Lazy(cde.erase |>? {
+    //case code"$_:IndexedDataSource[$k,$v]" => StagedSource.keysOf(k)
+    case code"$_:WithPrimaryKey[$k]" => StagedSource.keysOf(k)
+  })
+  val columns = Lazy(StagedSource.keysOf[T])
+  override def toString: String = s"${cde |> showC}${
+    primaryKeys.value.fold("")(" <"+_.map(showCT).mkString(",")+">")}" + pred.fold("")(" % " concat _ |> showC)
+}
+object StagedSource {
+  protected type R[T]
+  @compileTimeOnly("") private def R[T]: R[T] = ???
+  def keysOf[T:CodeType]: List[CodeType[_]] = code"R[T]".erase match {
+    case code"R[$ta ~ $tb]" => keysOf(ta) ++ keysOf(tb)
+    case _ => codeTypeOf[T] :: Nil
+  }
 }
 
 abstract class FlatMap[A:CodeType,B:CodeType,C](val src: StagedSource[A,C], val mon: StagedMonoid[B,C]) extends Query[B,C] {
@@ -123,7 +137,7 @@ extends Query[OrderedDataSource[A],C]
     code"if ($desc) $o.reverse else $o"
   }
   //implicit val A = codeTypeOf[A]
-  override def toString = s"OrderBy ${desc|>show} (${ord|>show})\n${indentString(s"$src")}"
+  override def toString = s"OrderBy ${desc|>showC} (${ord|>showC})\n${indentString(s"$src")}"
 }
 
 import cats.Monoid
@@ -162,7 +176,7 @@ import squid.lib.MutVar
 case class RawStagedMonoid[T:CodeType,C](cde: Code[Monoid[T],C]) 
   extends VariableBasedStagedMonoid[T,C](code"$cde.empty", code"$cde.combine _", false) 
 {
-  override def toString = show(cde)
+  override def toString = showC(cde)
 }
 class VariableBasedStagedMonoid[T:CodeType,C](zero: Code[T,C], combine: Code[(T,T)=>T,C], commutes: Bool) extends SingleValueStagedMonoid[T,C](commutes) {
   
@@ -172,7 +186,7 @@ class VariableBasedStagedMonoid[T:CodeType,C](zero: Code[T,C], combine: Code[(T,
   val update = code"(r:Rep,n:T) => r := $combine(r.!, n)"
   val get = code"(r:Rep) => r.!"
   
-  override def toString = s"Monoid(${show(zero)}, ${show(combine)})"
+  override def toString = s"Monoid(${showC(zero)}, ${showC(combine)})"
 }
 case object IntMonoid extends VariableBasedStagedMonoid(code"0", code"(_:Int)+(_:Int)", true)
 

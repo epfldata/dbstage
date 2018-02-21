@@ -96,9 +96,7 @@ object Embedding
   }
   
   override def showScala(r: Embedding.Rep): String = 
-    super.showScala(r)
-      .replaceAll("dbstage.example.","")
-      .replaceAll("dbstage.","")
+    super.showScala(r) |> trimPrefixes
   
   
 }
