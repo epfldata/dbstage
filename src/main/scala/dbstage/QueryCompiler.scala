@@ -26,13 +26,15 @@ object QueryCompiler {
     cde match {
       case code"() => $body:T" => // TODO parametrized
         die  
-      case code"($qs:DataSource[$ta]).map[T]($f)($ev)" =>
+      case code"($qs:DataSource[$ta]).map[$t where (t <:< T)]($f)($ev)" =>
         lift(code"$qs.flatMap($f)($ev)")
-      case code"($ds:DataSource[Unit]).flatMap[T]($f)($ev)" if isPure(ds) =>
+      case code"($ds:DataSource[Unit]).flatMap[$t where (t <:< T)]($f)($ev)" if isPure(ds) =>
         lift(code"$f(Unit)")
-      case code"($qs:DataSource[$ta]).flatMap[T]($x => $body)($ev)" =>
-        FlatMap.build(x)(liftSource(qs),lift(body),liftMonoid(ev))
-      case code"($qs:DataSource[$ta]).flatMap[T]($f)($ev)" =>
+      case code"($qs:DataSource[$ta]).flatMap[$t where (t <:< T)]($x => $body)($amon)" =>
+        /* ^ NOTE: it's important to match $t <: T and not T directly, as T may be a supertype of the type used here
+         * in the Monoid[T] that we match – since Monoid is invariant, using T in the pattern would fail to match! */
+        FlatMap.build(x)(liftSource(qs),lift(body),liftMonoid(amon))
+      case code"($qs:DataSource[$ta]).flatMap[$t where (t <:< T)]($f)($amon)" =>
         die
       case code"$effect; $body:T" => new WithComputation[T,C] {
         type V = Unit
@@ -46,18 +48,10 @@ object QueryCompiler {
         val computation = xv
         val query = lift(body)
       }
-      //case code"($qs:DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
-      //case dbg_code"(($qs:$ds where (ds <:< DataSource[ta])):DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
-      case code"(($qs:$ds where (ds <:< DataSource[ta])):DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
-        /* ^ don't just match `$qs:DataSource[$ta]`, because that would recurse with lift[T,C] where T = DataSource[$ta],
-         * and later on mismatch with the precise Monoid type being extracted; cf. "class Groups and trait DataSource cannot be matched invariantly" */
-        //println(ta,ds,o)
-        OrderBy[ta.Typ,o.Typ,C](
-          //base debugFor
-          lift[ds.Typ,C](qs),ord,proj,desc).asInstanceOf[Query[T,C]] // FIXME
+      case code"($qs:DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
+        OrderBy(lift(qs),ord,proj,desc).asInstanceOf[Query[T,C]] // FIXME
       case els => Produce(els)
     }
-    //???
   }
   def liftSource[S:CodeType,C](cde: Code[DataSource[S],C]): StagedSource[S,C] = cde match {
     case code"($qs:DataSource[S]).withFilter($pred)" =>
