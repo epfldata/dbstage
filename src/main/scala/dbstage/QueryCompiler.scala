@@ -18,12 +18,14 @@ object QueryCompiler {
     //liftParametrized(cde) // TODO
   }
   //def lift[T:CodeType,C](cde: Code[T,C]): Either[String,Query[T,C]] = {
-  /** @throws */
+  /** Careful! we match against T sometimes in an invariant position (cf: Monoid[T]), so if T is upcasted we will miss some matches
+    * TODO match on tubtype of T...
+    * 
+    * @throws */
   def lift[T:CodeType,C](cde: Code[T,C]): Query[T,C] = {
     cde match {
       case code"() => $body:T" => // TODO parametrized
         die  
-        /*
       case code"($qs:DataSource[$ta]).map[T]($f)($ev)" =>
         lift(code"$qs.flatMap($f)($ev)")
       case code"($ds:DataSource[Unit]).flatMap[T]($f)($ev)" if isPure(ds) =>
@@ -32,7 +34,6 @@ object QueryCompiler {
         FlatMap.build(x)(liftSource(qs),lift(body),liftMonoid(ev))
       case code"($qs:DataSource[$ta]).flatMap[T]($f)($ev)" =>
         die
-        */
       case code"$effect; $body:T" => new WithComputation[T,C] {
         type V = Unit
         val v = new Variable[Unit]{ type Ctx = Any } // Note: unsafe usage of Variable type!
@@ -45,6 +46,15 @@ object QueryCompiler {
         val computation = xv
         val query = lift(body)
       }
+      //case code"($qs:DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
+      //case dbg_code"(($qs:$ds where (ds <:< DataSource[ta])):DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
+      case code"(($qs:$ds where (ds <:< DataSource[ta])):DataSource[$ta]).orderBy[$o]($desc)($ord,$proj)" =>
+        /* ^ don't just match `$qs:DataSource[$ta]`, because that would recurse with lift[T,C] where T = DataSource[$ta],
+         * and later on mismatch with the precise Monoid type being extracted; cf. "class Groups and trait DataSource cannot be matched invariantly" */
+        //println(ta,ds,o)
+        OrderBy[ta.Typ,o.Typ,C](
+          //base debugFor
+          lift[ds.Typ,C](qs),ord,proj,desc).asInstanceOf[Query[T,C]] // FIXME
       case els => Produce(els)
     }
     //???

@@ -11,7 +11,8 @@ import scala.collection.mutable
 
 import scala.annotation.unchecked.uncheckedVariance
 
-sealed abstract class Query[T:CodeType,-C] {
+//sealed abstract class Query[T:CodeType,-C] {
+sealed abstract class Query[+T:CodeType,-C] {
   def directPlan: Code[T,C] = this match {
     case fm: FlatMap[a,T,C] => fm.mon.mkContext match { case mc: MonoidContext[T,C,d] =>
       implicit val a = fm.A
@@ -30,8 +31,14 @@ sealed abstract class Query[T:CodeType,-C] {
       val v: wc.v.type = wc.v
       code"val ${v} = ${wc.computation}; ${wc.query.directPlan}"
     case wq: WrappedQuery[T,C] => die
+    case ob: OrderBy[a,o,C] =>
+      import ob.{A,O}
+      //code"new BufferedOrderedDataSource(${ob.src.directPlan}.iterator)(${ob.ord} on ${ob.proj})"
+      code"new BufferedOrderedDataSource(${ob.src.directPlan}.iterator)(${ob.getOrd})"
+          .asInstanceOf[Code[T,C]]
   }
-  def returnOrConsume[E,D](ctx: MonoidContext[T,E,D]|>Option): Code[Option[T],C & D] = this match {
+  //def returnOrConsume[E,D](ctx: MonoidContext[T,E,D]|>Option): Code[Option[T],C & D] = this match {
+  def returnOrConsume[E,D](ctx: MonoidContext[T@uncheckedVariance,E,D]|>Option): Code[Option[T],C & D] = this match {
     case fm: FlatMap[a,T,C] => 
       implicit val a = fm.A
       val v0: fm.v.type = fm.v
@@ -108,6 +115,19 @@ abstract class WithComputation[T:CodeType,C] extends Query[T,C] {
 }
 
 case class Produce[T:CodeType,C](r: Code[T,C]) extends Query[T,C]
+
+//case class OrderBy[A:CodeType,O:CodeType,C](src: Query[DataSource[A],C], ord: Code[Ordering[O],C], proj: Code[A=>O,C], desc: Code[Bool,C])
+case class OrderBy[A,O,C](src: Query[DataSource[A],C], ord: Code[Ordering[O],C], proj: Code[A=>O,C], desc: Code[Bool,C])
+                         (implicit val A: CodeType[A], val O: CodeType[O])
+extends Query[OrderedDataSource[A],C]
+{
+  def getOrd = {
+    val o = code"$ord on $proj"
+    code"if ($desc) $o.reverse else $o"
+  }
+  //implicit val A = codeTypeOf[A]
+  override def toString = s"OrderBy ${desc|>show} (${ord|>show})\n${indentString(s"$src")}"
+}
 
 import cats.Monoid
 

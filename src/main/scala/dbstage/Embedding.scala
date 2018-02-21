@@ -68,6 +68,8 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[Bag.type]("apply")
   transparencyPropagatingMtds += methodSymbol[TraversableOnce[Any]]("toMap")
   transparencyPropagatingMtds += methodSymbol[scala.Ordering.type]("by")
+  transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("on")
+  transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("reverse")
   
   transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
   // does not seem to work:
