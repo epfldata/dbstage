@@ -51,8 +51,10 @@ object Queries extends App {
   def Q4(orders: DataSource[Order], lineitem: DataSource[LineItem]) = {
     (for {
       o <- orders
-      l <- lineitem
-      if o[OrderKey] == l[OrderKey] && l[CommitDate] < l[ReceiptDate]  // join predicates
+      //l <- lineitem
+      //if o[OrderKey] == l[OrderKey] && l[CommitDate] < l[ReceiptDate]  // join predicates
+      l <- lineitem.naturallyJoining(o)
+      if l[CommitDate] < l[ReceiptDate]  // join predicate
       
       //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1993-11-01")  // original – too selective for small data set
       //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1994-11-01")

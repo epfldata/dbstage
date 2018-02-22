@@ -91,3 +91,84 @@ class ProjectLowPrio2 {
   @desugar
   implicit def projectT[T]: T ProjectsOn T = ProjectsOn(identity)
 }
+
+
+/** Type class for finding the normal form AN of record type A; ie. where all ~ are left-associated. */
+case class Normalizes[AN,A](fun: A => AN) extends (A => AN) { def apply(a:A) = fun(a) }
+
+@embed object Normalizes extends NormalizesLowPriority0 {
+  @desugar implicit def reassoc[A,B,C,ABCN](implicit norm: ABCN Normalizes (A ~ B ~ C)): ABCN Normalizes (A ~ (B ~ C)) =
+    Normalizes(abc => norm(abc.lhs ~ abc.rhs.lhs ~ abc.rhs.rhs))
+}
+@embed class NormalizesLowPriority0 extends NormalizesLowPriority1 {
+  @desugar implicit def propagate[A,AN,B,BN,ABN]
+  (implicit normA: AN Normalizes A, normB: BN Normalizes B, normAB: ABN Normalizes (AN ~ BN)): ABN Normalizes (A ~ B) =
+    Normalizes(ab => normAB(normA(ab.lhs) ~ normB(ab.rhs)))
+}
+@embed class NormalizesLowPriority1 {
+  @desugar implicit def isNormal[A]: A Normalizes A = Normalizes(identity)
+}
+
+/** A pair of two values of the same type F; we use a type member instead of a type parameter because Squid does not
+  * currently support existentials, as in `List[FieldPair[_]]`. */
+sealed abstract class FieldPair {
+  type F
+  val l: F; val r: F
+  override def toString: String = s"<$l,$r>"
+}
+case class FieldPairImpl[F0](l: F0, r: F0) extends FieldPair { type F = F0 }
+object FieldPair {
+  @transparencyPropagating
+  def apply[F](l: F, r: F): FieldPair = FieldPairImpl(l,r)
+  def unapply(fp: FieldPair): Some[(fp.F,fp.F)] = Some(fp.l,fp.r)
+}
+
+/** Implicit for accumulating a list of pairs of fields with the same type in both L and R. */
+class PairUp[L,R](val ls: (L,R) => List[FieldPair])
+
+@embed object PairUp extends PairUpLowPriority0 {
+  @desugar implicit def pairUpNorm[L,R,RN](implicit norm: RN Normalizes R, pu: PairUpNorm[L,RN]): PairUp[L,R] =
+    new PairUp((l,r) => pu.ls(l,norm(r)))
+}
+
+/** Same as PairUp, but only works when R is in normal form (for implicit resolution performance reasons). */
+class PairUpNorm[L,R](val ls: (L,R) => List[FieldPair])
+
+@embed object PairUpNorm extends PairUpLowPriority0 {
+  @desugar def apply[L,R](ls: (L,R) => List[FieldPair]) = new PairUpNorm(ls)
+  @desugar implicit def isPair[T,H](implicit acc: T CanAccess H): PairUpNorm[T,H] =
+    PairUpNorm((t0,t1) => FieldPair[H](acc(t0),t1)::Nil)
+}
+@embed class PairUpLowPriority0 extends PairUpLowPriority1 {
+  @desugar implicit def pairHead[L,H,T](implicit pu: PairUpNorm[L,T], acc: L CanAccess H): PairUpNorm[L,T~H] =
+    PairUpNorm((l,ht) => FieldPair(acc(l),ht.rhs) :: pu.ls(l,ht.lhs))
+}
+@embed class PairUpLowPriority1 extends PairUpLowPriority2 {
+  @desugar implicit def pairNoHead[L,H,T](implicit pu: PairUpNorm[L,T]): PairUpNorm[L,T~H] =
+    PairUpNorm((l,ht) => pu.ls(l,ht.lhs))
+}
+@embed class PairUpLowPriority2 {
+  @desugar implicit def pairNone[L,T]: PairUpNorm[L,T] = PairUpNorm((l,r) => Nil)
+}
+
+// Works, but impractically slow for big record types!!!
+/*
+@embed object PairUp extends PairUpLowPriority {
+  @transparencyPropagating
+  def apply[L,R](ls: (L,R) => List[FieldPair]) = new PairUp(ls)
+  @desugar implicit def isPair[T]: PairUp[T,T] =
+    PairUp((t0,t1) => FieldPair[T](t0,t1)::Nil)
+}
+@embed class PairUpLowPriority extends PairUpLowPriority1 {
+  @desugar implicit def decomposeRight[L,R0,R1](implicit pairs0: PairUp[L,R0], pairs1: PairUp[L,R1]): PairUp[L,R0~R1] =
+    PairUp((l,r) => pairs0.ls(l,r.lhs) ++ pairs1.ls(l,r.rhs))
+}
+@embed class PairUpLowPriority1 extends PairUpLowPriority2 {
+  @desugar implicit def decomposeLeft[L0,L1,R](implicit pairs0: PairUp[L0,R], pairs1: PairUp[L1,R]): PairUp[L0~L1,R] =
+    PairUp((l,r) => pairs0.ls(l.lhs,r) ++ pairs1.ls(l.rhs,r))
+}
+@embed class PairUpLowPriority2 {
+  @desugar implicit def doesNotHavePair[L,R]: PairUp[L,R] =
+    PairUp((_,_) => Nil)
+}
+*/

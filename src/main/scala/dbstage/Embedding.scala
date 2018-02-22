@@ -49,6 +49,14 @@ object Embedding
   embed(RecordReadLowPrio)
   embed(SemigroupSyntax)
   //embed(Count)
+  embed(PairUp)
+  embed(PairUpNorm)
+  embed(PairUpLowPriority0)
+  embed(PairUpLowPriority1)
+  embed(PairUpLowPriority2)
+  embed(Normalizes)
+  embed(NormalizesLowPriority0)
+  embed(NormalizesLowPriority1)
   
   //override val bindEffects = true  // FIXME causes SOF
   

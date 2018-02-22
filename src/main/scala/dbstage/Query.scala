@@ -84,6 +84,7 @@ case class StagedSource[T:CodeType,C](cde: Code[DataSource[T],C], currentStageVa
     primaryKeys.value.fold("")(" <"+_.map(showCT).mkString(",")+">")}" + pred.fold("")(" % " concat _ |> showC)
 }
 object StagedSource {
+  import scala.language.higherKinds
   protected type R[T]
   @compileTimeOnly("") private def R[T]: R[T] = ???
   def keysOf[T:CodeType]: List[CodeType[_]] = code"R[T]".erase match {

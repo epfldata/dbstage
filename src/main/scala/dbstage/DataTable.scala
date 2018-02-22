@@ -35,7 +35,11 @@ trait DataSource[+Row] { self =>
   def where(pred: Row => Bool): DataSource[Row] = filter(pred)
   
   // TODO port from old impl:
-  //def naturallyJoining[A0>:A,B](b: B)(implicit pairs: A0 PairUp B): QuerySource[A] = 
+  // TODO how to avoid losing static info about primary keys etc.?
+  @transparencyPropagating
+  //@desugar // TODO 
+  def naturallyJoining[R>:Row,B](b: B)(implicit pairs: R PairUp B): DataSource[Row] =
+    filter(a => pairs.ls(a,b).forall{case FieldPair(x,y)=>x===y})
   
   def sortBy[O:Ordering](f: Row => O): OrderedDataSource[Row] // TOOD make it BufferedDataSource
   = new BufferedOrderedDataSource(iterator)(Ordering by f)

@@ -49,6 +49,37 @@ class RecordTests extends FunSuite {
     
   }
   
+  test("Record Normalization") {
+    
+    assert(("a"~("b"~1)).normalize == "a"~"b"~1)
+    
+    val model = 1 ~ 2 ~ 3 ~ 4
+    assert((1 ~ 2 ~ 3 ~ 4).normalize == model)
+    assert((1 ~ 2 ~ (3 ~ 4)).normalize == model)
+    assert((1 ~ (2 ~ (3 ~ 4))).normalize == model)
+    assert(((1 ~ 2) ~ (3 ~ 4)).normalize == model)
+    assert((1 ~ (2 ~ 3) ~ 4).normalize == model)
+    assert((1 ~ ((2 ~ 3) ~ 4)).normalize == model)
+    
+    assert((1 ~ ((2 ~ 3) ~ 4) ~ (5 ~ 6)).normalize == 1 ~ 2 ~ 3 ~ 4 ~ 5 ~ 6)
+    
+  }
+  
+  test("Pairing Up Fields") {
+    
+    assert(the[PairUp[Int,Int]].ls(0,1).toSet == Set(FieldPair(0,1)))
+    assert(the[PairUp[Int~String,Int]].ls(0~"ok",1).toSet == Set(FieldPair(0,1)))
+    assert(the[PairUp[Int,String~Int]].ls(0,"ko"~1).toSet == Set(FieldPair(0,1)))
+    assert(the[PairUp[Int~String,String~Int]].ls(0~"ok","ko"~1).toSet == Set(FieldPair(0,1), FieldPair("ok","ko")))
+    
+    assert(the[PairUp[Int~String~Symbol,Symbol~Int~String]].ls(0~"ok"~'a,'b~1~"ko").toSet ==
+      Set(FieldPair(0,1), FieldPair("ok","ko"), FieldPair('a,'b)))
+    
+    assert(the[PairUp[Int~String~Symbol,Symbol~String~Int]].ls(0~"ok"~'a,'b~"ko"~1).toSet ==
+      Set(FieldPair(0,1), FieldPair("ok","ko"), FieldPair('a,'b)))
+    
+  }
+  
   /*
   test("Funky Fields Stuff") {
     //val p2 = p.map[Age](_ + 1)

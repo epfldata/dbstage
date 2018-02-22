@@ -16,6 +16,9 @@ package object dbstage extends EmbeddedDefs {
       def combine(x: A, y: A): A = _combine(x,y)
     }
   }
+  implicit class GeneralHelper[A](private val self: A) extends AnyVal {
+    def normalize[R](implicit norm: R Normalizes A): R = norm(self)
+  }
   
   // for use in embedded code:
   @transparencyPropagating
