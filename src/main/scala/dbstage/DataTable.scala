@@ -51,6 +51,8 @@ trait DataSource[+Row] { self =>
     def iterator: Iterator[R] = self.iterator.map(p)
   }
   
+  def head = iterator.next
+  
   def isEmpty = iterator.isEmpty
   final def nonEmpty = !isEmpty
   

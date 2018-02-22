@@ -94,19 +94,19 @@ class ProjectLowPrio2 {
 
 
 /** Type class for finding the normal form AN of record type A; ie. where all ~ are left-associated. */
-case class Normalizes[AN,A](fun: A => AN) extends (A => AN) { def apply(a:A) = fun(a) }
+class Normalizes[AN,A](fun: A => AN) extends (A => AN) { def apply(a:A) = fun(a) }
 
 @embed object Normalizes extends NormalizesLowPriority0 {
   @desugar implicit def reassoc[A,B,C,ABCN](implicit norm: ABCN Normalizes (A ~ B ~ C)): ABCN Normalizes (A ~ (B ~ C)) =
-    Normalizes(abc => norm(abc.lhs ~ abc.rhs.lhs ~ abc.rhs.rhs))
+    new Normalizes(abc => norm(abc.lhs ~ abc.rhs.lhs ~ abc.rhs.rhs))
 }
 @embed class NormalizesLowPriority0 extends NormalizesLowPriority1 {
   @desugar implicit def propagate[A,AN,B,BN,ABN]
   (implicit normA: AN Normalizes A, normB: BN Normalizes B, normAB: ABN Normalizes (AN ~ BN)): ABN Normalizes (A ~ B) =
-    Normalizes(ab => normAB(normA(ab.lhs) ~ normB(ab.rhs)))
+    new Normalizes(ab => normAB(normA(ab.lhs) ~ normB(ab.rhs)))
 }
 @embed class NormalizesLowPriority1 {
-  @desugar implicit def isNormal[A]: A Normalizes A = Normalizes(identity)
+  @desugar implicit def isNormal[A]: A Normalizes A = new Normalizes(identity)
 }
 
 /** A pair of two values of the same type F; we use a type member instead of a type parameter because Squid does not
@@ -114,6 +114,7 @@ case class Normalizes[AN,A](fun: A => AN) extends (A => AN) { def apply(a:A) = f
 sealed abstract class FieldPair {
   type F
   val l: F; val r: F
+  @transparencyPropagating def same = l == r
   override def toString: String = s"<$l,$r>"
 }
 case class FieldPairImpl[F0](l: F0, r: F0) extends FieldPair { type F = F0 }

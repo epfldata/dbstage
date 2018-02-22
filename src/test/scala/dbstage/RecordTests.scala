@@ -133,4 +133,36 @@ class RecordEmbeddingTests extends FunSuite {
     
   }
   
+  test("Removal of Normalization Abstraction") {
+    
+    assert(code"(1 ~ ((2 ~ 3) ~ 4)).normalize" == code"1 ~ 2 ~ 3 ~ 4")
+    // ^ without normaliation, this generates dozens of lines of code!!
+    
+  }
+  
+  test("Removal of Natural Join Abstraction") {
+    import example.tpch.OrderKey
+    import example.tpch.QueryTests.{lineitem,orders}
+    
+    assert(code"lineitem naturallyJoining orders.head" == 
+           code"val h = orders.head; lineitem.filter(_.select[OrderKey] == h.select[OrderKey])")
+    
+    // ^ Note: without normalization of PairUp, we end up with:
+    
+    /*
+    {
+      val x_0 = tpch.QueryTests.orders.head;
+      val x_3 = new PairUpNorm[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], tpch.OrderKey](((t0_1: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], t1_2: tpch.OrderKey) => scala.collection.immutable.Nil.::[FieldPair](FieldPair.apply[tpch.OrderKey](t0_1.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs.lhs, t1_2))));
+      val x_6 = new PairUpNorm[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[tpch.OrderKey, tpch.CustKey]](((l_4: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ht_5: ~[tpch.OrderKey, tpch.CustKey]) => x_3.ls.apply(l_4, ht_5.lhs)));
+      val x_9 = new PairUpNorm[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus]](((l_7: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ht_8: ~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus]) => x_6.ls.apply(l_7, ht_8.lhs)));
+      val x_12 = new PairUpNorm[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice]](((l_10: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ht_11: ~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice]) => x_9.ls.apply(l_10, ht_11.lhs)));
+      val x_15 = new PairUpNorm[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate]](((l_13: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ht_14: ~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate]) => x_12.ls.apply(l_13, ht_14.lhs)));
+      val x_18 = new PairUpNorm[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate], tpch.OrderPriority]](((l_16: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ht_17: ~[~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate], tpch.OrderPriority]) => x_15.ls.apply(l_16, ht_17.lhs)));
+      val x_21 = new PairUp[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate], tpch.OrderPriority]](((l_19: ~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], r_20: ~[~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate], tpch.OrderPriority]) => x_18.ls.apply(l_19, ~.apply[~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate], tpch.OrderPriority](r_20.lhs, r_20.rhs))));
+      tpch.QueryTests.lineitem.naturallyJoining[~[~[~[~[~[~[~[~[~[~[~[~[~[~[~[tpch.OrderKey, tpch.PartKey], tpch.SuppKey], tpch.LineNumber], tpch.Quantity], tpch.ExtendedPrice], tpch.Discount], tpch.Tax], tpch.ReturnFlag], tpch.Linestatus], tpch.ShipDate], tpch.CommitDate], tpch.ReceiptDate], tpch.ShipInstruct], tpch.ShipMode], tpch.Comment], ~[~[~[~[~[tpch.OrderKey, tpch.CustKey], tpch.OrderStatus], tpch.TotalPrice], tpch.OrderDate], tpch.OrderPriority]](x_0)(x_21)
+    }"""
+    */
+    
+  }
+  
 }

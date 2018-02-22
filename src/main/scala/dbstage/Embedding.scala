@@ -78,6 +78,10 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[scala.Ordering.type]("by")
   transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("on")
   transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("reverse")
+  transparencyPropagatingMtds += methodSymbol[Normalizes[_,_]]("<init>")
+  transparencyPropagatingMtds += methodSymbol[PairUpNorm[_,_]]("<init>")
+  transparencyPropagatingMtds += methodSymbol[PairUp[_,_]]("<init>")
+  transparencyPropagatingMtds += methodSymbol[List[_]]("$colon$colon")
   
   transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
   // does not seem to work:
@@ -221,10 +225,22 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"($w:Wraps[$a,$b]).apply((w:Wraps[a,b]).deapply($x))" => x
     case code"($w:Wraps[$a,$b]).instance" => w
       
+    case code"generalHelper[$at]($a).normalize[$tb]($norm)" => code"$norm($a)"
+    case code"(new Normalizes[$ta,$tna]($fun)).apply($a)" => code"$fun($a)"
+    case code"(new PairUpNorm[$ta,$tb]($lsfun)).ls($l,$r)" => code"$lsfun($l,$r)"
+    case code"(new PairUp[$ta,$tb]($lsfun)).ls($l,$r)" => code"$lsfun($l,$r)"
+    case code"($ds: DataSource[$ta]).naturallyJoining[$tr where (ta <:< tr),$tb]($b)($pairs)" =>
+      //code"$ds.filter(a => $pairs.ls(a,$b).forall(fp => fp.l == fp.r))" // no support for path-dependent types
+      code"$ds.filter(a => $pairs.ls(a,$b).forall(_.same))"
+    case code"($ls: List[$ta]).::[$tb where (ta <:< tb)]($b).forall($p)" => code"$p($b) && ($ls forall $p)"
+    case code"Nil.forall($p)" => code"true"
+    case code"FieldPair[$ta]($a0,$a1).same" => code"$a0 == $a1"
+      
     case code"recordSyntax[$at]($a).apply[$f]($acc, $w: f Wraps $v)" => code"$w.instance.deapply($acc($a))"
     case code"recordSyntax[$at]($a).apply[$f,$v]($w)($acc)" => code"$w.deapply($acc($a))"
     case code"recordSyntax[$at]($a).project[$rt]($proj)" => code"$proj($a)"
     case code"recordSyntax[$at]($a).p[$rt]($proj)" => code"$proj($a)"
+    case code"recordSyntax[$at]($a).select[$rt]($sel)" => code"$sel($a)"
       
     case code"CanAccess[$at,$rt]($f).fun" => f
     case code"CanAccess[$at,$rt]($f).apply($x)" => code"$f($x)"
