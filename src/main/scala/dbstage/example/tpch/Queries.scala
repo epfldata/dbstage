@@ -9,6 +9,7 @@ import cats.instances.all.{
 import squid.quasi.{embed,phase}
 
 // TODO @embed to be able to inline and optimize the code of these queries
+//@squid.quasi.dbg_embed
 @embed
 object Queries extends App {
   
@@ -46,7 +47,7 @@ object Queries extends App {
   }
   */
   
-  @phase('Sugar)
+  @desugar
   def Q4(orders: DataSource[Order], lineitem: DataSource[LineItem]) = {
     (for {
       o <- orders

@@ -14,16 +14,16 @@ class EmbeddedDefs {
   // Note: this is here and not in Wraps so that it can be found for type T even when there is no proper Wraps companion
   // object for T (which happens if T is not a class type but, say, a type member/synonym)
   // NOTE: the order of implicit parameters matters! having Monoid[B] in front does not seem to work!
-  @phase('Sugar)
+  @desugar
   implicit def monoidWrap[A,B](implicit ev: A Wraps B, m: Monoid[B]): Monoid[A] = {
     monoidInstance(ev(m.empty))((x,y) => ev(ev.deapply(x) |+| ev.deapply(y)))
   }
-  @phase('Sugar)
+  @desugar
   implicit def semigroupWrap[A,B](implicit ev: A Wraps B, m: Semigroup[B]): Semigroup[A] = {
     semigroupInstance((x,y) => ev(ev.deapply(x) |+| ev.deapply(y)))
   }
   
-  @phase('Sugar)
+  @desugar
   implicit def orderingWrap[A,B](implicit ev: A Wraps B, ord: Ordering[B]): Ordering[A] = {
     Ordering.by(ev.deapply)
   }

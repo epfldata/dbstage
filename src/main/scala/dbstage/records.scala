@@ -34,18 +34,29 @@ final class RecordSyntax[A](private val self: A) extends AnyVal {
   //def apply[F](implicit access: CanAccess[A,F]): F#Typ = access(self).value
   def apply[F](implicit accessF: CanAccess[A,F], ws: WrapsBase[F]): ws.Typ = apply(ws.instance)
   def apply[F,V](w: F Wraps V)(implicit accessF: A CanAccess F): V = accessF(self) |> w.deapply
+  
+  //def map[F,V](w: F Wraps V)(f: V => V)(implicit accessF: A CanAccess F): A = ???
+  // TODO ^ CanAccess needs a deapp method; better: a generic replacement capability that can change the field type...
+  
+  // works well:
+  //def focus[F,V](w: F Wraps V)(implicit accessF: CanAccess[A,F]) = new FocusSyntax[A,F,V](self, accessF, w)
+  
 }
+// works well:
+//final class FocusSyntax[A,F,V](self: A, accessF: CanAccess[A,F], w: F Wraps V) {
+//  def map(f: V => V): A = ???
+//}
 
 // TODO rename to `contains`?
 @implicitNotFound("Type ${R} is not known to be accessible in ${A}")
 case class CanAccess[A,R](fun: A => R) extends (A => R) { def apply(a: A) = fun(a) } // TODO rem indirection; make abstract class?
 @embed
 object CanAccess {
-  @phase('Sugar)
+  @desugar
   implicit def fromLHS[A,B,T](implicit ev: A CanAccess T): (A ~ B) CanAccess T = CanAccess(ev compose (_.lhs))
-  @phase('Sugar)
+  @desugar
   implicit def fromRHS[A,B,T](implicit ev: B CanAccess T): (A ~ B) CanAccess T = CanAccess(ev compose (_.rhs))
-  @phase('Sugar)
+  @desugar
   implicit def fromT[T]: T CanAccess T = CanAccess(identity)
 }
 
@@ -57,26 +68,26 @@ case class ProjectsOn[-A,B](fun: A => B) extends (A => B) { def apply(a: A) = fu
 @embed
 object ProjectsOn extends ProjectLowPrio {
   //implicit object projectUnit extends Project[Any,Unit](_ => ())  // TODO make Project contravariant?
-  @phase('Sugar)
+  @desugar
   implicit def projectUnit[T] = ProjectsOn[T,Unit](_ => ())
-  @phase('Sugar)
+  @desugar
   implicit def projectLHS[A,B,T](implicit ev: A CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.lhs))
-  @phase('Sugar)
+  @desugar
   implicit def projectRHS[A,B,T](implicit ev: B CanAccess T): (A ~ B) ProjectsOn T = ProjectsOn(ev compose (_.rhs))
   //implicit def projectBoth[A,B,T](implicit evLHS: T Project A, evRHS: T Project B): T Project (A ~ B) = Project(t => evLHS(t) ~ evRHS(t))
   
-  @phase('Sugar)
+  @desugar
   implicit def projectSet[A,B](implicit ev: A ProjectsOn B): Set[A] ProjectsOn Set[B] = ProjectsOn(_ map ev)
   
 }
 @embed
 class ProjectLowPrio extends ProjectLowPrio2 {
-  @phase('Sugar)
+  @desugar
   implicit def projectBoth[A,B,T](implicit evLHS: T ProjectsOn A, evRHS: T ProjectsOn B): T ProjectsOn (A ~ B) =
     ProjectsOn(t => evLHS(t) ~ evRHS(t))
 }
 @embed
 class ProjectLowPrio2 {
-  @phase('Sugar)
+  @desugar
   implicit def projectT[T]: T ProjectsOn T = ProjectsOn(identity)
 }

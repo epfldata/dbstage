@@ -49,6 +49,17 @@ class RecordTests extends FunSuite {
     
   }
   
+  /*
+  test("Funky Fields Stuff") {
+    //val p2 = p.map[Age](_ + 1)
+    //val p2 = p.focus[Age].map(_ + 1) // missing parameter type
+    //val p2 = p.focus[Age].map[Int](_ + 1)
+    //val p2 = p.focus(Age).map(_ + 1) // ok
+    val p2 = p.map(Age)(_ + 1)
+    // ^ TODO impl
+  }
+  */
+  
 }
 
 class RecordEmbeddingTests extends FunSuite {
