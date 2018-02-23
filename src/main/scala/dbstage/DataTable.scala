@@ -37,9 +37,14 @@ trait DataSource[+Row] { self =>
   // TODO port from old impl:
   // TODO how to avoid losing static info about primary keys etc.?
   @transparencyPropagating
-  //@desugar // TODO 
+  //@desugar // TODO
   def naturallyJoining[R>:Row,B](b: B)(implicit pairs: R PairUp B): DataSource[Row] =
     filter(a => pairs.ls(a,b).forall{case FieldPair(x,y)=>x===y})
+  
+  @transparencyPropagating
+  //@desugar // TODO
+  def naturalJoin[R0>:Row,R1](bs: DataSource[R1])(implicit pairs: R0 PairUp R1): Bag[R0 ~ R1] =
+    for { a <- (this:DataSource[R0]); b <- bs.naturallyJoining(a) } yield Bag(a ~ b)
   
   def sortBy[O:Ordering](f: Row => O): OrderedDataSource[Row] // TOOD make it BufferedDataSource
   = new BufferedOrderedDataSource(iterator)(Ordering by f)

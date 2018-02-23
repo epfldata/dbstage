@@ -51,9 +51,25 @@ object Queries extends App {
   def Q4(orders: DataSource[Order], lineitem: DataSource[LineItem]) = {
     (for {
       o <- orders
+      l <- lineitem
+      if o[OrderKey] == l[OrderKey] // natural join predicate
+      
+      
+      /* The natural-join-based forms take too long to compile because of the PairUp implicit resolution part (could be
+       * easily be sped-up by macro, though)
+       * Note: the normalization part is not the problem, as writing this compiles promptly:
+       *   if o.normalize.apply[OrderKey] == l.normalize.apply[OrderKey] */
+      
+      //o <- orders
+      //l <- lineitem.naturallyJoining(o)
+      //l ~ o <- lineitem naturalJoin orders  // FIXME[Squid] Embedding Error: Unsupported feature (patmat)
+      
+      // does no seem to finish compiling, even after making PairUp normalize both of its inputs:
       //l <- lineitem
-      //if o[OrderKey] == l[OrderKey] && l[CommitDate] < l[ReceiptDate]  // join predicates
-      l <- lineitem.naturallyJoining(o)
+      //o <- orders.naturallyJoining(l)
+      //o ~ l <- orders naturalJoin lineitem
+      
+      
       if l[CommitDate] < l[ReceiptDate]  // join predicate
       
       //if o[OrderDate] >= Date("1993-08-01") && o[OrderDate] < Date("1993-11-01")  // original – too selective for small data set

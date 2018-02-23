@@ -128,8 +128,15 @@ object FieldPair {
 class PairUp[L,R](val ls: (L,R) => List[FieldPair])
 
 @embed object PairUp extends PairUpLowPriority0 {
-  @desugar implicit def pairUpNorm[L,R,RN](implicit norm: RN Normalizes R, pu: PairUpNorm[L,RN]): PairUp[L,R] =
-    new PairUp((l,r) => pu.ls(l,norm(r)))
+  
+  /* Normalizing only the RHS for traversal: */
+  //@desugar implicit def pairUpNorm[L,R,RN](implicit norm: RN Normalizes R, pu: PairUpNorm[L,RN]): PairUp[L,R] =
+  //  new PairUp((l,r) => pu.ls(l,norm(r)))
+  
+  /* Normalizing both record types: */
+  @desugar implicit def pairUpNorm[L,LN,R,RN](implicit normL: LN Normalizes L, normR: RN Normalizes R, pu: PairUpNorm[LN,RN]): PairUp[L,R] =
+    new PairUp((l,r) => pu.ls(l|>normL,r|>normR))
+  
 }
 
 /** Same as PairUp, but only works when R is in normal form (for implicit resolution performance reasons). */
