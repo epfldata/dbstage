@@ -69,6 +69,14 @@ it is sufficient that it be a Magma with an associated Zero/Identity element;
 unfortunately, neither Cats nor Scalaz has a type class for that.
 
 
+It would be good to use custom CommutativeMonoid and IdempotentMonoid classes in order to indicate these properties
+(as opposed to having the propery be encoded in a non-extensible set of stagedMonoid representations)
+
+Additionally, that could allow us to set in place the same restrictions as the monoid comprehension calculus,
+which seem to be the right way to desing such interface
+
+
+
 # TODO
 
 Implement different strategies for automatic parallelization
@@ -89,6 +97,7 @@ Use `obj[Field]` to select, and `obj[Field].value` or `obj[Field].v` to access t
 
 repr filter predicates in useful NF  
 move predicates up to outermost input possible (cf. pred on order stated in lineitem pred)
+
 
 
 
