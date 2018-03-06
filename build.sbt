@@ -21,6 +21,7 @@ lazy val commonSettings = Seq(
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
   scalacOptions ++= Seq("-feature", "-language:postfixOps", "-unchecked", "-deprecation"
+    //, "-language:higherKinds" // not yet supported by Squid, so better warn against it
     //, "-Xprint:typer", "-Xlog-implicits"
     //, "-Yliteral-types" // yields error:  bad option: '-Yliteral-types'
   ),

@@ -72,6 +72,8 @@ object Count extends (Count Wraps Int) {
 }
 
 class ConcatIterable[A](lhs: Iterable[A], rhs: Iterable[A]) extends Iterable[A] { def iterator = lhs.iterator ++ rhs.iterator }
+class PrependIterable[A](lhs: A, rhs: Iterable[A]) extends Iterable[A] { def iterator = Iterator(lhs) ++ rhs.iterator }
+class FromThunkIterable[A](thunk: => Iterator[A]) extends Iterable[A] { def iterator = thunk }
 
 
 // TODO optimize: no need to wrap/box Iterable objects...

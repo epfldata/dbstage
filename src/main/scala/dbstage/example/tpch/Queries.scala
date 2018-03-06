@@ -95,7 +95,7 @@ object QueryTests {
   val lineitem = new InputFile[LineItem]("data/lineitem.tbl.1")
   // .withPrimaryKey[?]
   
-  def main(args: Array[String]) = {
+  def main(args: Array[String]): Unit = {
     
     println(Q4(orders, lineitem))
     
