@@ -33,9 +33,11 @@ object OrderedSourceOf {
 }
 trait OrderedFiniteSourceOf[C,A] extends OrderedSourceOf[C,A] with FiniteSourceOf[C,A]
 object OrderedFiniteSourceOf {
+  /*
   implicit object unit extends OrderedFiniteSourceOf[Unit,Unit] {
     def iterator(c: Unit) = Iterator(())
   }
+  */
 }
 
 trait SourceOfDistinct[C,A] extends SourceOf[C,A]
@@ -53,10 +55,16 @@ object OrderedFiniteSourceOfDistinct {
   //}
 }
 
+trait NonEmptySourceOf[As,A] extends SourceOf[As,A]
+//{ def any: A; def rest: As }
+{ def any: A; def all: As } // more efficient: no need to have As efficiently decomposable into (A,As)
+
+
 trait IndexedSourceOf[C,K,A] extends SourceOf[C,K~A]
 
 trait FiniteSourceOf[C,A] extends SourceOf[C,A] { def toList(c: C): List[A] = List(inAnyOrder(c).iterator.toList) }
-trait FiniteSourceOfDistinct[C,A] extends SourceOfDistinct[C,A] { def toList: List[A] }
+//trait FiniteSourceOfDistinct[C,A] extends SourceOfDistinct[C,A] { def toList: List[A] }
+trait FiniteSourceOfDistinct[C,A] extends SourceOfDistinct[C,A] with FiniteSourceOf[C,A] //{ def toList: List[A] }
 
 trait BoundedSourceOf[C,A] extends SourceOf[C,A] { def sizeBound: Int }
 //trait BoundedSourceOfDistinct[C,A] extends SourceOfDistinct[C,A] { def sizeBound: Int }
@@ -69,8 +77,12 @@ case class List[A](xs: Iterable[A]) extends Container[A] {
 }
 object List {
   def empty[A]: List[A] = List(Nil)
-  implicit def asSource[A]: (List[A] OrderedFiniteSourceOf A) = ???
-  implicit def asMonoid[A]: Monoid[List[A]] = ???
+  implicit def asSource[A]: (List[A] OrderedFiniteSourceOf A) = new (List[A] OrderedFiniteSourceOf A) {
+    def iterator(c: List[A]) = c.xs.iterator
+    //override def inAnyOrder(c: List[A]) = c
+  }
+  implicit def asMonoid[A]: Monoid[List[A]] =
+    Monoid.instance[List[A]](List.empty)((a,b) => List(new ConcatIterable(a.xs,b.xs)))
 }
 
 case class Bag[A](xs: Iterable[A]) extends Container[A] {
@@ -95,12 +107,17 @@ object Indexing {
 }
 
 case class Set[A](xs: immutable.Set[A]) extends Container[A] {
-  
+  override def toString: String = s"{${xs.mkString(",")}}"
 }
 object Set {
   def empty[A]: Set[A] = Set(immutable.Set.empty)
-  implicit def asSource[A]: (Set[A] FiniteSourceOfDistinct A) = ???
-  implicit def asMonoid[A]: CommutativeIdempotentMonoid[Set[A]] = ???
+  implicit def asSource[A]: (Set[A] FiniteSourceOfDistinct A) = new (Set[A] FiniteSourceOfDistinct A) {
+    //def toList: List[A] =
+    def inAnyOrder(c: Set[A]): Iterable[A] = c.xs
+  }
+  //implicit def asMonoid[A]: CommutativeIdempotentMonoid[Set[A]] = ???
+  implicit def asMonoid[A]: CommutativeMonoid[Set[A]] =
+    commutativeMonoidInstance[Set[A]](Set.empty)((a,b) => Set(a.xs ++ b.xs))
 }
 
 case class OrderedSet[A](xs: immutable.TreeSet[A]) extends Container[A] {
@@ -129,12 +146,29 @@ object NonEmpty {
   def apply[A,C<:Container[A]](a: A, as: C)(merge: (A,C)=>C): NonEmpty[C] = new MkNonEmpty[A,C](a,as) {
     def weaken: C = merge(a,as)
   }
-  implicit def bagSource[A]: (NonEmpty[Bag[A]] FiniteSourceOf A) = ???
-  implicit def setSource[A]: (NonEmpty[Set[A]] FiniteSourceOfDistinct A) = ???
-  implicit def streamedSource[A]: (NonEmpty[Streamed[A]] FiniteSourceOfDistinct A) = ???
-  implicit def intoSet[A]: NonEmpty[Set[A]] IntoMonoid Set[A] = ???
+  def tryWeaken[A,C](self: NonEmpty[C]) = self match {  // FIXME hacky
+    case ne: MkNonEmpty[A,C] => ne.weaken
+  }
+  
+  //implicit def bagSource[A]: (NonEmpty[Bag[A]] FiniteSourceOf A) = ???
+  //implicit def setSource[A]: (NonEmpty[Set[A]] FiniteSourceOfDistinct A) = ???
+  //implicit def streamedSource[A]: (NonEmpty[Streamed[A]] FiniteSourceOfDistinct A) = ???
+  implicit def finiteSource[A,As](implicit ev: As FiniteSourceOf A): NonEmpty[As] FiniteSourceOf A = new (NonEmpty[As] FiniteSourceOf A) {
+    def inAnyOrder(c: NonEmpty[As]): Iterable[A] = ev.inAnyOrder(tryWeaken(c))
+  } 
+  implicit def orderedSource[A,As](implicit ev: As OrderedSourceOf A): NonEmpty[As] OrderedSourceOf A = new (NonEmpty[As] OrderedSourceOf A) {
+    def iterator(c: NonEmpty[As]): Iterator[A] = ev.iterator(tryWeaken(c))
+  }
+  implicit def source[A,As](implicit ev: As SourceOf A): NonEmpty[As] SourceOf A = ???
+  
+  implicit def intoSet[A]: NonEmpty[Set[A]] IntoMonoid Set[A] =
+    //IntoMonoid.instance((_:NonEmpty[Set[A]]).weaken)
+    IntoMonoid.instance(nes => Ops[A,Set[A]](nes).weaken)
   implicit def intoBag[A]: NonEmpty[Bag[A]] IntoMonoid Bag[A] = ???
-  implicit def intoList[A]: NonEmpty[List[A]] IntoMonoid List[A] = ???
+  implicit def intoList[A]: NonEmpty[List[A]] IntoMonoid List[A] = IntoMonoid.instance(tryWeaken)
+  
+  //implicit def intoSortedBy[A,M](implicit ev: A IntoMonoid M): NonEmpty[A] IntoMonoid List[A] = ???
+  //implicit def intoMonoid[M:Monoid]: NonEmpty[M] IntoMonoid NonEmpty[M] = ???
   
   implicit def semiBag[A]: CommutativeSemigroup[NonEmpty[Bag[A]]] = ???
   implicit def semiSet[A]: CommutativeIdempotentSemigroup[NonEmpty[Set[A]]] = ???
@@ -147,6 +181,36 @@ abstract class MkNonEmpty[A,C<:Container[A]](val a: A, val as: C) extends NonEmp
 }
 case class MkNonEmptyPaper[A,As<:Container[A]](any: A, rest: As, _weaken: (A,As) => As)
   extends MkNonEmpty[A,As](any,rest) { def weaken: As = _weaken(a,as) }
+
+
+//sealed abstract class Sorted[As]
+//case class MkSorted[A:Ordering,As<:Container[A]](val unsorted: As) extends Sorted[As] with Container[A] {
+//  //def unsorted: As
+//}
+//@field class Sorted[As](as: As) // not supported
+case class SortedBy[As,O](as: As) {
+  override def toString: String = s"$as.sorted"
+}
+object SortedBy {
+  implicit def wraps[As,O]: (As SortedBy O) Wraps As = new ((As SortedBy O) Wraps As) { // TODO code-generate
+    protected def applyImpl(b: As): dbstage.moncomp.SortedBy[As,O] = SortedBy(b)
+    protected def deapplyImpl(a: dbstage.moncomp.SortedBy[As,O]): As = a.as
+  }
+  implicit def orderedSrc[A,As,O:Ordering](implicit src: As SourceOf A, proj: A ProjectsOn O): (As SortedBy O) OrderedSourceOf A = new ((As SortedBy O) OrderedSourceOf A) {
+    //val sorted = src.inAnyOrder()
+    def iterator(c: As SortedBy O): Iterator[A] = src.inAnyOrder(c.as).toBuffer.sortBy(proj).iterator
+  }
+  implicit def finiteSrc[A,As,O](implicit src: As FiniteSourceOf A): (As SortedBy O) FiniteSourceOf A = new ((As SortedBy O) FiniteSourceOf A) {
+    def inAnyOrder(c: As SortedBy O) = src.inAnyOrder(c.as)
+  }
+  implicit def nonEmptySrc[A,As,O](implicit src: As NonEmptySourceOf A): (As SortedBy O) NonEmptySourceOf A = ???
+  //implicit def monoid[As:Monoid,O]: Monoid[As SortedBy O] = ???
+  implicit def intoMonoid[A,B,O](implicit ev: A IntoMonoid B): (A SortedBy O) IntoMonoid (B SortedBy O) =
+    //IntoMonoid.instance(_.as |> ev.apply |> SortedBy.apply)
+    IntoMonoid.instance(sb => SortedBy(ev(sb.as)))
+}
+
+
 
 case class Streamed[A](as: Iterable[A]) extends Container[A]
 object Streamed {
@@ -172,6 +236,10 @@ object Streamed {
   implicit def source[A]: Streamed[A] SourceOf A = new (Streamed[A] SourceOf A) {
     def inAnyOrder(strm: Streamed[A]) = strm.as
   }
+  //implicit def source[A]: Streamed[A] OrderedSourceOf A = new (Streamed[A] OrderedSourceOf A) {
+  //  override def inAnyOrder(strm: Streamed[A]) = strm.as
+  //  def iterator(c: Streamed[A]): Iterator[A] = c.as.iterator
+  //}
 }
 
 //sealed abstract class NonNeg[N]
@@ -202,12 +270,15 @@ object Nat {
 
 case class Min[O](value: O)
 object Min {
-  implicit def semigroup[O:Ordering]: CommutativeIdempotentSemigroup[Min[O]] = ???
+  //implicit def semigroup[O:Ordering]: CommutativeIdempotentSemigroup[Min[O]] = ???
+  implicit def semigroup[O:Ordering]: CommutativeSemigroup[Min[O]] = ???
 }
 case class Max[O](value: O)
 object Max {
-  implicit def semigroup[O:Ordering]: CommutativeIdempotentSemigroup[Max[O]] = ???
-  implicit def monoid: CommutativeIdempotentMonoid[Max[Nat]] = ???
+  //implicit def semigroup[O:Ordering]: CommutativeIdempotentSemigroup[Max[O]] = ???
+  //implicit def monoid: CommutativeIdempotentMonoid[Max[Nat]] = ???
+  implicit def semigroup[O:Ordering]: CommutativeSemigroup[Max[O]] = ???
+  implicit def monoid: CommutativeMonoid[Max[Nat]] = ???
 }
 case class Avg[N](value: N, count: NonZero[Nat])
 object Avg {
@@ -229,8 +300,15 @@ object Avg {
 case class PostProcessed[R,F](current: R)
 object PostProcessed {
   // TODO instances for:
-  // PostProcessed[N,Count,Avg] <: { def value: N }
-  // PostProcessed[Bag[A],O] OrderedSourceOf A
+  // PostProcessed[(N,Count),Avg] <: { def value: N }
+  // PostProcessed[Bag[A],SortingBy[O]] OrderedSourceOf A
+  
+  // or overload sources' map/flatMap to automatically return the post-processed result
+  // this way we can have:
+  //   @field class Avg[N](current: N ~ Count)  // has auto-derived Monoid
+  //     { def result = ... }
+  //   implicitly[Avg[N] PostProcessedTypeIs N] -- uses _.result
+  
 }
 
 
@@ -257,6 +335,9 @@ object IntoMonoid extends IntoMonoidLowPrio {
   implicit def ofMax[O:Ordering]: Max[O] IntoMonoid Option[Max[O]] = instance(Some.apply)
   //{ def apply(a: Min[O]): Option[Min[O]] = Some(a) }
   implicit def intoOptRec[A,B](implicit a: A IntoMonoid Option[A], b: B IntoMonoid Option[B]): (A ~ B) IntoMonoid Option[A ~ B] = ???
+  
+  protected[dbstage] def infer[A,M](a: => A)(implicit ev: A IntoMonoid M) = ev
+  //case class apply[A](implicit A IntoMonoid M) =
 }
 class IntoMonoidLowPrio {
   implicit def intoRec[A0,A,B0,B](implicit a: A0 IntoMonoid A, b: B0 IntoMonoid B): (A0 ~ B0) IntoMonoid (A ~ B) = ???

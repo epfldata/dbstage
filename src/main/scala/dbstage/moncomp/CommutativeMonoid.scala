@@ -5,6 +5,8 @@ import cats.{Monoid,Semigroup}
 import cats.kernel.{CommutativeMonoid,CommutativeSemigroup}
 import cats.instances.all._
 
+// TODO remove the idempotent stuff; not actually needed by interfaces anymore...
+
 //trait CommutativeMonoid[A] extends Monoid[A] {
 //  
 //}
@@ -20,6 +22,8 @@ trait CommutativeIdempotentMonoid[A] extends CommutativeMonoid[A] with Idempoten
   
 }
 object CommutativeIdempotentMonoid {
+  // problem with putting things here is that they won't be seen when looking for, eg, `CommutativeMonoid`
+  /*
   implicit def stdSet[A]: CommutativeMonoid[Set[A]] = ???
   implicit def stdOpt[A:CommutativeIdempotentSemigroup]: CommutativeIdempotentMonoid[Option[A]] = ???
   implicit def stdRec[A:CommutativeIdempotentMonoid,B:CommutativeIdempotentMonoid]: CommutativeIdempotentMonoid[A ~ B] = ???
@@ -27,6 +31,7 @@ object CommutativeIdempotentMonoid {
     def empty: Unit = ()
     def combine(x: Unit, y: Unit): Unit = ()
   }
+  */
 }
 
 trait IdempotentSemigroup[A] extends Semigroup[A] {
@@ -39,7 +44,9 @@ object CommutativeIdempotentSemigroup {
   def instance[A](_combine: (A,A) => A): CommutativeIdempotentSemigroup[A] = new CommutativeIdempotentSemigroup[A] {
     def combine(x: A, y: A): A = _combine(x,y)
   }
+  /*
   implicit def stdRec[A:CommutativeIdempotentSemigroup,B:CommutativeIdempotentSemigroup]: CommutativeIdempotentSemigroup[A ~ B] = ???
+  */
 }
 
 trait IncrementalMonoid[A] extends Monoid[A] {

@@ -5,6 +5,8 @@ import org.scalatest.FunSuite
 import squid.utils._
 import cats.Monoid
 import cats.implicits._
+import cats.kernel.CommutativeMonoid
+import cats.kernel.CommutativeSemigroup
 
 class ComprehensionTests extends FunSuite {
   
@@ -16,7 +18,11 @@ class ComprehensionTests extends FunSuite {
     
     ((xs: Bag[Int]) => for { x <- xs } yield bag(x))
     
+    ((xs: List[Int]) => for { x <- xs } yield set(x))
+    
     ((xs: List[Int]) => for { x <- xs } yield bag(x))
+    
+    ((xs: List[Int]) => for { x <- xs } yield list(x))
     
     ((xs: Bag[Int], ys: Bag[Int]) => (for { x <- xs; y <- ys } yield bag(x,y)) : Bag[Int])
     
@@ -25,8 +31,9 @@ class ComprehensionTests extends FunSuite {
     
     //Debug show
     //((xs: Set[Int]) => for { x <- xs } yield bag(x))
-    
-    assertDoesNotCompile("(xs: Set[Int]) => for { x <- xs } yield bag(x)")
+
+    // this is now allowed:
+    //assertDoesNotCompile("(xs: Set[Int]) => for { x <- xs } yield bag(x)")
     // could not find implicit value for parameter M: dbstage.moncomp.CommutativeIdempotentMonoid[M]
     
     assertDoesNotCompile("(xs: Bag[Int]) => for { x <- xs } yield list(x)")
@@ -45,6 +52,9 @@ class ComprehensionTests extends FunSuite {
     //implicitly[CommutativeIdempotentMonoid[Int Indexing NonEmpty[Set[Int]]]]
     //implicitly[(Min[Int] ~ Max[Int]) IntoMonoid (Option[Min[Int]] ~ Option[Max[Int]])]
     
+    //implicitly[CommutativeMonoid[Int]]
+    //implicitly[CommutativeMonoid[Option[Int]]] // does not find it!!!
+    
     ((xs: Set[Int]) => (for { x <- xs } yield min(x)) : Option[Min[Int]])
     
     ((xs: Set[Int]) => (for { x <- xs } yield min(x) groupingBy (x % 2)) : Int Indexing Min[Int])
@@ -57,6 +67,10 @@ class ComprehensionTests extends FunSuite {
     
     //((xs: Set[Int]) => (for { x <- xs } yield min(x) ~ max(x)) : Option[Min[Int]] ~ Option[Max[Int]])
     /* ^ now the implicit for this is low-prio */
+    implicitly[CommutativeSemigroup[Min[Int]]]
+    implicitly[CommutativeMonoid[Option[Min[Int]]]]
+    implicitly[CommutativeSemigroup[Min[Int] ~ Int]]
+    implicitly[CommutativeMonoid[Option[Min[Int] ~ Int]]]
     ((xs: Set[Int]) => (for { x <- xs } yield min(x) ~ max(x)) : Option[Min[Int] ~ Max[Int]])
     /* ^ better, because does not capture impossible values like None ~ Some(_) */
     
@@ -72,7 +86,10 @@ class ComprehensionTests extends FunSuite {
     
     val res = for {
       x <- strm
+      //x <- UnbounedOrderedOps(strm)
+      //x <- UnboundedOps(strm)
       _ <- count += 1  // TODO () <-
+      //_ <- OrderedOps(count += 1)  // TODO () <-
     } yield stream(x + 1)
     
     println(count)
@@ -81,6 +98,31 @@ class ComprehensionTests extends FunSuite {
     
     
     assertDoesNotCompile("for { x <- strm } yield max(x)") // could not find implicit value for parameter M: dbstage.moncomp.IncrementalMonoid[M]
+    
+    
+    
+  }
+  
+  test("ordering") {
+    
+    //implicitly[List[Int~String] OrderedSourceOf (Int~String)]
+    //implicitly[NonEmpty[List[Int~String]] OrderedSourceOf (Int~String)]
+    
+    //implicitly[Monoid[SortedBy[Bag[Int~String],Int]]]
+    //Debug show IntoMonoid.infer(??? : SortedBy[Bag[Int~String],Int])
+    
+    //((xs: List[Int~String]) => for { x <- xs } yield set(x))
+    ((xs: List[Int~String]) => for { x <- xs } yield set(x).orderingBy[Int])
+    
+    //def foo(xs: List[Int~String]) = for { x <- xs } yield set(x).orderingBy[Int])
+    
+    val xs = list(3~"d",2~"c",0~"a",1~"b")
+    
+    //println(for { x <- xs } yield set(x).orderingBy[Int])
+    val xsSorted = for { x <- OrderedOps(xs) } yield set(x).orderingBy[Int]
+    println(xsSorted)
+    println(for { x <- xsSorted } yield list(x))
+    
     
     
     

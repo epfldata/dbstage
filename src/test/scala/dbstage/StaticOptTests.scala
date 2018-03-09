@@ -9,10 +9,10 @@ object StaticOptTests extends App {
   import QueryTests.{orders,lineitem}
   //val (orders,lineitem) = (QueryTests.orders, QueryTests.lineitem)
   
-  Debug show
-  optimize{
-    Q4(orders,lineitem)
-  }
+  //Debug show
+  //optimize{
+  //  Q4(orders,lineitem)
+  //}
   
   
   

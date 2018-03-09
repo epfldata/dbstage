@@ -1,5 +1,6 @@
 import cats.Monoid
 import cats.Semigroup
+import cats.kernel.CommutativeMonoid
 import squid.utils._
 import squid.ir.SimpleEffect
 import squid.lib.transparencyPropagating
@@ -28,6 +29,11 @@ package object dbstage extends EmbeddedDefs {
   def monoidInstance[A](_empty: A)(_combine: (A,A) => A): Monoid[A] = Monoid.instance(_empty)(_combine)
   @transparencyPropagating
   def semigroupInstance[A](_combine: (A,A) => A): Semigroup[A] = Semigroup.instance(_combine)
+  @transparencyPropagating
+  def commutativeMonoidInstance[A](_empty: A)(_combine: (A,A) => A): CommutativeMonoid[A] = new CommutativeMonoid[A] {
+    def empty = _empty
+    def combine(x: A, y: A): A = _combine(x,y)
+  }
   
   @transparencyPropagating
   implicit def monoidSyntax[A:Monoid](self: A): MonoidSyntax[A] = new MonoidSyntax(self)
