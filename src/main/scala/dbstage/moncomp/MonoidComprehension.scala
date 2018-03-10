@@ -45,29 +45,44 @@ object Comprehension {
 //sealed abstract class Productions[R:CodeType,C]
 sealed abstract class Productions[R,C] {
   def mapYield[S:CodeType](f: Code[R=>S,C]): Productions[S,C] = this match {
-    case ite:Iteration[a,as,R,C] =>
+    //case ite:Iteration[a,as,R,C] =>
+    //  implicit val A = ite.A
+    //  implicit val As = ite.As
+    //  Iteration(ite.src,ite.v)(ite.body.mapYield(f))
+    case ite:Iteration[a,R,C] =>
       implicit val A = ite.A
-      implicit val As = ite.As
       Iteration(ite.src,ite.v)(ite.body.mapYield(f))
     case Yield(pred,cde) => Yield(pred,f(cde))
   }
-  //def withFilter(pred: Code[Bool,C]): Productions[S,C] = this match {
+  def withFilter(pred: Code[Bool,C]): Productions[R,C] = this match {
+    case ite:Iteration[a,R,C] =>
+      implicit val A = ite.A
+      Iteration(ite.src,ite.v)(ite.body.withFilter(pred))
+    case Yield(pred0,cde) => Yield(code"$pred0 && $pred",cde)
+  }
 }
 //abstract class Iteration[A:CodeType,As:CodeType,R,C](src: StagedDataSource[A,As,C]) extends Productions[R,C] {
-abstract class Iteration[A:CodeType,As:CodeType,R,C](val src: Path[A,As,C]) extends Productions[R,C] {
+//abstract class Iteration[A:CodeType,As:CodeType,R,C](val src: Path[A,As,C]) extends Productions[R,C] {
+abstract class Iteration[A:CodeType,R,C](val src: Path[A,C]) extends Productions[R,C] {
   def A = codeTypeOf[A]
-  def As = codeTypeOf[As]
+  //def As = codeTypeOf[As]
   val v: Variable[A]
   val body: Productions[R,C & v.Ctx]
+  
+  def withFilter(pred: Code[A=>Bool,C]): Iteration[A,R,C] = Iteration(src,v)(body.withFilter(
+    //pred(v.toCode) // found: dbstage.Embedding.Code[Iteration.this.v.Typ,Iteration.this.v.Ctx]; required: dbstage.Embedding.Code[A,C]
+    code"$pred(${v.toCode})"
+  ))
   
   //override def toString: String = s"Iteration($src,$v,$body)"
   override def toString: String = s"${v.rep|>base.showRep} <- $src\n${/*indentString*/(body.toString)})"
 }
 object Iteration {
-  def apply[A:CodeType,As:CodeType,R,C](src: Path[A,As,C], v0: Variable[A])(body0: Productions[R,C & v0.Ctx]) = new Iteration[A,As,R,C](src) {
+  //def apply[A:CodeType,As:CodeType,R,C](src: Path[A,As,C], v0: Variable[A])(body0: Productions[R,C & v0.Ctx]) = new Iteration[A,As,R,C](src) {
+  def apply[A:CodeType,R,C](src: Path[A,C], v0: Variable[A])(body0: Productions[R,C & v0.Ctx]) = new Iteration[A,R,C](src) {
     val v: v0.type = v0
     val body = body0
-  } 
+  }
 }
 // TODO Binding? -> defined SingleElement instead
 
@@ -82,12 +97,16 @@ object Yield {
   //}
 }
 
-sealed abstract class Path[A:CodeType,As:CodeType,C]
+//sealed abstract class Path[A:CodeType,As:CodeType,C]
+sealed abstract class Path[A:CodeType,C]
+
 //abstract
-case class StagedDataSource[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends Path[A,As,C] {
-  
-}
-case class SingleElement[A:CodeType,C](cde: Code[A,C]) extends Path[A,A,C]
+//case class StagedDataSource[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends Path[A,As,C]
+sealed abstract class StagedDataSource[A:CodeType,C] extends Path[A,C]
+case class StagedDataSourceOf[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends StagedDataSource[A,C]
+
+//case class SingleElement[A:CodeType,C](cde: Code[A,C]) extends Path[A,A,C]
+case class SingleElement[A:CodeType,C](cde: Code[A,C]) extends Path[A,C]
 
 //case class Query[A:CodeType,B:CodeType,C](body: Comprehension[A,C], postProcess: Code[A=>B,C])
 abstract class QueryRepr[A:CodeType,C]
@@ -130,7 +149,7 @@ object QueryLifter {
       Comprehension[T,C](
         //Iteration[at.Typ,ast.Typ,rt.Typ,C](StagedDataSource(as,afin),v)(liftProductions(body)),
         liftDataSource(as,afin)(ds =>
-        Iteration[at.Typ,ast.Typ,T,C](
+        Iteration[at.Typ,T,C](
           //StagedDataSource(as,afin),
           ds,
           v
@@ -144,12 +163,18 @@ object QueryLifter {
         lmon
       )
       //???
+      
     case code"moncomp.`package`.FiniteOps[$ast,$at]($as)($afin).orderingBy[$ot]($oord,$aoproj)" =>
+      /*
       // weird: Embedding Error: Could not find type evidence associated with extracted type `dbstage.moncomp.QueryLifter.at.Typ`.
       Sorting[at.Typ,ast.Typ,C](liftQuery(as), StagedDataSourceOf(afin), new StagedOrdering[at.Typ,C]()(at){})
         // TODO the ordering should be on at (adaptation needed from ot)
         .asInstanceOf[QueryRepr[T,C]]
+      */
       // Note from dbg_code: "Subtyping knowledge: dbstage.moncomp.SortedBy[ast,ot] <:< T"
+      
+      ??? // TODO
+      
     case r => 
       //die //Query(r, code"idenityt[T] _")
       //lastWords(s"Unhandled: ${showC(q)}")
@@ -169,9 +194,11 @@ object QueryLifter {
       //if (lmon == lmon2) Iteration[at.Typ,ast.Typ,R,C](StagedDataSource(as,afin),v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
       if (lmon == lmon2) 
         liftDataSource(as,afin)(ds =>
-          Iteration[at.Typ,ast.Typ,R,C](ds,v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
+          Iteration[at.Typ,R,C](ds,v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
         )
       else lastWords("TODO: different monoid")
+    //case code"moncomp.`package`.OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,$tt]($v => $body)($into,$mmon)" =>
+    //  ???
     case r =>
       println(s"YIELD:\n${indentString(r|>showC)}")
       //Yield(code"true", q)
@@ -184,18 +211,26 @@ object QueryLifter {
     ???
   }
   // in CPS because we may discover nested aggregates as well as filter predicates in a source
-  def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: StagedDataSource[A,As,C] => R): R = cde match {
+  //def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: StagedDataSource[A,As,C] => R): R = cde match {
+  //def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: StagedDataSource[A,C] => R): R = cde match {
+  def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: StagedDataSource[A,C] => Iteration[A,R,C]): Iteration[A,R,C] = cde match {
   //def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C], curPred: Code[A=>Bool,C])(k: StagedDataSource[A,As,C] => Productions[R,C]): Productions[R,C] = cde match {
-    case code"OrderedOps[As,A]($as)($aord,$afin).withFilter($pred)" =>
-      liftDataSource(as,afin)(k)//.withFilter(pred)  // FIXME
+  //  case code"OrderedOps[$ast,$at]($as)($aord,$afin).withFilter($pred)" =>
+    case code"OrderedOps[$ast,A]($as)($aord,$afin).withFilter($pred)" =>
+    //case code"OrderedOps[As,A]($as)($aord,$afin).withFilter($pred)" =>
+      // type As = Filtered[ast,at]
+      liftDataSource(as,afin)(k).withFilter(pred)
       //liftDataSource(as,afin,pred)(k)
-    case code"OrderedOps[$ast,$at]($as)($aord,$afin).withFilter($pred)" =>
-      println(codeTypeOf[As],codeTypeOf[A])
-      println(ast,at)
-      ???
+    //case code"OrderedOps[$ast,$at]($as)($aord,$afin).withFilter($pred)" =>
+    //  println(codeTypeOf[As],codeTypeOf[A])
+    //  println(ast,at)
+    //  ???
+    case code"if ($cond) $thn else $els : As" =>
+      // TODO require commutative monoid; + merge with else branch
+      liftDataSource(thn,srcEv)(k)  // FIXME <-------------------------------------------------------------------------
     case cde => 
       println(s"SOURCE:\n${indentString(cde|>showC)}")
-      k(StagedDataSource(cde,srcEv)) // TODO
+      k(StagedDataSourceOf(cde,srcEv)) // TODO
   }
   
   
@@ -206,7 +241,7 @@ object QueryLifter {
 abstract class StagedOrdering[A:CodeType,C]
 
 // TODO
-case class StagedDataSourceOf[A:CodeType,As:CodeType,C](cde: Code[As SourceOf A, C])
+//case class StagedDataSourceOf[A:CodeType,As:CodeType,C](cde: Code[As SourceOf A, C])
 
 
 case class SortedByStagedMonoid[As:CodeType,O:CodeType,C](underlying: StagedMonoid[As,C]) extends StagedMonoid[SortedBy[As,O],C](underlying.commutes) {

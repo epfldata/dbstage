@@ -169,10 +169,12 @@ object NonEmpty {
   @transparencyPropagating
   implicit def finiteSource[A,As](implicit ev: As FiniteSourceOf A): NonEmpty[As] FiniteSourceOf A = new (NonEmpty[As] FiniteSourceOf A) {
     def inAnyOrder(c: NonEmpty[As]): Iterable[A] = ev.inAnyOrder(tryWeaken(c))
-  } 
+  }
+  @transparencyPropagating
   implicit def orderedSource[A,As](implicit ev: As OrderedSourceOf A): NonEmpty[As] OrderedSourceOf A = new (NonEmpty[As] OrderedSourceOf A) {
     def iterator(c: NonEmpty[As]): Iterator[A] = ev.iterator(tryWeaken(c))
   }
+  @transparencyPropagating
   implicit def source[A,As](implicit ev: As SourceOf A): NonEmpty[As] SourceOf A = ???
   
   @transparencyPropagating

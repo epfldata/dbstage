@@ -38,6 +38,12 @@ class EmbeddedComprehensionTests extends FunSuite {
   }
   
   
+  test("N4") {
+    QueryLifter.liftQuery(code{abs(
+      for { x <- xs; xgt0 <- (if (x > 0) list(x) else list(0)); y <- ys } yield list(xgt0)
+    )})
+  }
+  
   test("N9") {
     QueryLifter.liftQuery(code{abs(
       //for { y <- ys } yield Any(y > 0)
