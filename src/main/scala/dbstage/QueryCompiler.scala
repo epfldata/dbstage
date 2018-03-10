@@ -82,6 +82,7 @@ object QueryCompiler {
   //}
   
   import cats.Monoid
+  import moncomp.SortedBy
   def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = ((cde:Code[Any,C]) match {
   //def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = BagLike.unapply(cde) getOrElse ((cde:Code[Any,C]) match {
     //case BagLike(sbl) => sbl
@@ -95,6 +96,15 @@ object QueryCompiler {
     case code"ArgMin.monoid[$tt,$ta]($tord,$asem)" =>
       ArgMinMonoid(tord,asem)
           .asInstanceOf[StagedMonoid[S,C]] // FIXME
+      
+    //case code"moncomp.SortedBy.monoid[$at,$ot]($amon)" =>
+    case code"moncomp.SortedBy.monoid[$at,$ot]($amon)" =>
+    //case code"monoidWrap[SortedBy[$ast,$ot] Wraps ast]($ev,$m)" =>
+    //case code"monoidWrap[SortedBy[$ast,$ot],ast]($ev,$m)" =>
+      moncomp.SortedByStagedMonoid[at.Typ,ot.Typ,C](liftMonoid(amon))
+        .asInstanceOf[StagedMonoid[S,C]] // FIXME
+      //???
+      
     case _ => RawStagedMonoid(cde)
   })
   /*

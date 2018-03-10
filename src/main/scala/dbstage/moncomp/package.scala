@@ -134,6 +134,7 @@ package object moncomp extends LowPrioImplicits with MonCompEmbeddedDefs {
   
 }
 
+//@embed
 sealed class LowPrioImplicits extends LowPrioImplicits2 {
   import moncomp._
   
@@ -147,6 +148,7 @@ sealed class LowPrioImplicits extends LowPrioImplicits2 {
     
     // the implicits here are not used; they're just for better type error, informing users what is required for this op to make sense
     @transparencyPropagating
+    //@desugar
     def orderingBy[O:Ordering](implicit proj: A ProjectsOn O): SortedBy[C,O] = SortedBy(self)
     
     

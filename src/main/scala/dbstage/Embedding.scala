@@ -61,8 +61,14 @@ object Embedding
   
   // --- //
   
-  embed(moncomp.Abstracts,
-    MonCompEmbeddedDefs)
+  embed(
+    moncomp.Abstracts,
+    moncomp.AbstractsLoPri,
+    moncomp.SortedBy,
+    moncomp.IntoMonoid,
+    //LowPrioImplicits,
+    MonCompEmbeddedDefs
+  )
   
   //override val bindEffects = true  // FIXME causes SOF
   
@@ -108,6 +114,7 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("OrderedOps")
   transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("FiniteOps")
   transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.Abstracts[_,_]]("apply")
+  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.SortedBy.type]("apply")
   
   
   
@@ -297,11 +304,30 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.single($k,$v))" => code"$self += (($k,$v)); ()"
     //case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.reconstruct[tk,ta]($that)($asem))" =>
       
-    
-    // --- //
+  }
+  
+  // --- //
+  
+  import moncomp._
+  
+  rewrite {
       
-    case code"moncomp.Abstracts[$at,$bt]($f).apply($x)" => f(x)
+    case code"Abstracts[$at,$bt]($f).apply($x)" => f(x)
+    case code"IntoMonoid.instance[$at,$mt]($f).apply($x)" => f(x)
+    case code"FiniteOps[$ct,$ta]($self)($ev).orderingBy[$ot]($oord,$aoproj)" => code"SortedBy[$ct,$ot]($self)"
+    case code"SortedBy[$ast,$ot]($as).as" => as
       
+    case code"NonEmpty.intoList[$at].apply(list($a,$as*))" =>
+      //code"List.of(${a +: as}*)" // FIXME
+      val aas = a +: as
+      code"List.of(${aas}*)"
+    //case code"NonEmpty.intoList[$at].apply($a,list($as:_*))" => code"List.of($as:_*)" // TODO
+    //case code"list2[$at]($as*)" => code"???"
+      
+    case code"OrderedOps[$ast,$at]($as)($aord,$afin).flatMap[$rt,$rm]($v => $body)($into,$mmon)" =>
+      code"OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,$rm]($v => $body)($into,$mmon)"
+    case code"FiniteOps[$ast,$at]($as)($afin).flatMap[$rt,$rm]($v => $body)($into,$mmon)" =>
+      code"FiniteOps[$ast,$at]($as)($afin).map[$rt,$rm]($v => $body)($into,$mmon)"
     
   }
   

@@ -143,12 +143,15 @@ extends Query[OrderedDataSource[A],C]
 
 import cats.Monoid
 
-sealed abstract class StagedMonoid[T:CodeType,C](val commutes: Bool) {
+//sealed 
+//abstract class StagedMonoid[T:CodeType,C](val commutes: Bool) {
+abstract class StagedMonoid[T:CodeType,-C](val commutes: Bool) {
   def mkContext: MonoidContext[T,C,_]
 }
 
-abstract class MonoidContext[T,C,D](val curMon: StagedMonoid[T,C], val consume: Code[T=>Unit,D], val get: Code[T,D]) {
-  def wrap[R:CodeType](cde: Code[R,C & D]): Code[R,C]
+//abstract class MonoidContext[T,C,D](val curMon: StagedMonoid[T,C], val consume: Code[T=>Unit,D], val get: Code[T,D]) {
+abstract class MonoidContext[T,-C,D](val curMon: StagedMonoid[T,C], val consume: Code[T=>Unit,D], val get: Code[T,D]) {
+  def wrap[R:CodeType](cde: Code[R,(C@uncheckedVariance) & D]): Code[R,C]  // FIXME: remove uncheckedVariance by adding a TParam
 }
 
 sealed abstract class SingleValueStagedMonoid[T:CodeType,C](commutes: Bool) extends StagedMonoid[T,C](commutes) {

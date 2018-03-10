@@ -49,7 +49,14 @@ package object dbstage extends EmbeddedDefs {
   
   def isPure(cde: OpenCode[Any]) = cde.rep.effect === SimpleEffect.Pure
   
-  def showC(cde: OpenCode[Any]) = cde.rep|>base.showRep
+  def showCbound(cde: OpenCode[Any]) = {
+    //(cde reinterpretIn SimplerEmbedding).rep|>SimplerEmbedding.showRep  // problem with unbound variables
+    base.reinterpret(cde.rep,SimplerEmbedding)(extrudedHandle = (bv => 
+      SimplerEmbedding.bindVal(bv.name,SimplerEmbedding.Predef.dbg.implicitType[Nothing].rep,Nil) |> SimplerEmbedding.readVal
+    )) |> SimplerEmbedding.showRep |> trimPrefixes
+  }
+  
+  def showC(cde: OpenCode[Any]) = cde.rep|>base.showRep // not: trimPrefixes called by overridden Embedding.showScala
   def showCT(cdeTyp: CodeType[_]) = cdeTyp.rep.tpe.toString|>trimPrefixes
   def trimPrefixes(str: String) = str
     .replaceAll("dbstage.example.","")

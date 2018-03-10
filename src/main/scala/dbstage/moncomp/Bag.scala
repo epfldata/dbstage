@@ -7,6 +7,8 @@ import cats.Semigroup
 import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
 import squid.lib.transparencyPropagating
+import squid.quasi.doNotEmbed
+import squid.quasi.embed
 
 import scala.collection.immutable
 
@@ -87,6 +89,8 @@ object List {
   @transparencyPropagating
   implicit def asMonoid[A]: Monoid[List[A]] =
     Monoid.instance[List[A]](List.empty)((a,b) => List(new ConcatIterable(a.xs,b.xs)))
+  
+  def of[A](xs:A*) = List(xs)
 }
 
 case class Bag[A](xs: Iterable[A]) extends Container[A] {
@@ -175,7 +179,9 @@ object NonEmpty {
   implicit def intoSet[A]: NonEmpty[Set[A]] IntoMonoid Set[A] =
     //IntoMonoid.instance((_:NonEmpty[Set[A]]).weaken)
     IntoMonoid.instance(nes => Ops[A,Set[A]](nes).weaken)
+  @transparencyPropagating
   implicit def intoBag[A]: NonEmpty[Bag[A]] IntoMonoid Bag[A] = ???
+  @transparencyPropagating
   implicit def intoList[A]: NonEmpty[List[A]] IntoMonoid List[A] = IntoMonoid.instance(tryWeaken)
   
   //implicit def intoSortedBy[A,M](implicit ev: A IntoMonoid M): NonEmpty[A] IntoMonoid List[A] = ???
@@ -202,22 +208,32 @@ case class MkNonEmptyPaper[A,As<:Container[A]](any: A, rest: As, _weaken: (A,As)
 case class SortedBy[As,O](as: As) {
   override def toString: String = s"$as.sorted"
 }
+@embed
 object SortedBy {
+  /*
+  @doNotEmbed
   @transparencyPropagating
   implicit def wraps[As,O]: (As SortedBy O) Wraps As = new ((As SortedBy O) Wraps As) { // TODO code-generate
     protected def applyImpl(b: As): dbstage.moncomp.SortedBy[As,O] = SortedBy(b)
     protected def deapplyImpl(a: dbstage.moncomp.SortedBy[As,O]): As = a.as
   }
+  */
+  // ^ annoying because it desugars the monoid instance, which we don't want!
+  @transparencyPropagating
+  implicit def monoid[As:Monoid,O]: Monoid[As SortedBy O] = ??? 
+  
+  @doNotEmbed
   implicit def orderedSrc[A,As,O:Ordering](implicit src: As SourceOf A, proj: A ProjectsOn O): (As SortedBy O) OrderedSourceOf A = new ((As SortedBy O) OrderedSourceOf A) {
     //val sorted = src.inAnyOrder()
     def iterator(c: As SortedBy O): Iterator[A] = src.inAnyOrder(c.as).toBuffer.sortBy(proj).iterator
   }
+  @doNotEmbed
   implicit def finiteSrc[A,As,O](implicit src: As FiniteSourceOf A): (As SortedBy O) FiniteSourceOf A = new ((As SortedBy O) FiniteSourceOf A) {
     def inAnyOrder(c: As SortedBy O) = src.inAnyOrder(c.as)
   }
   implicit def nonEmptySrc[A,As,O](implicit src: As NonEmptySourceOf A): (As SortedBy O) NonEmptySourceOf A = ???
-  //implicit def monoid[As:Monoid,O]: Monoid[As SortedBy O] = ???
-  @transparencyPropagating
+  //@transparencyPropagating
+  @desugar
   implicit def intoMonoid[A,B,O](implicit ev: A IntoMonoid B): (A SortedBy O) IntoMonoid (B SortedBy O) =
     //IntoMonoid.instance(_.as |> ev.apply |> SortedBy.apply)
     IntoMonoid.instance(sb => SortedBy(ev(sb.as)))
@@ -337,11 +353,15 @@ object PostProcessed {
 //  implicit object ofNonZeroNat extends (NonZero[Nat] Into Nat) { def apply(a: NonZero[Nat]): Nat = a.weaken }
 //}
 trait IntoMonoid[A,M] {
+  @transparencyPropagating
   def apply(a: A): M
 }
+@embed
 object IntoMonoid extends IntoMonoidLowPrio {
+  @doNotEmbed @transparencyPropagating
   def instance[A,M](f: A => M): (A IntoMonoid M) = new (A IntoMonoid M) { def apply(a: A): M = f(a) }
   //implicit def ofMonoid[M:Monoid]: (M Into M) = instance(identity)
+  @desugar
   implicit def id[M:Monoid]: (M IntoMonoid M) = instance(identity)
   implicit object ofNonZeroNat extends (NonZero[Nat] IntoMonoid Nat) { def apply(a: NonZero[Nat]): Nat = a.weaken }
   implicit def ofMin[O:Ordering]: Min[O] IntoMonoid Option[Min[O]] = instance(Some.apply)

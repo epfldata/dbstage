@@ -18,7 +18,7 @@ case class Abstracts[To,From](f: From => To) {
   def apply(from: From): To = f(from)
 }
 @embed
-object Abstracts {
+object Abstracts extends AbstractsLoPri {
   
   //@desugar // FIXME conflicts with class method?
   //def apply[A,B](queryCode: A)(implicit ev: B Abstracts A): B = ev(queryCode)
@@ -34,4 +34,9 @@ object Abstracts {
   //@desugar
   implicit def absNonEmpty[A,As,AAs](implicit abs: AAs Abstracts As): NonEmpty[AAs] Abstracts NonEmpty[As] = ???
   
+}
+@embed
+class AbstractsLoPri {
+  @desugar
+  implicit def absNot[A]: A Abstracts A = Abstracts(identity)
 }
