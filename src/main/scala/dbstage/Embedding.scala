@@ -66,6 +66,7 @@ object Embedding
     moncomp.AbstractsLoPri,
     moncomp.SortedBy,
     moncomp.IntoMonoid,
+    moncomp.IntoMonoidLowPrio,
     //LowPrioImplicits,
     MonCompEmbeddedDefs
   )

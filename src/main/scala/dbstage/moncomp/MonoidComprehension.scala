@@ -117,7 +117,11 @@ object QueryLifter {
       //Comprehension[rt.Typ,C](
       Comprehension[T,C](
         //Iteration[at.Typ,ast.Typ,rt.Typ,C](StagedDataSource(as,afin),v)(liftProductions(body)),
-        Iteration[at.Typ,ast.Typ,T,C](StagedDataSource(as,afin),v)(liftProductions(code"$into.apply($body)", lmon)),
+        Iteration[at.Typ,ast.Typ,T,C](StagedDataSource(as,afin),v)(
+          //liftProductions(code"$into.apply($body)", lmon)
+          liftProductionsAndApply(body, lmon, code"$into.apply _")
+          //liftProductions(body, lmon).mapYield ...
+        ),
         //mmon.asInstanceOf[Code[Monoid[rt.Typ],C]] // FIXME wrong!
         //mmon
         lmon
@@ -138,14 +142,19 @@ object QueryLifter {
   def liftComprehension[T:CodeType,C](q: Code[T,C]) = q match {
     case r => die
   }
-  def liftProductions[T:CodeType,C](q: Code[T,C], lmon: StagedMonoid[T,C]): Productions[T,C] = q match {
+  //def liftProductions[T:CodeType,C](q: Code[T,C], lmon: StagedMonoid[T,C]): Productions[T,C] = q match {
+  def liftProductions[T:CodeType,C](q: Code[T,C], lmon: StagedMonoid[T,C]): Productions[T,C] = liftProductionsAndApply(q,lmon,code"identity[T] _")
+  def liftProductionsAndApply[T:CodeType,R:CodeType,C](q: Code[T,C], lmon: StagedMonoid[R,C], f: Code[T=>R,C]): Productions[R,C] = q match {
     // TODO handle effects here...
     case code"moncomp.`package`.OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,T]($v => $body)($into,$mmon)" =>
       val lmon2 = QueryCompiler.liftMonoid(mmon)
-      if (lmon == lmon2) Iteration[at.Typ,ast.Typ,T,C](StagedDataSource(as,afin),v)(liftProductions(code"$into.apply($body)", lmon))
+      //if (lmon == lmon2) Iteration[at.Typ,ast.Typ,T,C](StagedDataSource(as,afin),v)(liftProductions(code"$into.apply($body)", lmon))
+      if (lmon == lmon2) Iteration[at.Typ,ast.Typ,R,C](StagedDataSource(as,afin),v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
       else lastWords("TODO: different monoid")
     case r =>
-      Yield(code"true", q)
+      println(s"YIELD:\n${indentString(r|>showC)}")
+      //Yield(code"true", q)
+      Yield(code"true", f(q))
       //die
   }
   //def letin[T:CodeType,R:CodeType,C](v: Variable[T], init: Code[T,C])(body: Code[R,C&v.Ctx]) = {

@@ -233,10 +233,14 @@ object SortedBy {
   }
   implicit def nonEmptySrc[A,As,O](implicit src: As NonEmptySourceOf A): (As SortedBy O) NonEmptySourceOf A = ???
   //@transparencyPropagating
+  
+  // moved to IntoMonoid
+  /*
   @desugar
   implicit def intoMonoid[A,B,O](implicit ev: A IntoMonoid B): (A SortedBy O) IntoMonoid (B SortedBy O) =
     //IntoMonoid.instance(_.as |> ev.apply |> SortedBy.apply)
     IntoMonoid.instance(sb => SortedBy(ev(sb.as)))
+  */
 }
 
 
@@ -361,18 +365,24 @@ object IntoMonoid extends IntoMonoidLowPrio {
   @doNotEmbed @transparencyPropagating
   def instance[A,M](f: A => M): (A IntoMonoid M) = new (A IntoMonoid M) { def apply(a: A): M = f(a) }
   //implicit def ofMonoid[M:Monoid]: (M Into M) = instance(identity)
-  @desugar
-  implicit def id[M:Monoid]: (M IntoMonoid M) = instance(identity)
   implicit object ofNonZeroNat extends (NonZero[Nat] IntoMonoid Nat) { def apply(a: NonZero[Nat]): Nat = a.weaken }
   implicit def ofMin[O:Ordering]: Min[O] IntoMonoid Option[Min[O]] = instance(Some.apply)
   implicit def ofMax[O:Ordering]: Max[O] IntoMonoid Option[Max[O]] = instance(Some.apply)
   //{ def apply(a: Min[O]): Option[Min[O]] = Some(a) }
   implicit def intoOptRec[A,B](implicit a: A IntoMonoid Option[A], b: B IntoMonoid Option[B]): (A ~ B) IntoMonoid Option[A ~ B] = ???
   
+  @desugar
+  implicit def ofSortedBy[A,B,O](implicit ev: A IntoMonoid B): (A SortedBy O) IntoMonoid (B SortedBy O) =
+    //IntoMonoid.instance(_.as |> ev.apply |> SortedBy.apply)
+    IntoMonoid.instance(sb => SortedBy(ev(sb.as)))
+  
   protected[dbstage] def infer[A,M](a: => A)(implicit ev: A IntoMonoid M) = ev
   //case class apply[A](implicit A IntoMonoid M) =
 }
+@embed
 class IntoMonoidLowPrio {
+  @desugar
+  implicit def id[M:Monoid]: (M IntoMonoid M) = IntoMonoid.instance(identity)
   implicit def intoRec[A0,A,B0,B](implicit a: A0 IntoMonoid A, b: B0 IntoMonoid B): (A0 ~ B0) IntoMonoid (A ~ B) = ???
 }
 

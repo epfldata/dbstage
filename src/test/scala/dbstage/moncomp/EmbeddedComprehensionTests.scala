@@ -37,4 +37,13 @@ class EmbeddedComprehensionTests extends FunSuite {
     )})
   }
   
+  
+  test("N10") {
+    QueryLifter.liftQuery(code{abs(
+      //for { x <- xs } yield for { y <- ys } yield list(x+y) // worked without any special handling
+      for { x <- xs } yield for { y <- ys } yield list(x+y).orderingBy[Int]
+    )})
+  }
+  
+  
 }
