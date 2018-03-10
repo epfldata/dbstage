@@ -38,6 +38,14 @@ class EmbeddedComprehensionTests extends FunSuite {
   }
   
   
+  test("N9") {
+    QueryLifter.liftQuery(code{abs(
+      //for { y <- ys } yield Any(y > 0)
+      for { x <- xs; if (for { y <- ys } yield Any(y > 0)).value } yield list(x)
+    )})
+    //println(Monoid[Bool].empty)
+  }
+  
   test("N10") {
     QueryLifter.liftQuery(code{abs(
       //for { x <- xs } yield for { y <- ys } yield list(x+y) // worked without any special handling

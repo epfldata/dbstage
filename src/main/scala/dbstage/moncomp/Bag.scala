@@ -200,6 +200,24 @@ case class MkNonEmptyPaper[A,As<:Container[A]](any: A, rest: As, _weaken: (A,As)
   extends MkNonEmpty[A,As](any,rest) { def weaken: As = _weaken(a,as) }
 
 
+case class Filtered[As,A](as: As, pred: A => Bool)
+//@embed
+object Filtered {
+  @doNotEmbed
+  @transparencyPropagating
+  implicit def orderedSrc[A,As](implicit src: As OrderedSourceOf A): (As Filtered A) OrderedSourceOf A =
+    new ((As Filtered A) OrderedSourceOf A) {
+      def iterator(c: (As Filtered A)): Iterator[A] = src.iterator(c.as).filter(c.pred)
+    }
+  @doNotEmbed
+  @transparencyPropagating
+  implicit def finiteSrc[A,As](implicit src: As FiniteSourceOf A): (As Filtered A) FiniteSourceOf A =
+    new ((As Filtered A) FiniteSourceOf A) {
+      //def iterator(c: (As Filtered A)): Iterator[A] = src.inAnyOrder(c.as).iterator.filter(c.pred)
+      def inAnyOrder(c: (As Filtered A)): Iterable[A] = new FromThunkIterable(src.inAnyOrder(c.as).iterator.filter(c.pred))
+    }
+}
+
 //sealed abstract class Sorted[As]
 //case class MkSorted[A:Ordering,As<:Container[A]](val unsorted: As) extends Sorted[As] with Container[A] {
 //  //def unsorted: As
@@ -327,6 +345,19 @@ object Avg {
       Avg((a.value * ac + b.value * bc) / (ac + bc), a.count + b.count.weaken)
     }
 }
+
+case class All(value: Bool)
+//@field class All(value: Bool)  // TODO...
+object All extends (Bool => All) {
+  @transparencyPropagating
+  implicit def monoid: CommutativeMonoid[All] = commutativeMonoidInstance(All(true))(_.value && _.value |> All)
+}
+case class Any(value: Bool)
+object Any extends (Bool => Any) {
+  @transparencyPropagating
+  implicit def monoid: CommutativeMonoid[Any] = commutativeMonoidInstance(Any(false))(_.value || _.value |> Any)
+}
+
 
 // goal: define Avg in terms of Sum and Count
 

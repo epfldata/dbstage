@@ -90,6 +90,12 @@ package object moncomp extends LowPrioImplicits with MonCompEmbeddedDefs {
     //def map[R,M](f: A => R)(implicit into: (R IntoMonoid M), M: IdempotentMonoid[M]): M = ???
     def map[R,M](f: A => R)(implicit into: (R IntoMonoid M), M: Monoid[M]): M =
       M.combineAll(evOrd.iterator(self).map(f andThen into.apply))
+    
+    @transparencyPropagating
+    def filter(pred: A => Bool) = Filtered(self, pred)
+    @transparencyPropagating
+    def withFilter(pred: A => Bool) = filter(pred)
+    
   }
   //implicit class OrderedDistinctOps[C,A](private val self: C)(implicit ev: C OrderedFiniteSourceOfDistinct A) extends FlatMapMirrorsMap[A,IdempotentMonoid] {
   //  //def map[R:IdempotentMonoid](f: A => R): R = ???

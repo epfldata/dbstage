@@ -7,6 +7,16 @@ import cats.Semigroup
 import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
 import Embedding.Predef._
+  
+/*
+
+TODO
+  
+  (?) simplify lifting by normalizing all map variations to the simplest aggregation on Monoid? (StagedMonoid does retain the Monoid properties)
+        including aggrs on non-empty-sources w/ semigroups: aggr on option and apply unsafe get on result? -> we should represent this as a subclass of Comprehension, in any case
+  
+
+*/
 
 //sealed class MonoidComprehension {
 //}
@@ -41,6 +51,7 @@ sealed abstract class Productions[R,C] {
       Iteration(ite.src,ite.v)(ite.body.mapYield(f))
     case Yield(pred,cde) => Yield(pred,f(cde))
   }
+  //def withFilter(pred: Code[Bool,C]): Productions[S,C] = this match {
 }
 //abstract class Iteration[A:CodeType,As:CodeType,R,C](src: StagedDataSource[A,As,C]) extends Productions[R,C] {
 abstract class Iteration[A:CodeType,As:CodeType,R,C](val src: Path[A,As,C]) extends Productions[R,C] {
@@ -72,6 +83,7 @@ object Yield {
 }
 
 sealed abstract class Path[A:CodeType,As:CodeType,C]
+//abstract
 case class StagedDataSource[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends Path[A,As,C] {
   
 }
@@ -117,11 +129,16 @@ object QueryLifter {
       //Comprehension[rt.Typ,C](
       Comprehension[T,C](
         //Iteration[at.Typ,ast.Typ,rt.Typ,C](StagedDataSource(as,afin),v)(liftProductions(body)),
-        Iteration[at.Typ,ast.Typ,T,C](StagedDataSource(as,afin),v)(
+        liftDataSource(as,afin)(ds =>
+        Iteration[at.Typ,ast.Typ,T,C](
+          //StagedDataSource(as,afin),
+          ds,
+          v
+        )(
           //liftProductions(code"$into.apply($body)", lmon)
           liftProductionsAndApply(body, lmon, code"$into.apply _")
           //liftProductions(body, lmon).mapYield ...
-        ),
+        )),
         //mmon.asInstanceOf[Code[Monoid[rt.Typ],C]] // FIXME wrong!
         //mmon
         lmon
@@ -149,7 +166,11 @@ object QueryLifter {
     case code"moncomp.`package`.OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,T]($v => $body)($into,$mmon)" =>
       val lmon2 = QueryCompiler.liftMonoid(mmon)
       //if (lmon == lmon2) Iteration[at.Typ,ast.Typ,T,C](StagedDataSource(as,afin),v)(liftProductions(code"$into.apply($body)", lmon))
-      if (lmon == lmon2) Iteration[at.Typ,ast.Typ,R,C](StagedDataSource(as,afin),v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
+      //if (lmon == lmon2) Iteration[at.Typ,ast.Typ,R,C](StagedDataSource(as,afin),v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
+      if (lmon == lmon2) 
+        liftDataSource(as,afin)(ds =>
+          Iteration[at.Typ,ast.Typ,R,C](ds,v)(liftProductionsAndApply(body, lmon, code"(x:$rt)=>$f($into(x))"))
+        )
       else lastWords("TODO: different monoid")
     case r =>
       println(s"YIELD:\n${indentString(r|>showC)}")
@@ -162,7 +183,20 @@ object QueryLifter {
     println(v,init,body)
     ???
   }
-  
+  // in CPS because we may discover nested aggregates as well as filter predicates in a source
+  def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: StagedDataSource[A,As,C] => R): R = cde match {
+  //def liftDataSource[A:CodeType,As:CodeType,C,R](cde: Code[As,C], srcEv: Code[As SourceOf A,C], curPred: Code[A=>Bool,C])(k: StagedDataSource[A,As,C] => Productions[R,C]): Productions[R,C] = cde match {
+    case code"OrderedOps[As,A]($as)($aord,$afin).withFilter($pred)" =>
+      liftDataSource(as,afin)(k)//.withFilter(pred)  // FIXME
+      //liftDataSource(as,afin,pred)(k)
+    case code"OrderedOps[$ast,$at]($as)($aord,$afin).withFilter($pred)" =>
+      println(codeTypeOf[As],codeTypeOf[A])
+      println(ast,at)
+      ???
+    case cde => 
+      println(s"SOURCE:\n${indentString(cde|>showC)}")
+      k(StagedDataSource(cde,srcEv)) // TODO
+  }
   
   
 }

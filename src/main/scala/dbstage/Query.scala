@@ -145,7 +145,7 @@ import cats.Monoid
 
 //sealed 
 //abstract class StagedMonoid[T:CodeType,C](val commutes: Bool) {
-abstract class StagedMonoid[T:CodeType,-C](val commutes: Bool) {
+abstract class StagedMonoid[T:CodeType,-C](val commutes: Bool, val idempotent: Bool = false) {  // TODO idempotent
   def mkContext: MonoidContext[T,C,_]
 }
 
