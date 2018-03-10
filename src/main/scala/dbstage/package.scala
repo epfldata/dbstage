@@ -53,7 +53,10 @@ package object dbstage extends EmbeddedDefs {
   def showCT(cdeTyp: CodeType[_]) = cdeTyp.rep.tpe.toString|>trimPrefixes
   def trimPrefixes(str: String) = str
     .replaceAll("dbstage.example.","")
+    .replaceAll("dbstage.moncomp.`package`.","")
+    .replaceAll("dbstage.moncomp.","")
     .replaceAll("dbstage.","")
+    .replaceAll("scala.","")
   
   
   def indentString(str: String) = {

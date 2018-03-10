@@ -1,12 +1,13 @@
 package dbstage
 
+import cats.{Monoid,Semigroup}
 import squid.utils._
 import squid.anf.analysis.BlockHelpers
 import squid.anf.transfo.EqualityNormalizer
 import squid.anf.transfo.LogicFlowNormalizer
 import squid.anf.transfo.LogicNormalizer
 import squid.anf.transfo.OptionNormalizer
-import squid.anf.transfo.{FunctionNormalizer,EffectsNormalizer}
+import squid.anf.transfo.{FunctionNormalizer, EffectsNormalizer}
 import squid.anf.transfo.StandardNormalizer
 import squid.anf.transfo.VarFlattening
 import squid.ir.CrossStageAST
@@ -58,6 +59,11 @@ object Embedding
   embed(NormalizesLowPriority0)
   embed(NormalizesLowPriority1)
   
+  // --- //
+  
+  embed(moncomp.Abstracts,
+    MonCompEmbeddedDefs)
+  
   //override val bindEffects = true  // FIXME causes SOF
   
   //import Predef._
@@ -89,6 +95,20 @@ object Embedding
   
   //transparentTyps += typeSymbol[RecordRead.type]
   //transparentTyps += typeSymbol[RecordRead[Any]]
+  
+  
+  
+  transparencyPropagatingMtds += methodSymbol[Monoid[_]]("empty")
+  transparencyPropagatingMtds += methodSymbol[Semigroup[_]]("combine")
+  
+  
+  // --- //
+  
+  //transparentMtds +=
+  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("OrderedOps")
+  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("FiniteOps")
+  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.Abstracts[_,_]]("apply")
+  
   
   
   // TODO move to Squid
@@ -277,6 +297,12 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.single($k,$v))" => code"$self += (($k,$v)); ()"
     //case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.reconstruct[tk,ta]($that)($asem))" =>
       
+    
+    // --- //
+      
+    case code"moncomp.Abstracts[$at,$bt]($f).apply($x)" => f(x)
+      
+    
   }
   
   /*

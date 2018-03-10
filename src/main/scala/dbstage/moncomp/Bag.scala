@@ -6,6 +6,7 @@ import cats.Monoid
 import cats.Semigroup
 import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
+import squid.lib.transparencyPropagating
 
 import scala.collection.immutable
 
@@ -76,11 +77,14 @@ case class List[A](xs: Iterable[A]) extends Container[A] {
   def :: (a: A) : List[A] = List(new PrependIterable(a,xs))
 }
 object List {
+  @transparencyPropagating
   def empty[A]: List[A] = List(Nil)
+  @transparencyPropagating
   implicit def asSource[A]: (List[A] OrderedFiniteSourceOf A) = new (List[A] OrderedFiniteSourceOf A) {
     def iterator(c: List[A]) = c.xs.iterator
     //override def inAnyOrder(c: List[A]) = c
   }
+  @transparencyPropagating
   implicit def asMonoid[A]: Monoid[List[A]] =
     Monoid.instance[List[A]](List.empty)((a,b) => List(new ConcatIterable(a.xs,b.xs)))
 }
@@ -90,7 +94,9 @@ case class Bag[A](xs: Iterable[A]) extends Container[A] {
 }
 object Bag {
   def empty[A]: Bag[A] = Bag(Nil)
+  @transparencyPropagating
   implicit def asSource[A]: (Bag[A] FiniteSourceOf A) = ???
+  @transparencyPropagating
   implicit def asMonoid[A]: CommutativeMonoid[Bag[A]] = ???
 }
 
@@ -111,10 +117,12 @@ case class Set[A](xs: immutable.Set[A]) extends Container[A] {
 }
 object Set {
   def empty[A]: Set[A] = Set(immutable.Set.empty)
+  @transparencyPropagating
   implicit def asSource[A]: (Set[A] FiniteSourceOfDistinct A) = new (Set[A] FiniteSourceOfDistinct A) {
     //def toList: List[A] =
     def inAnyOrder(c: Set[A]): Iterable[A] = c.xs
   }
+  @transparencyPropagating
   //implicit def asMonoid[A]: CommutativeIdempotentMonoid[Set[A]] = ???
   implicit def asMonoid[A]: CommutativeMonoid[Set[A]] =
     commutativeMonoidInstance[Set[A]](Set.empty)((a,b) => Set(a.xs ++ b.xs))
@@ -131,6 +139,7 @@ object OrderedSet {
 
 sealed abstract class NonEmpty[C] // GADT so we can have a single type parameter in the interface
 object NonEmpty {
+  //implicit class Ops[A,C<:Container[A]](self: NonEmpty[C]) {
   implicit class Ops[A,C<:Container[A]](self: NonEmpty[C]) {
     def any: A = self match {
       //case MkNonEmpty(a,as,m) => a  // should probably work, but scalac doesn't keep track – try Dotty
@@ -153,6 +162,7 @@ object NonEmpty {
   //implicit def bagSource[A]: (NonEmpty[Bag[A]] FiniteSourceOf A) = ???
   //implicit def setSource[A]: (NonEmpty[Set[A]] FiniteSourceOfDistinct A) = ???
   //implicit def streamedSource[A]: (NonEmpty[Streamed[A]] FiniteSourceOfDistinct A) = ???
+  @transparencyPropagating
   implicit def finiteSource[A,As](implicit ev: As FiniteSourceOf A): NonEmpty[As] FiniteSourceOf A = new (NonEmpty[As] FiniteSourceOf A) {
     def inAnyOrder(c: NonEmpty[As]): Iterable[A] = ev.inAnyOrder(tryWeaken(c))
   } 
@@ -161,6 +171,7 @@ object NonEmpty {
   }
   implicit def source[A,As](implicit ev: As SourceOf A): NonEmpty[As] SourceOf A = ???
   
+  @transparencyPropagating
   implicit def intoSet[A]: NonEmpty[Set[A]] IntoMonoid Set[A] =
     //IntoMonoid.instance((_:NonEmpty[Set[A]]).weaken)
     IntoMonoid.instance(nes => Ops[A,Set[A]](nes).weaken)
@@ -192,6 +203,7 @@ case class SortedBy[As,O](as: As) {
   override def toString: String = s"$as.sorted"
 }
 object SortedBy {
+  @transparencyPropagating
   implicit def wraps[As,O]: (As SortedBy O) Wraps As = new ((As SortedBy O) Wraps As) { // TODO code-generate
     protected def applyImpl(b: As): dbstage.moncomp.SortedBy[As,O] = SortedBy(b)
     protected def deapplyImpl(a: dbstage.moncomp.SortedBy[As,O]): As = a.as
@@ -205,6 +217,7 @@ object SortedBy {
   }
   implicit def nonEmptySrc[A,As,O](implicit src: As NonEmptySourceOf A): (As SortedBy O) NonEmptySourceOf A = ???
   //implicit def monoid[As:Monoid,O]: Monoid[As SortedBy O] = ???
+  @transparencyPropagating
   implicit def intoMonoid[A,B,O](implicit ev: A IntoMonoid B): (A SortedBy O) IntoMonoid (B SortedBy O) =
     //IntoMonoid.instance(_.as |> ev.apply |> SortedBy.apply)
     IntoMonoid.instance(sb => SortedBy(ev(sb.as)))

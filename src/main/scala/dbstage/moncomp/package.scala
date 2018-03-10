@@ -4,6 +4,9 @@ import cats.{Semigroup, Monoid}
 import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
 import cats.syntax.semigroup._
+import squid.lib.transparencyPropagating
+import squid.lib.transparent
+import squid.quasi.embed
 import squid.utils._
 
 import scala.language.higherKinds
@@ -19,7 +22,7 @@ import scala.language.higherKinds
     
 */
 //package object moncomp extends moncomp.`package`.LowPrioImplicits {
-package object moncomp extends LowPrioImplicits {
+package object moncomp extends LowPrioImplicits with MonCompEmbeddedDefs {
   //import moncomp.Bag
   
   //implicit class 
@@ -36,15 +39,21 @@ package object moncomp extends LowPrioImplicits {
   */
   
   
+  @transparencyPropagating
   def bag[A]() = Bag.empty
+  @transparencyPropagating
   def bag[A](a: A, as: A*) = NonEmpty(a,Bag(as))((a,b) => 
     //Bag(new ConcatIterable(a::Nil,b.xs)))
     Bag(new PrependIterable(a,b.xs)))
   
+  @transparencyPropagating
   def set[A]() = Set.empty
+  @transparencyPropagating
   def set[A](a: A, as: A*) = NonEmpty(a,Set(as.toSet))((a,b) => Set(b.xs + a))
   
+  @transparencyPropagating
   def list[A]() = List.empty
+  @transparencyPropagating
   def list[A](a: A, as: A*) = NonEmpty(a,List(as))((a,b) => List(new PrependIterable(a,b.xs)))
   
   
@@ -75,6 +84,8 @@ package object moncomp extends LowPrioImplicits {
   //}
   //implicit class OrderedOps[C,A](private val self: C)(implicit evOrd: C OrderedFiniteSourceOf A) extends FlatMapMirrorsMap[A,Monoid] {
   implicit class OrderedOps[C,A](private val self: C)(implicit evOrd: C OrderedSourceOf A, evFin: C FiniteSourceOf A) extends FlatMapMirrorsMap[A,Monoid] {
+    //@transparent
+    @transparencyPropagating
     //def map[R:IdempotentMonoid](f: A => R): R = ???
     //def map[R,M](f: A => R)(implicit into: (R IntoMonoid M), M: IdempotentMonoid[M]): M = ???
     def map[R,M](f: A => R)(implicit into: (R IntoMonoid M), M: Monoid[M]): M =
@@ -134,7 +145,8 @@ sealed class LowPrioImplicits extends LowPrioImplicits2 {
       Streamed(new FromThunkIterable(iao.iterator))
     }
     
-    // the implicits here are not used; they're just for better type error, informing users what is required for this op to make sense 
+    // the implicits here are not used; they're just for better type error, informing users what is required for this op to make sense
+    @transparencyPropagating
     def orderingBy[O:Ordering](implicit proj: A ProjectsOn O): SortedBy[C,O] = SortedBy(self)
     
     
@@ -164,5 +176,16 @@ sealed class LowPrioImplicits2 {
   //  def map[R,M,B](f: A => R)(implicit into: (R IntoMonoid M), M: IncrementalMonoid[M,B]): Iterator[B] =
   //    M.combineAllIncrementally(ev.inAnyOrder(self).iterator.map(f andThen into.apply))
   //}
+  
+}
+
+import moncomp._
+
+@embed
+trait MonCompEmbeddedDefs {
+  //import moncomp._ // Note: @embed does not handle this (does not copy it to the companion object)
+  
+  @desugar def abs[A,B](queryCode: A)(implicit ev: B Abstracts A): B = ev(queryCode)
+  
   
 }
