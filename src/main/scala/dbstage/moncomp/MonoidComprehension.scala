@@ -12,9 +12,26 @@ import Embedding.Predef._
 
 TODO
   
+  front end: a `where` extension method taking an IntoMonoid value and making it Empty if the condition is false...
+  
+  handle and normalize data source projection/filtering (actually desugar to a comprehension) and record construction
+  
   (?) simplify lifting by normalizing all map variations to the simplest aggregation on Monoid? (StagedMonoid does retain the Monoid properties)
         including aggrs on non-empty-sources w/ semigroups: aggr on option and apply unsafe get on result? -> we should represent this as a subclass of Comprehension, in any case
   
+  need to put liftProductions in CPS because liftDataSource may generate not a production but a merge of two distinct comprehensions!!
+  
+  define Unit and Merge (or Empty and Combine) extractors that can decompose the canonical expressions of the usual monoids
+  
+  in the normalizer, do graph-reduction?! just store a CSE table of queries...
+  also automatically lift all pure intermediate expressions out of the inner queries
+  
+  handle zipping... how?
+  
+  transform groupBy on indices to a monoidal vector comprehension? eg:
+    for { (x,i) <- ls.zipWithIndex } yield x.groupBy(ls.size - i - 1)  // vector reversal
+  histogram computation:
+    for { x <- set } yield x.groupBy((set.max - x) * 100)  // set.max should be lifted out of the query!
 
 */
 
@@ -24,13 +41,13 @@ TODO
 
 abstract 
 //case class Comprehension[R:CodeType,C](productions: Productions[R,C], mon: Code[Monoid[R],C]) extends QueryRepr[R,C]
-case class Comprehension[R:CodeType,C](productions: Productions[R,C], mon: StagedMonoid[R,C]) extends QueryRepr[R,C] {
+case class Comprehension[R:CodeType,C](productions: Productions[R,C], mon: StagedMonoid[R,C]) extends LiftedQuery[R,C] {
   override def toString = s"Comp ($mon)\n${indentString(s"$productions")}"
 }
 object Comprehension {
   // TODOne if `mon` is SortedBy.monoid, simplify the comprehension and apply Sorting
   //def apply[R:CodeType,C](productions: Productions[R,C], mon: Code[Monoid[R],C]): QueryRepr[R,C] = QueryCompiler.liftMonoid(mon) match {
-  def apply[R:CodeType,C](productions: Productions[R,C], mon: StagedMonoid[R,C]): QueryRepr[R,C] = mon match {
+  def apply[R:CodeType,C](productions: Productions[R,C], mon: StagedMonoid[R,C]): LiftedQuery[R,C] = mon match {
     case sbsm: SortedByStagedMonoid[a,o,C] =>
       //import sbsm.{As,O} // doesn't work... why?!
       implicit val as = sbsm.As
@@ -103,29 +120,31 @@ sealed abstract class Path[A:CodeType,C]
 //abstract
 //case class StagedDataSource[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends Path[A,As,C]
 sealed abstract class StagedDataSource[A:CodeType,C] extends Path[A,C]
-case class StagedDataSourceOf[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends StagedDataSource[A,C]
+//case class StagedDataSourceOf[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends StagedDataSource[A,C]
+case class StagedDataSourceOf[A:CodeType,As:CodeType,C](query: LiftedQuery[As,C], srcEv: Code[As SourceOf A,C]) extends StagedDataSource[A,C]
 
 //case class SingleElement[A:CodeType,C](cde: Code[A,C]) extends Path[A,A,C]
-case class SingleElement[A:CodeType,C](cde: Code[A,C]) extends Path[A,C]
+//case class SingleElement[A:CodeType,C](cde: Code[A,C]) extends Path[A,C]
+case class SingleElement[A:CodeType,C](query: LiftedQuery[A,C]) extends Path[A,C]
 
 //case class Query[A:CodeType,B:CodeType,C](body: Comprehension[A,C], postProcess: Code[A=>B,C])
-abstract class QueryRepr[A:CodeType,C]
-case class Sorting[A:CodeType,As:CodeType,C](underlying: QueryRepr[As,C], asSrc: StagedDataSourceOf[A,As,C], ord: StagedOrdering[A,C])
-  extends QueryRepr[SortedBy[A,A],C]
+abstract class LiftedQuery[A:CodeType,C] //extends Path[A,C]
+case class Sorting[A:CodeType,As:CodeType,C](underlying: LiftedQuery[As,C], asSrc: StagedDataSourceOf[A,As,C], ord: StagedOrdering[A,C])
+  extends LiftedQuery[SortedBy[A,A],C]
 //case class Sorting2[A:CodeType,O:CodeType,As:CodeType,C](underlying: QueryRepr[As,C])
-case class Sorting2[As:CodeType,O:CodeType,C](underlying: QueryRepr[As,C])
-  extends QueryRepr[SortedBy[As,O],C]
+case class Sorting2[As:CodeType,O:CodeType,C](underlying: LiftedQuery[As,C])
+  extends LiftedQuery[SortedBy[As,O],C]
 {
   override def toString = s"$underlying\nsort by ${codeTypeOf[O]|>showCT}"
 }
 
-case class Return[A:CodeType,C](result: Code[A,C]) extends QueryRepr[A,C]
+case class Uninterpreted[A:CodeType,C](result: Code[A,C]) extends LiftedQuery[A,C]
 
 object QueryLifter {
   
   // TODO use CPS to wrap a whole result with .sort if a Sorted is encountered?
   
-  def liftQuery[T:CodeType,C](q: Code[T,C]): QueryRepr[T,C] = println(s"\n<<-- Rec ${q|>showC}\n") thenReturn (q match {
+  def liftQuery[T:CodeType,C](q: Code[T,C]): LiftedQuery[T,C] = println(s"\n<<-- Rec ${q|>showC}\n") thenReturn (q match {
     case code"val $v: $vt = $init; $body: T" =>
       //letin[vt.Typ,T,C](v,init)(body)
       letin(v,init)(liftQuery(body))
@@ -136,7 +155,7 @@ object QueryLifter {
       //lastWords(s"${las}")
       //println(las)
       //die
-      las.asInstanceOf[QueryRepr[T,C]] // FIXME
+      las.asInstanceOf[LiftedQuery[T,C]] // FIXME
     //case code"moncomp.`package`.OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,$mt]($v => $body)($into,$mmon)" =>
     case code"moncomp.`package`.OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,T]($v => $body)($into,$mmon)" =>
       //type mt = T
@@ -179,7 +198,7 @@ object QueryLifter {
       //die //Query(r, code"idenityt[T] _")
       //lastWords(s"Unhandled: ${showC(q)}")
       //Comprehension(Yield(code"true", r),)
-      Return(r)
+      Uninterpreted(r)
   }) alsoApply (r => println(s"\n-->> $r"))
   def liftComprehension[T:CodeType,C](q: Code[T,C]) = q match {
     case r => die
@@ -206,7 +225,7 @@ object QueryLifter {
       //die
   }
   //def letin[T:CodeType,R:CodeType,C](v: Variable[T], init: Code[T,C])(body: Code[R,C&v.Ctx]) = {
-  def letin[T:CodeType,R:CodeType,C](v: Variable[T], init: Code[T,C])(body: QueryRepr[R,C&v.Ctx]) = {
+  def letin[T:CodeType,R:CodeType,C](v: Variable[T], init: Code[T,C])(body: LiftedQuery[R,C&v.Ctx]) = {
     println(v,init,body)
     ???
   }
@@ -230,7 +249,8 @@ object QueryLifter {
       liftDataSource(thn,srcEv)(k)  // FIXME <-------------------------------------------------------------------------
     case cde => 
       println(s"SOURCE:\n${indentString(cde|>showC)}")
-      k(StagedDataSourceOf(cde,srcEv)) // TODO
+      //k(StagedDataSourceOf(cde,srcEv)) // TODO
+      k(StagedDataSourceOf(liftQuery(cde),srcEv)) // TODO
   }
   
   
