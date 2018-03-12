@@ -70,6 +70,24 @@ package object moncomp extends LowPrioImplicits with MonCompEmbeddedDefs {
   
   def streamAggregate[A:Monoid](a: A): NonEmpty[Streamed[A]] = ???
   
+  // TODOne overloads for Bool wrappers...? or make bool wrappers translucent?
+  def all(b: Bool) = ForAll(b)
+  def any(b: Bool) = ExistsAny(b)
+  
+  //val Bundle: OpaqueBundle = OpaqueBundle
+  //type ForAll <: Bool
+  //object ForAll extends (ForAll Wraps Bool)
+  //type ExistsAny <: Bool
+  //object ExistsAny extends (ExistsAny Wraps Bool)
+  @field type ForAll <: Bool
+  @field type ExistsAny <: Bool
+  
+  @transparencyPropagating
+  implicit def monoidExistsAny: CommutativeMonoid[ForAll] = commutativeMonoidInstance(ForAll(true))(_ && _ |> ForAll.apply)
+  
+  @transparencyPropagating
+  implicit def monoidForAll: CommutativeMonoid[ExistsAny] = commutativeMonoidInstance(ExistsAny(false))(_ || _ |> ExistsAny.apply)
+  
   
   
   // TODO add non-empty variants, requiring only Semigroup

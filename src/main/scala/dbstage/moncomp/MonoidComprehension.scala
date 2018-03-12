@@ -14,6 +14,10 @@ TODO
   
   front end: a `where` extension method taking an IntoMonoid value and making it Empty if the condition is false...
   
+  reliably lift comprehensions nested inside some uninterpreted computation; useful at the top-level and in predicates and yield exprs
+    has to lift _all_ such sibling nested comprehensions
+    use MethodApplication xtor...
+  
   handle and normalize data source projection/filtering (actually desugar to a comprehension) and record construction
   
   (?) simplify lifting by normalizing all map variations to the simplest aggregation on Monoid? (StagedMonoid does retain the Monoid properties)
@@ -69,13 +73,16 @@ sealed abstract class Productions[R,C] {
     case ite:Iteration[a,R,C] =>
       implicit val A = ite.A
       Iteration(ite.src,ite.v)(ite.body.mapYield(f))
-    case Yield(pred,cde) => Yield(pred,f(cde))
+    //case Yield(pred,cde) => Yield(pred,f(cde))
+    case Yield(pred,cde) => Yield(pred,cde.mapCode(f))
   }
   def withFilter(pred: Code[Bool,C]): Productions[R,C] = this match {
     case ite:Iteration[a,R,C] =>
       implicit val A = ite.A
       Iteration(ite.src,ite.v)(ite.body.withFilter(pred))
-    case Yield(pred0,cde) => Yield(code"$pred0 && $pred",cde)
+    case Yield(pred0,cde) =>
+      //Yield(code"$pred0 && $pred",cde)
+      Yield(pred0.mapCode[Bool](code"(p0:Bool) => p0 && $pred"),cde)
   }
 }
 //abstract class Iteration[A:CodeType,As:CodeType,R,C](src: StagedDataSource[A,As,C]) extends Productions[R,C] {
@@ -105,8 +112,10 @@ object Iteration {
 
 //case class Predicate[C]() extends Productions[C]
 //abstract 
-case class Yield[R,C](pred: Code[Bool,C], cde: Code[R,C]) extends Productions[R,C] {
-  override def toString: String = s"if ${pred|>showCbound}\nyield ${cde|>showCbound}"
+//case class Yield[R,C](pred: Code[Bool,C], cde: Code[R,C]) extends Productions[R,C] {
+//  override def toString: String = s"if ${pred|>showCbound}\nyield ${cde|>showCbound}"
+case class Yield[R,C](pred: LiftedQuery[Bool,C], cde: LiftedQuery[R,C]) extends Productions[R,C] {
+  override def toString: String = s"if ${pred}\nyield ${cde}"
 }
 object Yield {
   //def apply[R,C](pred: Code[Bool,C], cde: Code[R,C])(enclosingMonoid: StagedMonoid[R,C]) = cde match {
@@ -129,6 +138,9 @@ case class SingleElement[A:CodeType,C](query: LiftedQuery[A,C]) extends Path[A,C
 
 //case class Query[A:CodeType,B:CodeType,C](body: Comprehension[A,C], postProcess: Code[A=>B,C])
 abstract class LiftedQuery[A:CodeType,C] //extends Path[A,C]
+{
+  def mapCode[B:CodeType](f: Code[A=>B,C]): LiftedQuery[B,C] = ???
+}
 case class Sorting[A:CodeType,As:CodeType,C](underlying: LiftedQuery[As,C], asSrc: StagedDataSourceOf[A,As,C], ord: StagedOrdering[A,C])
   extends LiftedQuery[SortedBy[A,A],C]
 //case class Sorting2[A:CodeType,O:CodeType,As:CodeType,C](underlying: QueryRepr[As,C])
@@ -138,7 +150,15 @@ case class Sorting2[As:CodeType,O:CodeType,C](underlying: LiftedQuery[As,C])
   override def toString = s"$underlying\nsort by ${codeTypeOf[O]|>showCT}"
 }
 
-case class Uninterpreted[A:CodeType,C](result: Code[A,C]) extends LiftedQuery[A,C]
+case class Uninterpreted[A:CodeType,C](result: Code[A,C]) extends LiftedQuery[A,C] {
+  override def mapCode[B:CodeType](f: Code[A=>B,C]): LiftedQuery[B,C] = Uninterpreted(f(result))
+}
+
+//case class MonoidUnit[M:CodeType,C](value: LiftedQuery[M,C]) extends LiftedQuery[M,C]
+case class MonoidUnit[A:CodeType,M:CodeType,C](value: LiftedQuery[A,C], unit: Code[A=>M,C]) extends LiftedQuery[M,C] {
+  //override def mapCode[B:CodeType](f: Code[A=>B,C]): LiftedQuery[B,C] = MonoidUnit[A,M,C](value, code"$unit andThen $f") // nope
+}
+
 
 object QueryLifter {
   
@@ -194,7 +214,16 @@ object QueryLifter {
       
       ??? // TODO
       
+    case code"any($b)" =>
+      //MonoidUnit[ExistsAny,C](liftQuery(b),)
+      MonoidUnit(liftQuery(b),code"any(_)")
+        .asInstanceOf[LiftedQuery[T,C]] // FIXME gadt
+    case code"all($b:($bt where (bt <:< Bool)))" =>  // note: important subtype match
+      MonoidUnit(liftQuery(b),code"all(_)")
+        .asInstanceOf[LiftedQuery[T,C]] // FIXME gadt
+      
     case r => 
+      //println(codeTypeOf[T])
       //die //Query(r, code"idenityt[T] _")
       //lastWords(s"Unhandled: ${showC(q)}")
       //Comprehension(Yield(code"true", r),)
@@ -221,7 +250,8 @@ object QueryLifter {
     case r =>
       println(s"YIELD:\n${indentString(r|>showC)}")
       //Yield(code"true", q)
-      Yield(code"true", f(q))
+      //Yield(code"true", f(q))
+      Yield(liftQuery(code"true"), liftQuery(q).mapCode(f))
       //die
   }
   //def letin[T:CodeType,R:CodeType,C](v: Variable[T], init: Code[T,C])(body: Code[R,C&v.Ctx]) = {

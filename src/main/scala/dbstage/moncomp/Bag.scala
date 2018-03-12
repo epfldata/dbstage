@@ -348,17 +348,30 @@ object Avg {
     }
 }
 
-case class All(value: Bool)
+/*
+case class ForAll(value: Bool)
 //@field class All(value: Bool)  // TODO...
-object All extends (Bool => All) {
+object ForAll extends (Bool => ForAll) {
   @transparencyPropagating
-  implicit def monoid: CommutativeMonoid[All] = commutativeMonoidInstance(All(true))(_.value && _.value |> All)
+  implicit def monoid: CommutativeMonoid[ForAll] = commutativeMonoidInstance(ForAll(true))(_.value && _.value |> ForAll)
 }
-case class Any(value: Bool)
-object Any extends (Bool => Any) {
+case class ExistsAny(value: Bool)
+object ExistsAny extends (Bool => ExistsAny) {
   @transparencyPropagating
-  implicit def monoid: CommutativeMonoid[Any] = commutativeMonoidInstance(Any(false))(_.value || _.value |> Any)
+  implicit def monoid: CommutativeMonoid[ExistsAny] = commutativeMonoidInstance(ExistsAny(false))(_.value || _.value |> ExistsAny)
 }
+*/
+//class OpaqueBundle {
+//  type ForAll <: Bool
+//  type ExistsAny <: Bool
+//  def reveal: this,type with TransparentBundle
+//}
+////private[dbstage] 
+//abstract class TransparentBundle extends OpaqueBundle {
+//  type ForAll = Bool
+//  type ExistsAny = Bool
+//  //def reveal = this
+//}
 
 
 // goal: define Avg in terms of Sum and Count

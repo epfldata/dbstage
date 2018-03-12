@@ -47,7 +47,8 @@ class EmbeddedComprehensionTests extends FunSuite {
   test("N9") {
     QueryLifter.liftQuery(code{abs(
       //for { y <- ys } yield Any(y > 0)
-      for { x <- xs; if (for { y <- ys } yield Any(y > 0)).value } yield list(x)
+      //for { x <- xs; if (for { y <- ys } yield ExistsAny(y > 0)).value } yield list(x)
+      for { x <- xs; if (for { y <- ys } yield ExistsAny(y > 0)) } yield list(x)
     )})
     //println(Monoid[Bool].empty)
   }
@@ -85,6 +86,10 @@ class EmbeddedComprehensionTests extends FunSuite {
     // -->
     // for { (a,cond) <- (for { a <- as; b <- bs } yield Set(b).filter(a == b).groupBy(a)) } yield All(cond)
     
+    QueryLifter.liftQuery(code{abs(
+      //for { x <- xs } yield all((for { y <- ys } yield any(y == x)).value)
+      for { x <- xs } yield all(for { y <- ys } yield any(y == x))
+    )})
     
   }
   

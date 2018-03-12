@@ -92,6 +92,33 @@ object fieldMacros {
         //println(s"Gen: ${showCode(gen)}")
         gen
         //c.parse(showCode(gen))
+        
+      case (typ @ q"$mods type $tname >: $low <: $up") :: Nil =>
+        //println(up,low)
+        val trmName = tname.toTermName
+        val gen = q"""
+          $mods type $tname >: $low <: $up
+          implicit object ${trmName} extends Wraps[$tname,$up] {
+            final protected def applyImpl(v: $up) = v.asInstanceOf[$tname]
+            final protected def deapplyImpl(x: $tname) = x
+          }
+        """
+        //println(s"Gen: ${showCode(gen)}")
+        gen
+      case (typ @ q"$mods type $tname[..$tparams] >: $low <: $up") :: Nil =>
+        //println(up,low)
+        val trmName = tname.toTermName
+        val appliedtype = tq"$tname[..${tparams map (_.name)}]"
+        val gen = q"""
+          $mods type $tname[..$tparams] >: $low <: $up
+          implicit def ${trmName}[..$tparams] = new Wraps[$appliedtype,$up] {
+            final protected def applyImpl(v: $up) = v.asInstanceOf[$appliedtype]
+            final protected def deapplyImpl(x: $appliedtype) = x
+          }
+        """
+        println(s"Gen: ${showCode(gen)}")
+        gen
+        
     }
     //???
   }

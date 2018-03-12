@@ -91,6 +91,15 @@ class RecordTests extends FunSuite {
   }
   */
   
+  
+  @field type Test[T] <: T
+  
+  test("Polymorphic Field Type") {
+    
+    assert((Test(42):Int) == 42)
+    
+  }
+  
 }
 
 class RecordEmbeddingTests extends FunSuite {
