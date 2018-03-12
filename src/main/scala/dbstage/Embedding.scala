@@ -26,6 +26,7 @@ import squid.ir.{
 , TopDownTransformer
 }
 import squid.lang.ScalaCore
+import query._
 
 object Embedding 
   extends SimpleANF 
@@ -41,7 +42,8 @@ object Embedding
     //with CurryEncoding.ApplicationNormalizer
     with CrossStageAST
 {
-  //embed(EmbeddedDefs)
+  embed(EmbeddedDefs)
+  embed(AbstractsLoPri)
   //embed(CanAccess)
   //embed(ProjectsOn)
   //embed(ProjectLowPrio)
@@ -114,9 +116,11 @@ object Embedding
   //// --- //
   //
   ////transparentMtds +=
-  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("OrderedOps")
-  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("FiniteOps")
-  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.Abstracts[_,_]]("apply")
+  transparencyPropagatingMtds += methodSymbol[query.`package`.type]("NonEmptyOrderedOps")
+  transparencyPropagatingMtds += methodSymbol[query.`package`.type]("OrderedOps")
+  transparencyPropagatingMtds += methodSymbol[query.`package`.type]("FiniteOps")
+  transparencyPropagatingMtds += methodSymbol[query.`package`.type]("NonEmptyOps")
+  transparencyPropagatingMtds += methodSymbol[Abstracts.type]("apply")
   //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.SortedBy.type]("apply")
   
   
@@ -127,6 +131,65 @@ object Embedding
       Code(c.rep) optionIf c.rep.dfn.unboundVals.isEmpty
     }
   }
+  
+  // TODO move to Squid
+  /** A piece of code of type T with a hole of type S in it */
+  abstract class HollowedCode[T,S,C] {
+    val v: Variable[S]
+    def body: Code[T,C&v.Ctx]
+    override def toString: String = s"Hollow[${v.rep|>showScala}]{${body|>showC}}"
+  }
+  private abstract class HollowedCodeImpl[T,S,C] extends HollowedCode[T,S,C] {
+    var body: Code[T,C&v.Ctx] = null
+  }
+  abstract class Inspector[T,C,R] {
+    
+    // FIXME have a way to account for when a hole appears in an uncertain evaluation context...
+    // FIXME account for current FVs with `inScope` and make sure no extrusion can happen
+    def apply(cde: Code[T,C]): Either[Code[T,C],R] = {
+      
+      //var res0: HollowedCode[T,Any,C] = null
+      var result: Option[R] = None
+      var hollow: Option[HollowedCodeImpl[T,Any,C]] = None
+      var inScope = Set.empty[Val]
+      //val res = topDown(cde.rep) { case r if res0 == null =>
+      val res = topDown(cde.rep) { case r if result.isEmpty =>
+        //var v0: Variable[Any] = null
+        val t = traverse[Any]{
+          //val bv = bindVal("hole", r.typ, Nil)
+          //val v0 = new Variable[Any]()(r.typ|>CodeType.apply[Any])
+          val v0 = new Variable[Any]()(r.typ|>CodeType.apply[Any])
+          val res0 = new HollowedCodeImpl[T,Any,C] {
+            val v: v0.type = v0
+            //var body = null
+          }
+          assert(hollow.isEmpty)
+          hollow = Some(res0)
+          //v0.rep
+          res0
+        }(r.typ|>CodeType.apply[Any])
+        val c = Code[Any,Any](r)
+        //t.applyOrElse[ClosedCode[Any],ClosedCode[Any]](c,c)
+        //println(s"> $r")
+        //println()
+        //t.lift(c).foreach(r => result = Some(r))
+        //r
+        t.lift(c).fold(r){r => assert(result.isEmpty); result = Some(r); hollow.get.v.rep}
+      case r => r
+      }
+      hollow.foreach(h => h.body = Code(res))
+      //if (res0 == null) Left(cde)
+      //else Right(res0)
+      result.fold[Either[Code[T,C],R]](Left(cde))(Right.apply)
+    }
+    
+    //def traverse(cde: Code[T,C]): Option[Code[T,C]]
+    //def traverse[S]: PartialFunction[Code[S,C], Code[S,C] -> R]
+    def traverse[S:CodeType](mkHollowed: => HollowedCode[T,S,C]): PartialFunction[Code[S,C], R]
+    
+  }
+  
+  
   
   override def effect(r: Rep): squid.ir.SimpleEffect = dfn(r) match {
     case MethodApp(s,m,Nil,Nil,rt) if m.isStable =>
@@ -191,27 +254,29 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   
   // For Record stuff and type classes:
   
-  /*
   rewrite {
       
-    case code"dbstage.~[$lt,$rt]($l,$r).lhs" => l
-    case code"dbstage.~[$lt,$rt]($l,$r).rhs" => r
-    case code"recordSyntax[$at]($a).~[$bt]($b)" => code"dbstage.~($a,$b)"
-    case code"dbstage.~.monoid[$at,$bt]($aev,$bev).combine($x,$y)" =>
-      code"dbstage.~($aev.combine($x.lhs,$y.lhs), $bev.combine($x.rhs,$y.rhs))"
+    case code"query.~[$lt,$rt]($l,$r).lhs" => l
+    case code"query.~[$lt,$rt]($l,$r).rhs" => r
+    case code"recordSyntax[$at]($a).~[$bt]($b)" => code"query.~($a,$b)"
+    case code"query.~.monoid[$at,$bt]($aev,$bev).combine($x,$y)" =>
+      code"query.~($aev.combine($x.lhs,$y.lhs), $bev.combine($x.rhs,$y.rhs))"
       
     // Note: no need for `if isPure(w)` since we're in ANF
     case code"($w:Wraps[$a,$b]).deapply((w:Wraps[a,b]).apply($x))" => x
     case code"($w:Wraps[$a,$b]).apply((w:Wraps[a,b]).deapply($x))" => x
     case code"($w:Wraps[$a,$b]).instance" => w
-      
+      /*
     case code"generalHelper[$at]($a).normalize[$tb]($norm)" => code"$norm($a)"
+      */
     case code"(new Normalizes[$ta,$tna]($fun)).apply($a)" => code"$fun($a)"
     case code"(new PairUpNorm[$ta,$tb]($lsfun)).ls($l,$r)" => code"$lsfun($l,$r)"
     case code"(new PairUp[$ta,$tb]($lsfun)).ls($l,$r)" => code"$lsfun($l,$r)"
+      /*
     case code"($ds: DataSource[$ta]).naturallyJoining[$tr where (ta <:< tr),$tb]($b)($pairs)" =>
       //code"$ds.filter(a => $pairs.ls(a,$b).forall(fp => fp.l == fp.r))" // no support for path-dependent types
       code"$ds.filter(a => $pairs.ls(a,$b).forall(_.same))"
+      */
     case code"($ls: List[$ta]).::[$tb where (ta <:< tb)]($b).forall($p)" => code"$p($b) && ($ls forall $p)"
     case code"Nil.forall($p)" => code"true"
     case code"FieldPair[$ta]($a0,$a1).same" => code"$a0 == $a1"
@@ -230,17 +295,19 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"ProjectsOn[$at,$rt]($f).apply($x)" => code"$f($x)"
     case code"(ProjectsOn[$at,$rt]($f):at=>rt)($x)" => code"$f($x)" // for when the apply symbol of Function1 is used
       
+      /*
     //case code"RecordRead.read(Read.readWrapped[$ft,$vt]($w,$rdv)).read($sep)" =>
     //  code"(str:String) => $w($rdv(str))"
     //case code"RecordRead.readLHS[$ta,$tb]($ra,$rrb).read($sep)" =>
     case code"Read.instance[$ta]($f).apply($str)" => code"$f($str)"
     //case code"($rr:RecordRead[$rrt]).read($sep)" => code"(str: String) => splitString(str)"
     case code"RecordRead.instance[$ta]($f).apply($ite)" => code"$f($ite)"
+      */
       
     case code"augmentString($str).toInt" => code"java.lang.Integer.parseInt($str)"
       
-    case code"dbstage.monoidInstance[$t]($e)($c).empty" => code"$e"
-    case code"dbstage.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"
+    case code"query.monoidInstance[$t]($e)($c).empty" => code"$e"
+    case code"query.monoidInstance[$t]($e)($c).combine($x,$y)" => code"$c($x,$y)"
       
     //case code"dbstage.monoidWrap[$at,$bt]($wev,$mev).combine($x,$y)" =>
     //  code"$wev..monoidWrap[$at,$bt]($wev,$mev).combine($x,$y)"
@@ -253,15 +320,17 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     //case code"GroupedBagMonoid.updateFrom[$tk,$ta]($self,GroupedBagMonoid.reconstruct[tk,ta]($that)($asem))" =>
     //  code"GroupedBagMonoid.updateFromReconstructed[$tk,$ta]($self,$that)($asem)" // FIXME check asem?
       
+      /*
     case code"semigroupSyntax[$ta]($self)($asem).groupBy[$tb]($b)" => code"Groups.single($b,$self)"
     case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.single($k,$v))" => code"$self += (($k,$v)); ()"
     //case code"GroupsMonoid.updateFrom[$tk,$tv]($self,Groups.reconstruct[tk,ta]($that)($asem))" =>
-      
+      */
+    
   }
   
   // --- //
   
-  import moncomp._
+  //import moncomp._
   
   rewrite {
       
@@ -270,20 +339,24 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"FiniteOps[$ct,$ta]($self)($ev).orderingBy[$ot]($oord,$aoproj)" => code"SortedBy[$ct,$ot]($self)"
     case code"SortedBy[$ast,$ot]($as).as" => as
       
+      /*
     case code"NonEmpty.intoList[$at].apply(list($a,$as*))" =>
       //code"List.of(${a +: as}*)" // FIXME
       val aas = a +: as
       code"List.of(${aas}*)"
     //case code"NonEmpty.intoList[$at].apply($a,list($as:_*))" => code"List.of($as:_*)" // TODO
     //case code"list2[$at]($as*)" => code"???"
+      */
       
+    case code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).flatMap[$rt]($v => $body)($mmon)" =>
+      code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[$rt]($v => $body)($mmon)"
     case code"OrderedOps[$ast,$at]($as)($aord,$afin).flatMap[$rt,$rm]($v => $body)($into,$mmon)" =>
       code"OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,$rm]($v => $body)($into,$mmon)"
     case code"FiniteOps[$ast,$at]($as)($afin).flatMap[$rt,$rm]($v => $body)($into,$mmon)" =>
       code"FiniteOps[$ast,$at]($as)($afin).map[$rt,$rm]($v => $body)($into,$mmon)"
     
   }
-  */
+  
   
 }
 

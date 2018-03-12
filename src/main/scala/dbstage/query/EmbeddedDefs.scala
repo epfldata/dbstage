@@ -27,6 +27,9 @@ class EmbeddedDefs {
     Ordering.by(ev.deapply)
   }
   
+  @desugar def abs[A,B](queryCode: A)(implicit ev: B Abstracts A): B = ev(queryCode)
+  
+  
   //import scala.collection.immutable.TreeMap  // FIXME handling of those in @embed'ed code
   
   //@transparencyPropagating

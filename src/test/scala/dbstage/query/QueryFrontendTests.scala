@@ -8,7 +8,16 @@ import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
 
+object QueryFrontendTests {
+  
+  val nel0 = ListOf(1,2,3)
+  val nel1 = ListOf(0,4,8,12)
+  val l0: ListOf[Int] = nel0
+  val l1: ListOf[Int] = nel1
+  
+}
 class QueryFrontendTests extends FunSuite {
+  import QueryFrontendTests._
   
   // TODO port tests from previous redesign
   
@@ -24,11 +33,6 @@ class QueryFrontendTests extends FunSuite {
     assertDoesNotCompile("implicitly[Monoid[NonZero[Nat]]]") // could not find implicit value  -- NonZero and Nat's Wraps instances are private
     
   }
-  
-  val nel0 = ListOf(1,2,3)
-  val nel1 = ListOf(0,4,8,12)
-  val l0: ListOf[Int] = nel0
-  val l1: ListOf[Int] = nel1
   
   def same[A](x:A,y:A) = assert(x == y)
   
