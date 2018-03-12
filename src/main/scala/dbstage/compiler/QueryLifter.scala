@@ -48,11 +48,11 @@ class QueryLifter {
               //  def impl[D<:C] = prods => Comprehension(prods,lmon)
               //})
               
-              //val lifted = liftProductions[S,Option[S],C,C](cde,lmon,code"(x:S)=>Some(x)")(prods => Comprehension(prods,lmon))
-              val lifted = liftProductions[S,Option[S],C,C](cde,lmon,code"(x:S)=>Some(x)")(new ProductionsK[Option[S],C,C] {
-                //def impl[D<:C] = prods => Comprehension(prods,lmon)
-                def impl[D] = prods => Comprehension(prods,lmon)
-              })
+              val lifted = liftProductions[S,Option[S],C,C](cde,lmon,code"(x:S)=>Some(x)")(prods => Comprehension(prods,lmon))
+              //val lifted = liftProductions[S,Option[S],C,C](cde,lmon,code"(x:S)=>Some(x)")(new ProductionsK[Option[S],C,C] {
+              //  //def impl[D<:C] = prods => Comprehension(prods,lmon)
+              //  def impl[D] = prods => Comprehension(prods,lmon)
+              //})
               
               val w = new Variable[Option[S]]()
               val res = NestedQuery(w,lifted)(UnliftedQuery(code"$w.get"))
@@ -182,20 +182,21 @@ class QueryLifter {
   def liftProductions[A:CodeType,R:CodeType,C<:E,E](q: Code[A,C], lmon: StagedMonoid[R,C], 
                                                     //f: Code[A=>R,C])
                                                     f: Code[A=>R,E])
-                                              //(k: Productions[R,C] => LiftedQuery[R,E])
-                                              (k: ProductionsK[R,C,E])
+                                              (k: Productions[R,C] => LiftedQuery[R,E])
+                                              //(k: ProductionsK[R,C,E])
   : LiftedQuery[R,E] = q match 
   {
     case code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[A]($v => $body)($tsem)" =>
       liftSemigroup(tsem) match {
         case Right(lmon2) =>
           if (lmon == lmon2)
-            liftDataSource[at.Typ,ast.Typ,C&v.Ctx,E,R](as,afin)(ds =>
-              //liftProductions[A,R,C&v.Ctx,E](body, lmon, f)(prods =>
+            //liftDataSource[at.Typ,ast.Typ,C&v.Ctx,E,R](as,afin)(ds =>
+            liftDataSource[at.Typ,ast.Typ,C,E,R](as,afin)(ds =>
+              liftProductions[A,R,C&v.Ctx,E](body, lmon, f)({prods =>
               //liftProductions[A,R,C&v.Ctx,E](body, lmon, f)(new ProductionsK[R,C&v.Ctx,E] { def impl[D<:C&v.Ctx] = prods =>
-              liftProductions[A,R,C&v.Ctx,E](body, lmon, f)(new ProductionsK[R,C&v.Ctx,E] { def impl[D] = prods =>
-                //k(Iteration(ds,v)(prods))
-                k[Any](Iteration(ds,v)(prods))
+              //liftProductions[A,R,C&v.Ctx,E](body, lmon, f)(new ProductionsK[R,C&v.Ctx,E] { def impl[D] = prods =>
+                k(Iteration(ds,v)(prods))
+                //k[Any](Iteration(ds,v)(prods))
                 //k(Iteration[at.Typ,R,C](ds,v)(prods))
               })//.asInstanceOf[LiftedQuery[R,C]] // FIXME actually need HKP
             )
@@ -207,7 +208,9 @@ class QueryLifter {
       ???
     case r =>
       println(s"YIELD:\n${indentString(r|>showC)}")
-      k(Yield(liftQuery(code"true"), liftQuery(f(q))))
+      k(Yield(liftQuery(code"true"), liftQuery(f(q
+        .asInstanceOf[Code[A,E]] // FIXME
+      ))))
   }
   
   //def liftDataSource[A:CodeType,As:CodeType,C,R:CodeType](cde: Code[As,C], srcEv: Code[As SourceOf A,C])
