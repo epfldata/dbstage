@@ -1,12 +1,11 @@
 package dbstage
+package query
 
 import squid.quasi.{phase, embed}
 import cats.Monoid
 import cats.Semigroup
 import cats.syntax.all._
 import squid.lib.transparencyPropagating
-
-import scala.collection.immutable.TreeMap
 
 @embed
 class EmbeddedDefs {
@@ -30,13 +29,13 @@ class EmbeddedDefs {
   
   //import scala.collection.immutable.TreeMap  // FIXME handling of those in @embed'ed code
   
-  @transparencyPropagating
-  implicit def monoidTreeMap[A:Ordering,B:Monoid]: Monoid[TreeMap[A,B]] = monoidInstance[TreeMap[A,B]](TreeMap.empty)((xs,ys) => xs ++ ys.map {
-    //case (k,v) =>  // Embedding Error: Unsupported feature
-    kv =>
-      val k = kv._1
-      val v = kv._2
-      k -> xs.get(k).fold(v)(Monoid[B].combine(v,_))
-  })
+  //@transparencyPropagating
+  //implicit def monoidTreeMap[A:Ordering,B:Monoid]: Monoid[TreeMap[A,B]] = monoidInstance[TreeMap[A,B]](TreeMap.empty)((xs,ys) => xs ++ ys.map {
+  //  //case (k,v) =>  // Embedding Error: Unsupported feature
+  //  kv =>
+  //    val k = kv._1
+  //    val v = kv._2
+  //    k -> xs.get(k).fold(v)(Monoid[B].combine(v,_))
+  //})
   
 }

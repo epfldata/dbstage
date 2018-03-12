@@ -1,9 +1,11 @@
 package dbstage
+package query
 
 import scala.annotation.implicitNotFound
 import squid.utils._
 import cats.Monoid
 import cats.Semigroup
+import cats.kernel.CommutativeSemigroup
 import cats.syntax.all._
 import squid.lib.transparencyPropagating
 import squid.quasi.{phase, embed}
@@ -17,10 +19,12 @@ case class ~[A,B](lhs: A, rhs: B) {
 object ~ {
   @transparencyPropagating
   implicit def monoid[A:Monoid,B:Monoid]: Monoid[A ~ B] =
-    Monoid.instance(Monoid[A].empty ~ Monoid[B].empty)((x,y) => (x.lhs |+| y.lhs) ~ (x.rhs |+| y.rhs))
+    monoidInstance(Monoid[A].empty ~ Monoid[B].empty)((x,y) => (x.lhs |+| y.lhs) ~ (x.rhs |+| y.rhs))
   @transparencyPropagating
   implicit def semigroup[A:Semigroup,B:Semigroup]: Semigroup[A ~ B] =
     Semigroup.instance((x,y) => (x.lhs |+| y.lhs) ~ (x.rhs |+| y.rhs))
+  implicit def commutativeSemigroup[A:CommutativeSemigroup,B:CommutativeSemigroup]: CommutativeSemigroup[A ~ B] =
+    commutativeSemigroupInstance((x,y) => (x.lhs |+| y.lhs) ~ (x.rhs |+| y.rhs))
 }
 
 final class RecordSyntax[A](private val self: A) extends AnyVal {

@@ -3,23 +3,28 @@ package dbstage
 import cats.{Monoid,Semigroup}
 import squid.utils._
 import squid.anf.analysis.BlockHelpers
-import squid.anf.transfo.EqualityNormalizer
-import squid.anf.transfo.LogicFlowNormalizer
-import squid.anf.transfo.LogicNormalizer
-import squid.anf.transfo.OptionNormalizer
-import squid.anf.transfo.{FunctionNormalizer, EffectsNormalizer}
-import squid.anf.transfo.StandardNormalizer
-import squid.anf.transfo.VarFlattening
-import squid.ir.CrossStageAST
-import squid.ir.CurryEncoding
-import squid.ir.FixPointRuleBasedTransformer
-import squid.ir.FixPointTransformer
-import squid.ir.OnlineOptimizer
-import squid.ir.SchedulingANF
-import squid.ir.SimpleANF
-import squid.ir.SimpleRuleBasedTransformer
-import squid.ir.StandardEffects
-import squid.ir.TopDownTransformer
+import squid.anf.transfo.{
+  EqualityNormalizer
+, LogicFlowNormalizer
+, LogicNormalizer
+, OptionNormalizer
+, FunctionNormalizer
+, EffectsNormalizer
+, StandardNormalizer
+, VarFlattening
+}
+import squid.ir.{
+  CrossStageAST
+, CurryEncoding
+, FixPointRuleBasedTransformer
+, FixPointTransformer
+, OnlineOptimizer
+, SchedulingANF
+, SimpleANF
+, SimpleRuleBasedTransformer
+, StandardEffects
+, TopDownTransformer
+}
 import squid.lang.ScalaCore
 
 object Embedding 
@@ -36,40 +41,37 @@ object Embedding
     //with CurryEncoding.ApplicationNormalizer
     with CrossStageAST
 {
-  //embed(Access)
+  //embed(EmbeddedDefs)
+  //embed(CanAccess)
+  //embed(ProjectsOn)
+  //embed(ProjectLowPrio)
+  //embed(ProjectLowPrio2)
+  //embed(MonoidSyntax)
+  //embed(Read)
+  //embed(RecordRead)
+  //embed(RecordReadLowPrio)
+  //embed(SemigroupSyntax)
+  ////embed(Count)
   //embed(PairUp)
-  //embed(PairUpLowPriority)
-  embed(EmbeddedDefs)
-  embed(CanAccess)
-  embed(ProjectsOn)
-  embed(ProjectLowPrio)
-  embed(ProjectLowPrio2)
-  embed(MonoidSyntax)
-  embed(Read)
-  embed(RecordRead)
-  embed(RecordReadLowPrio)
-  embed(SemigroupSyntax)
-  //embed(Count)
-  embed(PairUp)
-  embed(PairUpNorm)
-  embed(PairUpLowPriority0)
-  embed(PairUpLowPriority1)
-  embed(PairUpLowPriority2)
-  embed(Normalizes)
-  embed(NormalizesLowPriority0)
-  embed(NormalizesLowPriority1)
+  //embed(PairUpNorm)
+  //embed(PairUpLowPriority0)
+  //embed(PairUpLowPriority1)
+  //embed(PairUpLowPriority2)
+  //embed(Normalizes)
+  //embed(NormalizesLowPriority0)
+  //embed(NormalizesLowPriority1)
   
   // --- //
   
-  embed(
-    moncomp.Abstracts,
-    moncomp.AbstractsLoPri,
-    moncomp.SortedBy,
-    moncomp.IntoMonoid,
-    moncomp.IntoMonoidLowPrio,
-    //LowPrioImplicits,
-    MonCompEmbeddedDefs
-  )
+  //embed(
+  //  moncomp.Abstracts,
+  //  moncomp.AbstractsLoPri,
+  //  moncomp.SortedBy,
+  //  moncomp.IntoMonoid,
+  //  moncomp.IntoMonoidLowPrio,
+  //  //LowPrioImplicits,
+  //  MonCompEmbeddedDefs
+  //)
   
   //override val bindEffects = true  // FIXME causes SOF
   
@@ -80,42 +82,42 @@ object Embedding
   
   //transparencyPropagatingMtds += methodSymbol[Iterator[Any]]("map") // nah good without scheduling! and wrong anyway, as Iterator is stateful...
   
-  transparencyPropagatingMtds += methodSymbol[~.type]("apply")
-  transparencyPropagatingMtds += methodSymbol[Any~Any]("lhs")
-  transparencyPropagatingMtds += methodSymbol[Any~Any]("rhs")
-  transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
-  transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
-  transparencyPropagatingMtds += methodSymbol[Bag.type]("empty")
-  transparencyPropagatingMtds += methodSymbol[Bag.type]("apply")
-  transparencyPropagatingMtds += methodSymbol[TraversableOnce[Any]]("toMap")
-  transparencyPropagatingMtds += methodSymbol[scala.Ordering.type]("by")
-  transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("on")
-  transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("reverse")
-  transparencyPropagatingMtds += methodSymbol[Normalizes[_,_]]("<init>")
-  transparencyPropagatingMtds += methodSymbol[PairUpNorm[_,_]]("<init>")
-  transparencyPropagatingMtds += methodSymbol[PairUp[_,_]]("<init>")
-  transparencyPropagatingMtds += methodSymbol[List[_]]("$colon$colon")
-  
-  transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
-  // does not seem to work:
-  transparentMtds += loadMtdSymbol(loadTypSymbol("java.lang.Integer"), "parseInt", None, true) //alsoApply println
-  
-  //transparentTyps += typeSymbol[RecordRead.type]
-  //transparentTyps += typeSymbol[RecordRead[Any]]
-  
-  
-  
-  transparencyPropagatingMtds += methodSymbol[Monoid[_]]("empty")
-  transparencyPropagatingMtds += methodSymbol[Semigroup[_]]("combine")
-  
-  
-  // --- //
-  
-  //transparentMtds +=
-  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("OrderedOps")
-  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("FiniteOps")
-  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.Abstracts[_,_]]("apply")
-  transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.SortedBy.type]("apply")
+  //transparencyPropagatingMtds += methodSymbol[~.type]("apply")
+  //transparencyPropagatingMtds += methodSymbol[Any~Any]("lhs")
+  //transparencyPropagatingMtds += methodSymbol[Any~Any]("rhs")
+  //transparencyPropagatingMtds += methodSymbol[CanAccess.type]("apply")
+  //transparencyPropagatingMtds += methodSymbol[ProjectsOn.type]("apply")
+  //transparencyPropagatingMtds += methodSymbol[Bag.type]("empty")
+  //transparencyPropagatingMtds += methodSymbol[Bag.type]("apply")
+  //transparencyPropagatingMtds += methodSymbol[TraversableOnce[Any]]("toMap")
+  //transparencyPropagatingMtds += methodSymbol[scala.Ordering.type]("by")
+  //transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("on")
+  //transparencyPropagatingMtds += methodSymbol[scala.Ordering[Any]]("reverse")
+  //transparencyPropagatingMtds += methodSymbol[Normalizes[_,_]]("<init>")
+  //transparencyPropagatingMtds += methodSymbol[PairUpNorm[_,_]]("<init>")
+  //transparencyPropagatingMtds += methodSymbol[PairUp[_,_]]("<init>")
+  //transparencyPropagatingMtds += methodSymbol[List[_]]("$colon$colon")
+  //
+  //transparentMtds += methodSymbol[scala.Predef.type]("augmentString")
+  //// does not seem to work:
+  //transparentMtds += loadMtdSymbol(loadTypSymbol("java.lang.Integer"), "parseInt", None, true) //alsoApply println
+  //
+  ////transparentTyps += typeSymbol[RecordRead.type]
+  ////transparentTyps += typeSymbol[RecordRead[Any]]
+  //
+  //
+  //
+  //transparencyPropagatingMtds += methodSymbol[Monoid[_]]("empty")
+  //transparencyPropagatingMtds += methodSymbol[Semigroup[_]]("combine")
+  //
+  //
+  //// --- //
+  //
+  ////transparentMtds +=
+  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("OrderedOps")
+  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.`package`.type]("FiniteOps")
+  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.Abstracts[_,_]]("apply")
+  //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.SortedBy.type]("apply")
   
   
   
@@ -190,56 +192,6 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   // For Record stuff and type classes:
   
   /*
-  val FieldBase_monoid = base.loadMtdSymbol(base.loadTypSymbol("dbstage.FieldBase$"), "monoid")
-  //val fieldValue = base.loadMtdSymbol(base.loadTypSymbol("dbstage2.Field"), "value")
-  //val FieldBase_apply = base.loadMtdSymbol(base.loadTypSymbol("dbstage.FieldBase"), "apply")
-  
-  import cats.Monoid
-  import base.MethodApplication
-  //object UH extends squid.utils.meta.UniverseHelpersClass[scala.reflect.runtime.universe.type](scala.reflect.runtime.universe)
-  
-  //def handleFieldBase_monoid[FB:CodeType,C](ma: MethodApplication[Monoid[FB],C],x:Code[FB,C],y:Code[FB,C]): ClosedCode[FB] = {
-  def handleFieldBase_monoid[FB<:FieldBase:CodeType,C](ma: MethodApplication[Monoid[FB],C], _x:Code[FB,C], _y:Code[FB,C]): ClosedCode[FB] = {
-    //val t = ma.targs.head // : CodeType[_]
-    //val tmonoid = ma.args.tail.head.tail.head.asInstanceOf[ClosedCode[Monoid[t.Typ]]]
-    //println(t,tmonoid)
-    //base.debugFor{
-    (code"Seq.empty[FB]":Code[_,C]) match {
-      case code"Seq.empty[Field[$t]]" =>
-        type F = Field[t.Typ]
-        //println(t)
-        val x = _x.asInstanceOf[Code[F,C]]
-        val y = _y.asInstanceOf[Code[F,C]]
-        val tmonoid = ma.args.tail.head.tail.head.asInstanceOf[ClosedCode[Monoid[t.Typ]]]
-        val comb = code"$tmonoid.combine($x.value, $y.value)"
-        //println(comb)
-        //println(codeTypeOf[FB].rep.tpe.typeSymbol.companion.typeSignature.member("apply"))
-        //val objName = codeTypeOf[FB].rep.tpe.typeSymbol.companion.fullName
-        val obj = codeTypeOf[FB].rep.tpe.typeSymbol.companion
-        //println(obj.typeSignature)
-        //UH.encodedTypeSymbol(obj.typeSignature.typeSymbol.asType alsoApply println) alsoApply println
-        //println()
-        //val objRep = base.staticModule(UH.encodedTypeSymbol(obj.typeSignature.typeSymbol.asType))
-        val objRep = base.staticModule(obj.fullName)
-        base.Code(base.methodApp(objRep, base.Apply.Symbol, Nil, base.Args(comb.rep) :: Nil, typeRepOf[FB]))
-    }
-    //}
-    //???
-  }
-  rewrite {
-    //case code"${base.MethodApplication(ma)}:($t where (t <:< FieldBase))" if ma.symbol === FieldBase_monoid =>
-    //case code"(${MethodApplication(ma)}:Monoid[$t]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
-    case e@code"(${MethodApplication(ma)}:Monoid[$t where (t <:< FieldBase)]).combine($x,$y)" if ma.symbol === FieldBase_monoid =>
-      println(e)
-      //println(ma.args.tail.head.tail.head)
-      //val s = ma.targs.head:CodeType[_]
-      //val smonoid = ma.args.tail.head.tail.head.asInstanceOf[ClosedCode[Monoid[s.Typ]]]
-      //println(s,smonoid)
-      //???
-      handleFieldBase_monoid(ma,x,y)
-  }
-  */
-  
   rewrite {
       
     case code"dbstage.~[$lt,$rt]($l,$r).lhs" => l
@@ -331,55 +283,6 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
       code"FiniteOps[$ast,$at]($as)($afin).map[$rt,$rm]($v => $body)($into,$mmon)"
     
   }
-  
-  /*
-  val recordAccessApply = base.loadMtdSymbol(base.loadTypSymbol("dbstage2.AccessOps"), "apply")
-  val fieldValue = base.loadMtdSymbol(base.loadTypSymbol("dbstage2.Field"), "value")
-  
-  def handleApply[R<:FieldModule:CodeType](args: Seq[Seq[OpenCode[Any]]]): ClosedCode[R] = args match {
-    case Seq(Seq(ops),Seq(acc)) =>
-      ops match {
-        case code"toAccessOps[$s]($self)" =>
-          //self.asInstanceOf[ClosedCode[Nothing]]
-          val fld = code"${acc.asInstanceOf[OpenCode[Access[R,s.Typ]]]}.field($self)"
-          //.asInstanceOf[ClosedCode[R]]
-          base.Code(base.methodApp(fld.rep,fieldValue,Nil,Nil,codeTypeOf[R].rep))
-      }
-  }
-  rewrite {
-    case code"::[$hdt,$tlt]($hd,$tl).hd" => hd 
-    case code"::[$hdt,$tlt]($hd,$tl).tl" => tl 
-    case code"Access[$f where (f <:< FieldModule),$r]($idx,$field).idx" => idx 
-    case code"Access[$f where (f <:< FieldModule),$r]($idx,$field).field" => field 
-    case code"${base.MethodApplication(ma)}:($t where (t <:< FieldModule))" if ma.symbol === recordAccessApply =>
-      //println(ma)
-      handleApply[t.Typ](ma.args)
-    case code"false" => code"false"
-
-      
-    //case code"PairUp.hasPair[$f where (f <:< FieldModule),$l,$r]($pairs,$acc)" =>
-    //  //code"$pairs.mapR[$f::$r](_.tl)"
-    //  code"PairUp[$l,$f::$r]((l,r) => $pairs.ls(l,r.tl))"
-      
-    //case code"PairUp.doesNotHavePair[$f where (f <:< FieldModule),$l,$r]($pairs)" =>
-    //  code"PairUp[$l,$f::$r]((l,r) => $pairs.ls(l,r.tl))"
-    //  //code"$pairs.mapR[$f,$l,$r](_.tl)"
-    //  //code"$pairs.mapR[$f::$r](_.tl)"
-      
-    //case code"($pu:PairUp[$l,$r]).mapR[$t]($f).mapR[$s]($g)" => code"$pu.mapR($g andThen $f)"
-    
-    case code"PairUp[$l,$r]($ls).ls" => ls
-      
-      
-    //  FIXME: does not seem to match:
-    //case code"$x:Null" => code"null"
-    //case code"$x:Null" if !x.rep.effect.immediate => code"null"
-    //case code"$x:($t where (t <:< Null))" if !(x =~= code"null") && (t <:< codeTypeOf[Null]) => // FIXME StackOverflowError
-    //  //code"null:$t" // FIXME does not type-check
-    //  t.nullValue
-    
-  }
-  
   */
   
 }

@@ -13,6 +13,10 @@ import scala.reflect.macros.whitebox
 class field extends StaticAnnotation {
   def macroTransform(annottees: Any*): Any = macro fieldMacros.impl
 }
+
+@compileTimeOnly("`@privateWraps` can only be used in conjunction with `@field type`")
+class privateWraps extends StaticAnnotation
+
 //object field {
 object fieldMacros {
   
@@ -93,6 +97,8 @@ object fieldMacros {
         gen
         //c.parse(showCode(gen))
         
+      // for translucent types:
+        /*
       case (typ @ q"$mods type $tname >: $low <: $up") :: Nil =>
         //println(up,low)
         val trmName = tname.toTermName
@@ -103,20 +109,52 @@ object fieldMacros {
             final protected def deapplyImpl(x: $tname) = x
           }
         """
-        //println(s"Gen: ${showCode(gen)}")
+        println(s"Gen: ${showCode(gen)}")
         gen
+        */
       case (typ @ q"$mods type $tname[..$tparams] >: $low <: $up") :: Nil =>
         //println(up,low)
+        //println(mods.annotations)
+        //println(mods.annotations.collectFirst{case q"new privateWraps()"=>})
+        //val wrapsMods = if (mods.annotations.collectFirst{case q"new privateWraps()"=>}.isDefined) Flag.PRIVATE else NoFlags
+        var wrapsPrivate = false
+        val newAnnots = mods.annotations.filter{case q"new privateWraps()"=>wrapsPrivate=true;false  case _ => true}
         val trmName = tname.toTermName
         val appliedtype = tq"$tname[..${tparams map (_.name)}]"
-        val gen = q"""
-          $mods type $tname[..$tparams] >: $low <: $up
-          implicit def ${trmName}[..$tparams] = new Wraps[$appliedtype,$up] {
+        val wrapsMods = Modifiers((if (wrapsPrivate) Flag.PRIVATE else NoFlags) | Flag.IMPLICIT)
+        val wraps = if (tparams.isEmpty) q"""
+          ${wrapsMods} object ${trmName} extends Wraps[$tname,$up] {
+            final protected def applyImpl(v: $up) = v.asInstanceOf[$tname]
+            final protected def deapplyImpl(x: $tname) = x
+          }
+        """ else q"""
+          ${wrapsMods} def ${trmName}[..$tparams] = new Wraps[$appliedtype,$up] {
             final protected def applyImpl(v: $up) = v.asInstanceOf[$appliedtype]
             final protected def deapplyImpl(x: $appliedtype) = x
           }
         """
-        println(s"Gen: ${showCode(gen)}")
+        val gen = q"""
+          ${Modifiers(mods.flags,mods.privateWithin,newAnnots)} type $tname[..$tparams] >: $low <: $up
+          $wraps
+        """
+        //println(s"Gen: ${showCode(gen)}")
+        gen
+        
+      // for opaque types:
+      case (typ @ q"$mods type $tname[..$tparams] = $rhs") :: Nil =>
+        //println(typ)
+        val trmName = tname.toTermName
+        val appliedtype = tq"$tname[..${tparams map (_.name)}]"
+          //$mods type $tname[..$tparams] <: AnyRef
+          //${TypeDef(mods,tname,tparams,)}
+        val gen = q"""
+          ${Modifiers(mods.flags|Flag.DEFERRED, mods.privateWithin, mods.annotations)} type $tname[..$tparams] <: AnyRef
+          implicit def ${trmName}[..$tparams] = new Wraps[$appliedtype,$rhs] {
+            final protected def applyImpl(v: $rhs) = v.asInstanceOf[$appliedtype]
+            final protected def deapplyImpl(x: $appliedtype) = x.asInstanceOf[$rhs]
+          }
+        """
+        //println(s"Gen: ${showCode(gen)}")
         gen
         
     }

@@ -8,23 +8,6 @@ import cats.syntax.all._
 
 import scala.annotation.unchecked.uncheckedVariance
 
-// TODO remove Field/FieldBase?
-trait FieldBase extends Any { type Typ; @transparencyPropagating def value: Typ }
-object FieldBase {
-  //implicit def wraps[F<:Field[T],T]: (F Wraps T) = ??? // doesn't infer
-  //implicit def wraps[F/*<:FieldBase*/,T](implicit ev: F <:< Field[T]): (F Wraps T) = ??? // infers
-  //implicit def wraps[F<:FieldBase:BuildField,T](implicit ev: F <:< Field[T]): (F Wraps T) = ??? // infers
-  implicit def wraps[F<:FieldBase:BuildField]: (F Wraps (F#Typ)) = // infers
-    Wraps(t => implicitly[BuildField[F]].apply(t), f => f.value)
-  
-}
-trait Field[T] extends Any with FieldBase { type Typ = T }
-//trait Field[+T] extends Any with FieldBase { type Typ = T @uncheckedVariance }
-object Field {
-  //implicit def monoid[T:Monoid]: Monoid[Field[T]] = ???
-  //implicit def monoid[T:Monoid,F<:Field[T]]: Monoid[F] = ???
-}
-
 /* Note: the purpose of having a `final def apply` defer to a protected implementation is so that all user fields
  * share the same apply/deapply method symbols, so that rewrite rules can be defined in Squid that apply to all of
  * them at the same time. */
@@ -54,17 +37,3 @@ object Wraps {
 /** The only instances of this are also instances of Wraps[A,_] */
 sealed abstract class WrapsBase[A] { type Typ; def instance: A Wraps Typ }
 
-import Embedding.Predef._
-
-abstract class BuildField[F<:FieldBase] extends (F#Typ => F) {
-//abstract class BuildField[F<:FieldBase:CodeType](implicit Typ: CodeType[Typ]) extends (F#Typ => F) {
-//  def staged: ClosedCode[F#Typ => F]
-}
-object BuildField {
-  import scala.language.experimental.macros
-  implicit def build[T]: BuildField[T] = macro BuildImplicitGen.buildImplicitGen[T]
-  def fromFunction[A,F<:FieldBase{type Typ=A}](f: A => F) = new BuildField[F] {
-    def apply(a: A): F = f(a)
-    //def staged = ???
-  }
-}
