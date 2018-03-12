@@ -22,6 +22,12 @@ package object dbstage {
     .replaceAll("dbstage.","")
     .replaceAll("scala.","")
   
+  def indentString(str: String) = {
+    val lines = str.splitSane('\n')
+    val pre = "| "
+    lines map (Debug.GREY + pre + Console.RESET + _) mkString "\n"
+  }
+  def blockIndentString(str: String) = if (str.contains('\n')) "\n"+indentString(str) else str
   
   
 }
