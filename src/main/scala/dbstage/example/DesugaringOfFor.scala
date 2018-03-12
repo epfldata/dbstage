@@ -17,6 +17,20 @@ object DesugaringOfFor extends App {{
   Debug.show {
     for {
       a <- opt
+      if a < 0
+      b <- opt
+    } yield identity(a+b)
+  }
+  Debug.show {
+    for {
+      a <- opt
+      b <- opt
+      if a < b
+    } yield identity(a+b)
+  }
+  Debug.show {
+    for {
+      a <- opt
       x = a      // why such a so very ugly desugaring?
       b <- opt   //   -> eval order; and if it was evaluated differently it would be tricky with an `if` going afterwards
     //} identity(a+b)
