@@ -29,29 +29,10 @@ class QueryLifter {
       def traverse[S:CodeType]: PartialFunction[Code[S,C], HollowedCode[T,S,C] => LiftedQuery[T,C]] = {
         case cde @ code"readInt" => // Just a dummy case to test the nested-lifting 
           h => NestedQuery(h.v,MonoidEmpty(code"$cde:S"))(liftQuery(h.body))
-        case code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[S]($v => $body)($tsem)" =>
-          /*
-          val lmon = liftSemigroup(tsem)
-          //liftProductions[as.Typ,S,C&v.Ctx,C](body, lmon)(prods => Comprehension(prods, lmon)) // FIXME iter
-          liftDataSource[at.Typ,ast.Typ,C,S](as,afin)(ds =>
-            liftProductions(body.asInstanceOf[Code[S,C]], // FIXME actually need HKP
-              lmon)(prods => 
-              Comprehension(Iteration[at.Typ,S,C](ds,v)(prods), lmon)
-            )
-          )
-          */
-          
-          // TODO factor with case in leftProductions
-          val res =
-          liftSemigroup(tsem) match {
+        case cde @ code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[S]($v => $body)($tsem)" =>
+          val res = liftSemigroup(tsem) match {
             case Right(lmon) =>
-              val lifted =
-              liftDataSource[at.Typ,ast.Typ,C,Option[S]](as,afin)(ds =>
-                liftProductions(body.asInstanceOf[Code[S,C]], // FIXME actually need HKP
-                  lmon, code"(x:S)=>Some(x)")(prods => 
-                  Comprehension(Iteration[at.Typ,Option[S],C](ds,v)(prods), lmon)
-                )
-              )
+              val lifted = liftProductions(cde,lmon,code"(x:S)=>Some(x)")(prods => Comprehension(prods,lmon))
               val w = new Variable[Option[S]]()
               val res = NestedQuery(w,lifted)(UnliftedQuery(code"$w.get"))
               //println(res)
