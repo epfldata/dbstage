@@ -26,12 +26,28 @@ abstract class NestedQuery[A:CodeType,B:CodeType,C] extends LiftedQuery[A,C] {
 }
 object NestedQuery {
   // TODO normalization of unnecessary nesting; requires better Inspector that allow inspection of body...
-  def apply[A:CodeType,B:CodeType,C](_v: Variable[B], _nestedQuery: LiftedQuery[B,C])(_body: => QueryRepr[A,C&_v.Ctx]): NestedQuery[A,B,C] =
-    new NestedQuery[A,B,C] {
-      val v: _v.type = _v
-      val nestedQuery: LiftedQuery[B,C] = _nestedQuery
-      lazy val body: QueryRepr[A,C&v.Ctx] = _body
+  def apply[A:CodeType,B:CodeType,C](_v: Variable[B], _nestedQuery: LiftedQuery[B,C])(_body: QueryRepr[A,C&_v.Ctx]): LiftedQuery[A,C] = {
+    val stable_v = _v.`internal bound`
+    (_nestedQuery,_body) match {
+      case (_, UnliftedQuery(base.Code(base.RepDef(`stable_v`)))) =>
+        _nestedQuery
+          .asInstanceOf[LiftedQuery[A,C]] // FIXME GADT
+      /* // TODO let commuting
+      case (nq: NestedQuery[B,d,C],_) => // let commuting
+        new NestedQuery[A,B,C] {
+          val v: nq.v.type = nq.v
+          val nestedQuery: LiftedQuery[B,C] = _nestedQuery
+        }
+      */
+      case _ =>
+        //println(_body,_body.getClass)
+        new NestedQuery[A,B,C] {
+          val v: _v.type = _v
+          val nestedQuery: LiftedQuery[B,C] = _nestedQuery
+          val body: QueryRepr[A,C&v.Ctx] = _body
+        }
     }
+  }
 }
 
 case class MonoidEmpty[A:CodeType,C](empty: Code[A,C]) extends LiftedQuery[A,C]

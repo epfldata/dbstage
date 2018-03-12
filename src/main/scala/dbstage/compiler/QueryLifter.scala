@@ -26,12 +26,10 @@ class QueryLifter {
   def liftQuery[T:CodeType,C](q: Code[T,C]): QueryRepr[T,C] = {
     println(s"\n<<-- Rec ${q|>showC}\n")
     object Ins extends Embedding.Inspector[T,C,LiftedQuery[T,C]] {
-      def traverse[S:CodeType](mkHollowed: => HollowedCode[T,S,C]): PartialFunction[Code[S,C], LiftedQuery[T,C]] = {
+      def traverse[S:CodeType]: PartialFunction[Code[S,C], HollowedCode[T,S,C] => LiftedQuery[T,C]] = {
         case cde @ code"readInt" => // Just a dummy case to test the nested-lifting 
-          val h = mkHollowed
-          NestedQuery(h.v,MonoidEmpty(code"$cde:S"))(liftQuery(h.body))
+          h => NestedQuery(h.v,MonoidEmpty(code"$cde:S"))(liftQuery(h.body))
         case code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[S]($v => $body)($tsem)" =>
-          val h = mkHollowed // FIXME if forgotten, inspector crashes...
           /*
           val lmon = liftSemigroup(tsem)
           //liftProductions[as.Typ,S,C&v.Ctx,C](body, lmon)(prods => Comprehension(prods, lmon)) // FIXME iter
@@ -54,23 +52,20 @@ class QueryLifter {
                   Comprehension(Iteration[at.Typ,Option[S],C](ds,v)(prods), lmon)
                 )
               )
-              //println(lifted)
               val w = new Variable[Option[S]]()
-              //lifted
               val res = NestedQuery(w,lifted)(UnliftedQuery(code"$w.get"))
               //println(res)
               res
             case Left(lmon) =>
               die // TODO
           }
-          NestedQuery[T,S,C](h.v,res)(liftQuery(h.body))
-          //???
-          
+          h => NestedQuery[T,S,C](h.v,res)(liftQuery(h.body))
           
         case code"OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,T]($v => $body)($into,$mmon)" =>
           ???
       }
     }
+    
     Ins(q) match {
       case Left(cde) => UnliftedQuery(cde)
       case Right(lq) =>

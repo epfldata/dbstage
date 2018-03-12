@@ -139,53 +139,29 @@ object Embedding
     def body: Code[T,C&v.Ctx]
     override def toString: String = s"Hollow[${v.rep|>showScala}]{${body|>showC}}"
   }
-  private abstract class HollowedCodeImpl[T,S,C] extends HollowedCode[T,S,C] {
-    var body: Code[T,C&v.Ctx] = null
-  }
   abstract class Inspector[T,C,R] {
     
     // FIXME have a way to account for when a hole appears in an uncertain evaluation context...
     // FIXME account for current FVs with `inScope` and make sure no extrusion can happen
     def apply(cde: Code[T,C]): Either[Code[T,C],R] = {
-      
-      //var res0: HollowedCode[T,Any,C] = null
-      var result: Option[R] = None
-      var hollow: Option[HollowedCodeImpl[T,Any,C]] = None
-      var inScope = Set.empty[Val]
-      //val res = topDown(cde.rep) { case r if res0 == null =>
-      val res = topDown(cde.rep) { case r if result.isEmpty =>
-        //var v0: Variable[Any] = null
-        val t = traverse[Any]{
-          //val bv = bindVal("hole", r.typ, Nil)
-          //val v0 = new Variable[Any]()(r.typ|>CodeType.apply[Any])
-          val v0 = new Variable[Any]()(r.typ|>CodeType.apply[Any])
-          val res0 = new HollowedCodeImpl[T,Any,C] {
-            val v: v0.type = v0
-            //var body = null
-          }
-          assert(hollow.isEmpty)
-          hollow = Some(res0)
-          //v0.rep
-          res0
-        }(r.typ|>CodeType.apply[Any])
-        val c = Code[Any,Any](r)
-        //t.applyOrElse[ClosedCode[Any],ClosedCode[Any]](c,c)
-        //println(s"> $r")
-        //println()
-        //t.lift(c).foreach(r => result = Some(r))
-        //r
-        t.lift(c).fold(r){r => assert(result.isEmpty); result = Some(r); hollow.get.v.rep}
-      case r => r
+      var result: Option[(HollowedCode[T,Any,C] => R,Variable[Any])] = None
+      val res = topDown(cde.rep) {
+        case r if result.isEmpty =>
+          val rtp = r.typ|>CodeType.apply[Any]
+          val t = traverse[Any](rtp)
+          val c = Code[Any,Any](r)
+          t.lift(c).fold(r){f => assert(result.isEmpty); result = Some((f,new Variable[Any]()(rtp))); result.get._2.rep}
+        case r => r
       }
-      hollow.foreach(h => h.body = Code(res))
-      //if (res0 == null) Left(cde)
-      //else Right(res0)
-      result.fold[Either[Code[T,C],R]](Left(cde))(Right.apply)
+      result.fold[Either[Code[T,C],R]](Left(cde)){
+        case f -> v0 => Right(f(new HollowedCode[T,Any,C] {
+          val v: v0.type = v0
+          val body = Code(res)
+        }))
+      }
     }
     
-    //def traverse(cde: Code[T,C]): Option[Code[T,C]]
-    //def traverse[S]: PartialFunction[Code[S,C], Code[S,C] -> R]
-    def traverse[S:CodeType](mkHollowed: => HollowedCode[T,S,C]): PartialFunction[Code[S,C], R]
+    def traverse[S:CodeType]: PartialFunction[Code[S,C], HollowedCode[T,S,C] => R]
     
   }
   
