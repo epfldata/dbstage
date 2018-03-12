@@ -138,7 +138,7 @@ object Yield {
   //}
 }
 
-sealed abstract class Path[A:CodeType,C]
+sealed abstract class Path[A:CodeType,-C]
 
 import query.SourceOf
 
