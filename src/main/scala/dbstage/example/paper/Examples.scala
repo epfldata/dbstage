@@ -19,12 +19,13 @@ object Data {
   // dummy
   //type Json = String
   //def asJson(x: Any) = x.toString
-  type Json = Any
+  //type Json = Any
+  type Json
   //def asJson(x: Any) = x
-  def asJson(x: Any) = x match {
+  def asJson(x: Any) = (x match {
     case (d,ls:collection.Set[_]) => (d,SetOf.of(ls.toList:_*))
     case x => x
-  }
+  }).asInstanceOf[Json]
   
 }
 

@@ -44,6 +44,7 @@ object Embedding
 {
   embed(EmbeddedDefs)
   embed(AbstractsLoPri)
+  embed(IntoMonoid)
   //embed(CanAccess)
   //embed(ProjectsOn)
   //embed(ProjectLowPrio)
@@ -120,6 +121,7 @@ object Embedding
   transparencyPropagatingMtds += methodSymbol[query.`package`.type]("OrderedOps")
   transparencyPropagatingMtds += methodSymbol[query.`package`.type]("FiniteOps")
   transparencyPropagatingMtds += methodSymbol[query.`package`.type]("NonEmptyOps")
+  transparencyPropagatingMtds += methodSymbol[query.`package`.type]("SourceOps")
   transparencyPropagatingMtds += methodSymbol[Abstracts.type]("apply")
   //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.SortedBy.type]("apply")
   
@@ -141,12 +143,15 @@ object Embedding
   }
   abstract class Inspector[T,C,R] {
     
+    // TODO there should be a more lenient way to lift queries out even when they refer to locally-bound executed-once values...
     // FIXME have a way to account for when a hole appears in an uncertain evaluation context...
     // FIXME account for current FVs with `inScope` and make sure no extrusion can happen
     def apply(cde: Code[T,C]): Either[Code[T,C],R] = {
       var result: Option[(HollowedCode[T,Any,C] => R,Variable[Any])] = None
+      val boundInCde = cde.rep.boundVals
       val res = topDown(cde.rep) {
-        case r if result.isEmpty =>
+        case r if result.isEmpty && (r.dfn.unboundVals & boundInCde isEmpty) =>  // Q: what if same val used in unrelated blocks?
+        //case r if result.isEmpty && (r.dfn.unboundVals & boundInCde isEmpty)||{println(s"unboundVals=${r.dfn.unboundVals}");false} =>
           val rtp = r.typ|>CodeType.apply[Any]
           val t = traverse[Any](rtp)
           val c = Code[Any,Any](r)

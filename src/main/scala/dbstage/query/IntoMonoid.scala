@@ -22,13 +22,13 @@ object IntoMonoid extends IntoMonoidLowPrio {
   def instance[A,M](f: A => M): (A IntoMonoid M) = new (A IntoMonoid M) { def apply(a: A): M = f(a) }
   //implicit def ofMonoid[M:Monoid]: (M Into M) = instance(identity)
   implicit object ofNonZeroNat extends (NonZero[Nat] IntoMonoid Nat) { def apply(a: NonZero[Nat]): Nat = a }
-  implicit def ofNonEmpty[As]: NonEmpty[As] IntoMonoid As = 
+  @desugar implicit def ofNonEmpty[As]: NonEmpty[As] IntoMonoid As = 
     //new (NonEmpty[As] IntoMonoid As) { def apply(a: NonEmpty[As]): As = a }
     instance(identity)
-  implicit def ofMin[O:Ordering]: Min[O] IntoMonoid Option[Min[O]] = instance(Some.apply)
-  implicit def ofMax[O:Ordering]: Max[O] IntoMonoid Option[Max[O]] = instance(Some.apply)
+  @desugar implicit def ofMin[O:Ordering]: Min[O] IntoMonoid Option[Min[O]] = instance(Some.apply)
+  @desugar implicit def ofMax[O:Ordering]: Max[O] IntoMonoid Option[Max[O]] = instance(Some.apply)
   //{ def apply(a: Min[O]): Option[Min[O]] = Some(a) }
-  implicit def intoOptRec[A,B](implicit a: A IntoMonoid Option[A], b: B IntoMonoid Option[B]): (A ~ B) IntoMonoid Option[A ~ B] = ???
+  @desugar implicit def intoOptRec[A,B](implicit a: A IntoMonoid Option[A], b: B IntoMonoid Option[B]): (A ~ B) IntoMonoid Option[A ~ B] = ???
   
   @desugar
   implicit def ofSortedBy[A,B,O](implicit ev: A IntoMonoid B): (A SortedBy O) IntoMonoid (B SortedBy O) =
