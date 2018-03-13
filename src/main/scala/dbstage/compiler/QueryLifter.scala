@@ -47,8 +47,12 @@ class QueryLifter {
           }
           h => NestedQuery[T,S,C](h.v,res)(liftQuery(h.body))
           
-        case code"OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,T]($v => $body)($into,$mmon)" =>
-          ???
+        case cde @ code"OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,S]($v => $body)($into,$mmon)" =>
+          
+          val lmon = liftMonoid(mmon)
+          val lifted = liftProductions[S,S,C,C](cde,lmon,code"identity[S] _")(prods => Comprehension(prods,lmon))
+          h => NestedQuery[T,S,C](h.v,lifted)(liftQuery(h.body))
+          
       }
     }
     
@@ -88,7 +92,16 @@ class QueryLifter {
           die // TODO
       }
     case code"OrderedOps[$ast,$at]($as)($aord,$afin).map[$rt,A]($v => $body)($into,$mmon)" =>
-      ???
+      val lmon2 = liftMonoid(mmon)
+      //println(s">>> INTO $into")
+      if (lmon == lmon2)
+        liftDataSource[at.Typ,ast.Typ,C,E,R](as,afin)(ds =>
+          liftProductions[rt.Typ,R,C&v.Ctx,E](body, lmon, code"(x:$rt)=>$f($into(x))")({prods =>
+            k(Iteration(ds,v)(prods))
+            //k(Iteration[at.Typ,R,C](ds,v)(prods))
+          })
+        )
+      else lastWords(s"TODO: different monoid $lmon and $lmon2")
     case r =>
       println(s"YIELD:\n${indentString(r|>showC)}")
       k(Yield(liftQuery(code"true"), liftQuery(
@@ -99,6 +112,9 @@ class QueryLifter {
   def liftDataSource[A:CodeType,As:CodeType,C<:E,E,R:CodeType]
   (cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: StagedDataSource[A,C] => LiftedQuery[R,E]): LiftedQuery[R,E]
   = cde match {
+    case code"SourceOps[$ast,A]($as)($asrc).withFilter($pred)" =>
+      //liftDataSource(as,afin)(k).withFilter(pred)
+      ??? // TODO
     case code"if ($cond) $thn else $els : As" =>
       liftDataSource[A,As,C,E,R](thn,srcEv)(thn => liftDataSource[A,As,C,E,R](els,srcEv)(els => MonoidMerge(k(thn),k(els))))
     case cde =>
@@ -106,7 +122,8 @@ class QueryLifter {
       k(StagedDataSourceOf(liftQuery(cde),srcEv))
   }
   
-  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = ???
+  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = // TODO
+    RawStagedMonoid(cde,false,false)
   //def liftSemigroup[S:CodeType,C](cde: Code[Semigroup[S],C]): StagedMonoid[S,C] =
   //  //new StagedMonoid[S,C](false,false){} // TODO
   //  RawStagedSemigroup[S,C](cde,false,false).asInstanceOf[StagedMonoid[S,C]] // FIXME

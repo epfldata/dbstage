@@ -58,6 +58,26 @@ class QueryFrontendTests extends FunSuite {
     
   }
   
+  import example.paper._
+  import example.paper.Data._
+  import example.paper.Examples._
+  
+  test("Intro Example 2") {
+    
+    val r0 = ex2(depts,emps)
+    //println(r0)
+    
+    val r1 = ex2ManualHashJoin(depts,emps)
+    //println(r1)
+    
+    //val r2 = SetOf(r1.map(xs => ListOf(xs:_*)):_*)
+    val r2 = ListOf.of(r1:_*)
+    //println(r2)
+    
+    //assert(r0 == SetOf(r1.map(xs => ListOf(xs:_*)):_*))
+    assert(r0 == r2)
+    
+  }
   
   
 }

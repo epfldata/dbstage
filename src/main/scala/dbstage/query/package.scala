@@ -87,7 +87,22 @@ package object query extends EmbeddedDefs with LowPrioQueryImplicits {
   
   
   // FIXME prevent this from being a monoid from its Wraps instance...!
-  @field @privateWraps type Filtered[As] <: As
+  //@field @privateWraps type Filtered[As] <: As
+  case class Filtered[A,As](as: As, pred: A => Bool)
+  
+  @transparencyPropagating
+  implicit def filteredOrderedSourceOf[A,As](implicit srcEv: As OrderedSourceOf A): Filtered[A,As] OrderedSourceOf A =
+    new (Filtered[A,As] OrderedSourceOf A) { def iterator(as: Filtered[A,As]) = srcEv.iterator(as.as).filter(as.pred) }
+  
+  @transparencyPropagating
+  implicit def filteredSourceOf[A,As](implicit srcEv: As SourceOf A): Filtered[A,As] SourceOf A =
+    new (Filtered[A,As] SourceOf A) { def iterator(as: Filtered[A,As]) = srcEv.iterator(as.as).filter(as.pred) }
+  
+  @transparencyPropagating
+  implicit def filteredFiniteSourceOf[A,As](implicit srcEv: As FiniteSourceOf A): Filtered[A,As] FiniteSourceOf A =
+    new (Filtered[A,As] FiniteSourceOf A) { def iterator(as: Filtered[A,As]) = srcEv.iterator(as.as).filter(as.pred) }
+  
+  
   
   @field @privateWraps type NonZero[N] <: N
   // note: this could be worked around by passing a dummy numeric... >.<
@@ -179,6 +194,17 @@ sealed trait LowPrioQueryImplicits extends LowPrioQueryImplicits2 {
     def flatMap[R:CommutativeSemigroup](f: A => R): R = map(f)
   }
   
+  //implicit class UnboundedOrderedOps[C,A](private val self: C)(implicit ev: C OrderedSourceOf A) extends FlatMapMirrorsMap[A,IncrementalMonoid] {
+  //implicit class UnboundedOrderedOps[C,A](private val self: C)(implicit ev: C OrderedSourceOf A) extends UnboundedOps[C,A](self) {
+  //  def take(n: NonNeg[Nat]): NonEmpty[List[A]] = ???
+  //  def take(n: Nat): List[A] = ???
+  //}
+  
+  
+}
+
+sealed trait LowPrioQueryImplicits2 {
+  
   implicit class FiniteOps[C,A](private val self: C)(implicit ev: C FiniteSourceOf A) extends FlatMapMirrorsMap[A,CommutativeMonoid] {
     def map[R,M](f: A => R)(implicit into: (R IntoMonoid M), M: CommutativeMonoid[M]): M =
       //M.combineAll(ev.inAnyOrder(self).iterator.map(f andThen into.apply))
@@ -206,17 +232,6 @@ sealed trait LowPrioQueryImplicits extends LowPrioQueryImplicits2 {
     }
     
   }
-  
-  //implicit class UnboundedOrderedOps[C,A](private val self: C)(implicit ev: C OrderedSourceOf A) extends FlatMapMirrorsMap[A,IncrementalMonoid] {
-  //implicit class UnboundedOrderedOps[C,A](private val self: C)(implicit ev: C OrderedSourceOf A) extends UnboundedOps[C,A](self) {
-  //  def take(n: NonNeg[Nat]): NonEmpty[List[A]] = ???
-  //  def take(n: Nat): List[A] = ???
-  //}
-  
-  
-}
-
-sealed trait LowPrioQueryImplicits2 {
   
   //implicit 
   //class UnboundedOps[C,A](private val self: C)(implicit ev: C SourceOf A) extends FlatMapMirrorsMap[A,IncrementalMonoid] {

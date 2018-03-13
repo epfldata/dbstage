@@ -32,5 +32,27 @@ class QueryLiftingTests extends FunSuite {
   }
   
   
+  test("Intro Example 1") {
+    
+    
+    
+  }
+  
+  
+  import example.paper._
+  import example.paper.Data._
+  import example.paper.Examples._
+  Embedding embed Examples
+  
+  test("Intro Example 2") {
+    
+    // FIXME
+    QueryLifter.liftQuery(code{
+      ex2(depts,emps)
+    }) alsoApply println
+    
+  }
+  
+  
   
 }

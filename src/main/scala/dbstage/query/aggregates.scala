@@ -17,13 +17,13 @@ class PrependIterable[A](lhs: A, rhs: Iterable[A]) extends Iterable[A] { def ite
 class FromThunkIterable[A](thunk: => Iterator[A]) extends Iterable[A] { def iterator = thunk }
 
 class ListOf[A](val as: Iterable[A]) {
-  override def equals(that: Any): Bool = that match { case that: ListOf[_] => as.toList == that.as.toList case _ => false }
+  override def equals(that: Any): Bool = that match { case that: ListOf[_] => as.toList == that.as.toList  case _ => false }
   override def toString: String = s"[${as.mkString(",")}]"
 }
 object ListOf {
   def apply[A](): ListOf[A] = empty
   def apply[A](a: A, as: A*): NonEmpty[ListOf[A]] = mkNonEmpty(new ListOf(new PrependIterable(a,as)))
-  def of[A](xs:A*) = List(xs)
+  def of[A](xs:A*) = new ListOf(xs)
   
   @transparencyPropagating
   def empty[A]: ListOf[A] = new ListOf(Nil)
@@ -39,6 +39,28 @@ object ListOf {
   @transparencyPropagating
   implicit def asMonoid[A]: Monoid[ListOf[A]] =
     monoidInstance[ListOf[A]](ListOf.empty)((a,b) => new ListOf(new ConcatIterable(a.as,b.as)))
+  
+}
+
+class SetOf[A](val as: Set[A]) {
+  override def equals(that: Any): Bool = that match { case that: SetOf[_] => as == that.as  case _ => false }
+  override def toString: String = s"{${as.mkString(";")}}"
+}
+object SetOf {
+  def apply[A](): SetOf[A] = empty
+  def apply[A](a: A, as: A*): NonEmpty[SetOf[A]] = mkNonEmpty(new SetOf(as.toSet + a))
+  def of[A](xs:A*) = new SetOf(xs.toSet)
+  
+  @transparencyPropagating
+  def empty[A]: SetOf[A] = new SetOf(Set.empty)
+  
+  @transparencyPropagating
+  implicit def asSource[A]: (SetOf[A] FiniteSourceOf A) = new (SetOf[A] FiniteSourceOf A) {
+    def iterator(c: SetOf[A]) = c.as.iterator
+  }
+  @transparencyPropagating
+  implicit def asMonoid[A]: Monoid[SetOf[A]] =
+    commutativeMonoidInstance[SetOf[A]](SetOf.empty)((a,b) => new SetOf(a.as ++ b.as))
   
 }
 
