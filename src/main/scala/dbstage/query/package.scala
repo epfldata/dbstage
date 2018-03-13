@@ -149,10 +149,10 @@ package object query extends EmbeddedDefs with LowPrioQueryImplicits {
     def flatMap[R,M](f: A => R)(implicit into: (R IntoMonoid M), M: Mon[M]): M = map(f)
   }
   
-  implicit class SourceOps[C,A](private val self: C)(implicit evSrc: C SourceOf A) {
+  implicit class SourceOps[As,A](private val self: As)(implicit evSrc: As SourceOf A) {
     
     @transparencyPropagating
-    def filter(pred: A => Bool) = Filtered(self, pred)
+    def filter(pred: A => Bool): Filtered[A,As] = Filtered(self, pred)
     @transparencyPropagating
     def withFilter(pred: A => Bool) = filter(pred)
     
