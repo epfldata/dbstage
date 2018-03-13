@@ -52,11 +52,12 @@ object NestedQuery {
 
 case class MonoidEmpty[A:CodeType,C](empty: Code[A,C]) extends LiftedQuery[A,C]
 
-case class MonoidMerge[A:CodeType,C](lhs: QueryRepr[A,C], rhs: QueryRepr[A,C]) extends LiftedQuery[A,C]
+case class MonoidMerge[A:CodeType,C](lhs: QueryRepr[A,C], rhs: QueryRepr[A,C]) extends LiftedQuery[A,C] {
+  override def toString = s"merge ${blockIndentString(s"$lhs","|+|")} ${blockIndentString(s"$rhs")}"
+}
 
 
 abstract 
-//case class Comprehension[R:CodeType,C](productions: Productions[R,C], mon: Code[Monoid[R],C]) extends QueryRepr[R,C]
 case class Comprehension[R:CodeType,C](productions: Productions[R,C], mon: StagedMonoid[R,C]) extends LiftedQuery[R,C] {
   override def toString = s"Comp ($mon)\n${indentString(s"$productions")}"
 }
@@ -77,27 +78,7 @@ object Comprehension {
       new Comprehension[R,C](productions,lmon){}
   }
 }
-sealed abstract class Productions[R,-C] {
-  //def mapYield[S:CodeType](f: Code[R=>S,C]): Productions[S,C] = this match {
-  //  //case ite:Iteration[a,as,R,C] =>
-  //  //  implicit val A = ite.A
-  //  //  implicit val As = ite.As
-  //  //  Iteration(ite.src,ite.v)(ite.body.mapYield(f))
-  //  case ite:Iteration[a,R,C] =>
-  //    implicit val A = ite.A
-  //    Iteration(ite.src,ite.v)(ite.body.mapYield(f))
-  //  //case Yield(pred,cde) => Yield(pred,f(cde))
-  //  case Yield(pred,cde) => Yield(pred,cde.mapCode(f))
-  //}
-  //def withFilter(pred: Code[Bool,C]): Productions[R,C] = this match {
-  //  case ite:Iteration[a,R,C] =>
-  //    implicit val A = ite.A
-  //    Iteration(ite.src,ite.v)(ite.body.withFilter(pred))
-  //  case Yield(pred0,cde) =>
-  //    //Yield(code"$pred0 && $pred",cde)
-  //    Yield(pred0.mapCode[Bool](code"(p0:Bool) => p0 && $pred"),cde)
-  //}
-}
+sealed abstract class Productions[R,-C]
 //abstract class Iteration[A:CodeType,As:CodeType,R,C](src: StagedDataSource[A,As,C]) extends Productions[R,C] {
 //abstract class Iteration[A:CodeType,As:CodeType,R,C](val src: Path[A,As,C]) extends Productions[R,C] {
 abstract class Iteration[A:CodeType,R,C](val src: Path[A,C]) extends Productions[R,C] {
@@ -105,13 +86,6 @@ abstract class Iteration[A:CodeType,R,C](val src: Path[A,C]) extends Productions
   //def As = codeTypeOf[As]
   val v: Variable[A]
   val body: Productions[R,C & v.Ctx]
-  
-  /*
-  def withFilter(pred: Code[A=>Bool,C]): Iteration[A,R,C] = Iteration(src,v)(body.withFilter(
-    //pred(v.toCode) // found: dbstage.Embedding.Code[Iteration.this.v.Typ,Iteration.this.v.Ctx]; required: dbstage.Embedding.Code[A,C]
-    code"$pred(${v.toCode})"
-  ))
-  */
   
   //override def toString: String = s"Iteration($src,$v,$body)"
   override def toString: String = s"${v.rep|>base.showRep} <- $src\n${/*indentString*/(body.toString)})"

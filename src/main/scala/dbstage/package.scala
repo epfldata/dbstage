@@ -27,7 +27,9 @@ package object dbstage {
     val pre = "| "
     lines map (Debug.GREY + pre + Console.RESET + _) mkString "\n"
   }
-  def blockIndentString(str: String) = if (str.contains('\n')) "\n"+indentString(str) else str
+  def blockIndentString(str: String): String = blockIndentString(str, "")
+  def blockIndentString(str: String, post: String) =
+    if (str.contains('\n')) "\n"+indentString(str)+"\n"+post else str+" "+post
   
   
 }

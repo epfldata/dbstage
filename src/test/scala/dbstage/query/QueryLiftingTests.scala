@@ -23,6 +23,14 @@ class QueryLiftingTests extends FunSuite {
     
   }
   
+  test("If-then-else Source") {
+    
+    QueryLifter.liftQuery(code{abs(
+      for { x <- nel0; y <- if (x > 0) nel1 else nel0 } yield x+y+readInt
+    )}) alsoApply println
+    
+  }
+  
   
   
 }
