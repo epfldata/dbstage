@@ -80,4 +80,17 @@ class QueryFrontendTests extends FunSuite {
   }
   
   
+  test("HasJobs Example") {
+    import example._
+    
+    assert(p[Age] > 18)
+    assert(!(p[Age] > 100))
+    assert(p[Name] != "Joe")
+    assert(p[Name] == "Jo")
+    
+    println(avgJobSalaries(MultiSetOf(p),MultiSetOf.empty,MultiSetOf(j)))
+    
+  }
+  
+  
 }

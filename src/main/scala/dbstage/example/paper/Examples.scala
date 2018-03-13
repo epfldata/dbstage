@@ -54,4 +54,14 @@ object Examples {
     buffer.result()
   }
   
+  
+  import dbstage.example._
+  
+  @desugar def avgJobSalaries(persons: Bag[Person], hasJob: Bag[HasJob], jobs: Bag[Job]) = {
+    //(for { j <- (persons naturalJoin hasJob naturalJoin jobs).project[Job]
+    //      if j[JobType].value == "Private Sector"
+    //    } yield count() ~ avg(j[Salary]) groupBy j[JobTitle]
+    //) .orderBy [Avg[Salary]] .filter (x => x[Count] > 100)
+  }
+  
 }

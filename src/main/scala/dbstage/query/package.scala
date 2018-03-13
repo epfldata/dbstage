@@ -31,6 +31,10 @@ package object query extends EmbeddedDefs with LowPrioQueryImplicits {
     def combine(x: A, y: A): A = _combine(x,y)
   }
   
+  
+  type Bag[A] = MultiSetOf[A]
+  
+  
   /* // in the paper:
   type NonEmpty[As] = NonEmptyModule.NonEmpty[As]
   abstract class NonEmptyInterface {

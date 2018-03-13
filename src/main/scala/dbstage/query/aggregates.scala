@@ -59,8 +59,30 @@ object SetOf {
     def iterator(c: SetOf[A]) = c.as.iterator
   }
   @transparencyPropagating
-  implicit def asMonoid[A]: Monoid[SetOf[A]] =
+  implicit def asMonoid[A]: CommutativeMonoid[SetOf[A]] =
     commutativeMonoidInstance[SetOf[A]](SetOf.empty)((a,b) => new SetOf(a.as ++ b.as))
+  
+}
+
+class MultiSetOf[A](val as: Iterable[A]) {
+  override def equals(that: Any): Bool = that match { case that: MultiSetOf[_] => as.toList == that.as.toList  case _ => false }
+  override def toString: String = s"{{${as.mkString(";")}}}"
+}
+object MultiSetOf {
+  def apply[A](): MultiSetOf[A] = empty
+  def apply[A](a: A, as: A*): NonEmpty[MultiSetOf[A]] = mkNonEmpty(new MultiSetOf(new PrependIterable(a,as)))
+  def of[A](xs:A*) = new MultiSetOf(xs)
+  
+  @transparencyPropagating
+  def empty[A]: MultiSetOf[A] = new MultiSetOf(Nil)
+  
+  @transparencyPropagating
+  implicit def asSource[A]: (MultiSetOf[A] FiniteSourceOf A) = new (MultiSetOf[A] FiniteSourceOf A) {
+    def iterator(c: MultiSetOf[A]) = c.as.iterator
+  }
+  @transparencyPropagating
+  implicit def asMonoid[A]: CommutativeMonoid[MultiSetOf[A]] =
+    commutativeMonoidInstance[MultiSetOf[A]](MultiSetOf.empty)((a,b) => new MultiSetOf(a.as ++ b.as))
   
 }
 
