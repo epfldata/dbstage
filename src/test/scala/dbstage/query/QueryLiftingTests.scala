@@ -55,4 +55,12 @@ class QueryLiftingTests extends FunSuite {
   
   
   
+  
+  test("N9") {
+    QueryLifter.liftQuery(code{
+      for { x <- xs; if (for { y <- ys } yield ExistsAny(y > 0)) } yield ListOf(x)
+    }) alsoApply println
+  }
+  
+  
 }

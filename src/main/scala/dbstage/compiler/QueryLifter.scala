@@ -26,12 +26,13 @@ class QueryLifter {
   }
   
   def liftQuery[T:CodeType,C](q: Code[T,C]): QueryRepr[T,C] = {
-    println(s"\n<<-- Rec ${q|>showC}\n")
+    //println(s"\n<<-- Rec ${q|>showC}\n")
+    
     object Ins extends Embedding.Inspector[T,C,LiftedQuery[T,C]] {
       def traverse[S:CodeType]: PartialFunction[Code[S,C], HollowedCode[T,S,C] => LiftedQuery[T,C]] = {
         
-        case cde @ code"readInt" => // Just a dummy case to test the nested-lifting 
-          h => NestedQuery(h.v,MonoidEmpty(code"$cde:S"))(liftQuery(h.body))
+        //case cde @ code"readInt" => // Just a dummy case to test the nested-lifting 
+        //  h => NestedQuery(h.v,MonoidEmpty(code"$cde:S"))(liftQuery(h.body))
           
         //case cde @ code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[S]($v => $body)($tsem)" =>
         case cde @ code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[S]($f)($tsem)" =>
@@ -125,12 +126,20 @@ class QueryLifter {
       k(StagedDataSourceOf(liftQuery(cde),srcEv),code"(a:A)=>true")
   }
   
-  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = // TODO
-    RawStagedMonoid(cde,false,false)
+  def liftMonoid[S:CodeType,C](cde: Code[Monoid[S],C]): StagedMonoid[S,C] = cde match {
+    //case code"" => // TODO cases known to the query compiler
+    case code"$_:CommutativeMonoid[S]" =>
+      RawStagedMonoid(cde,true,false)
+    case _ =>
+      RawStagedMonoid(cde,false,false)
+  }
   //def liftSemigroup[S:CodeType,C](cde: Code[Semigroup[S],C]): StagedMonoid[S,C] =
   //  //new StagedMonoid[S,C](false,false){} // TODO
   //  RawStagedSemigroup[S,C](cde,false,false).asInstanceOf[StagedMonoid[S,C]] // FIXME
   def liftSemigroup[S:CodeType,C](cde: Code[Semigroup[S],C]): Either[StagedMonoid[S,C],StagedMonoid[Option[S],C]] = cde match {
+    //case code"" => // TODO cases known to the query compiler
+    case code"$_:CommutativeSemigroup[S]" =>
+      Right(RawStagedSemigroup[S,C](cde,true,false))
     case cde =>
       Right(RawStagedSemigroup[S,C](cde,false,false))
   }

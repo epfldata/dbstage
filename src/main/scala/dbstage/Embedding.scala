@@ -45,6 +45,7 @@ object Embedding
   embed(EmbeddedDefs)
   embed(AbstractsLoPri)
   embed(IntoMonoid)
+  embed(IntoMonoidLowPrio)
   //embed(CanAccess)
   //embed(ProjectsOn)
   //embed(ProjectLowPrio)

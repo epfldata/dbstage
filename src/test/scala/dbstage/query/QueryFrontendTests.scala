@@ -15,6 +15,9 @@ object QueryFrontendTests {
   val l0: ListOf[Int] = nel0
   val l1: ListOf[Int] = nel1
   
+  val xs = l0
+  val ys = l1
+  
 }
 class QueryFrontendTests extends FunSuite {
   import QueryFrontendTests._
