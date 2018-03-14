@@ -61,7 +61,7 @@ class QueryPlanner {
         val src = ite.src.asInstanceOf[Path[a,C]] // TODO runtime check+decision here
         val F = Join[A,a,R,C](E,Scan(src,ite.v))(code"true") // FIXME pred
         planComprehensionRec[R,R,C](mon,F)(ite.body)
-      case Yield(p,c) => Reduction(E,mon)(p,c)
+      case Yield(p,c) => Reduction(E,mon)(p,apply(c))
     }
   }
   

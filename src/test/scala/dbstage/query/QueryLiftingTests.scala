@@ -51,6 +51,7 @@ class QueryLiftingTests extends FunSuite {
     val lq = QueryLifter.liftQuery(code{
       ex2(depts,emps)
     }) alsoApply println
+    println
     QueryPlanner(lq) alsoApply println
     
   }

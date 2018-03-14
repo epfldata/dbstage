@@ -14,6 +14,7 @@ package object dbstage {
   import Embedding.Predef._
   
   def showC(cde: OpenCode[Any]) = cde.rep|>base.showRep // not: trimPrefixes called by overridden Embedding.showScala
+  def showV(v: Variable[_]) = v.rep|>base.showRep
   def showCT(cdeTyp: CodeType[_]) = cdeTyp.rep.tpe.toString|>trimPrefixes
   def trimPrefixes(str: String) = str
     .replaceAll("dbstage.example.","")

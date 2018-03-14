@@ -17,7 +17,7 @@ abstract class QueryPlan[A:CodeType,-C] { // C: context of leaves
 abstract class Scan[A:CodeType,C](src: Path[A,C]/*, pred: Code[A=>Bool,C]*/) extends QueryPlan[A,C] {
   val v: Variable[A]
   type Ctx = v.Ctx
-  override def toString: String = s"Scan ${src}"
+  override def toString: String = s"Scan ${v|>showV} = ${src}"
 }
 object Scan {
   def apply[A:CodeType,C](src: Path[A,C], _v: Variable[A]) = new Scan[A,C](src) {
@@ -46,12 +46,13 @@ abstract case class Reduction[A:CodeType,R:CodeType,C](src: QueryPlan[A,C], mon:
   //val pred: Code[Bool,Ctx]
   val pred: QueryRepr[Bool,Ctx] // TODO unnest
   //val expr: Code[R,Ctx]
-  val expr: QueryRepr[R,Ctx] // TODO unnest
-  override def toString: String = s"Reduce on ${blockIndentString(expr.toString,"if")} ${blockIndentString(pred.toString,"from")} ${blockIndentString(src.toString)}"
+  val expr: QueryPlan[R,Ctx] // TODO unnest
+  //override def toString: String = s"Reduce on ${blockIndentString(expr.toString,"if")} ${blockIndentString(pred.toString,"from")} ${blockIndentString(src.toString)}"
+  override def toString: String = s"Reduce on ${blockIndentString(expr.toString)}\nif ${blockIndentString(pred.toString)}\nfrom ${blockIndentString(src.toString)}"
 }
 object Reduction {
   //def apply[A:CodeType,R:CodeType,C](_src: QueryPlan[A,C], mon: StagedMonoid[R,C])(_pred: Code[Bool,_src.Ctx], _expr: Code[R,_src.Ctx]) =
-  def apply[A:CodeType,R:CodeType,C](_src: QueryPlan[A,C], mon: StagedMonoid[R,C])(_pred: QueryRepr[Bool,_src.Ctx], _expr: QueryRepr[R,_src.Ctx]) =
+  def apply[A:CodeType,R:CodeType,C](_src: QueryPlan[A,C], mon: StagedMonoid[R,C])(_pred: QueryRepr[Bool,_src.Ctx], _expr: QueryPlan[R,_src.Ctx]) =
     new Reduction[A,R,C](_src,mon) {
       override val src: _src.type = _src
       //type Ctx = src.Ctx
@@ -82,7 +83,9 @@ object SequencedPlans {
 }
 
 
-case class PlainCode[A:CodeType,C](cde: Code[A,C]) extends QueryPlan[A,C]
+case class PlainCode[A:CodeType,C](cde: Code[A,C]) extends QueryPlan[A,C] {
+  override def toString: String = cde.toString //showC(cde)
+}
 
 
 
