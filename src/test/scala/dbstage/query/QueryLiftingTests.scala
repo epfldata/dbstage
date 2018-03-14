@@ -17,17 +17,19 @@ class QueryLiftingTests extends FunSuite {
   
   test("Basics") {
     
-    QueryLifter.liftQuery(code{abs(
+    val lq = QueryLifter.liftQuery(code{abs(
       for { x <- nel0; y <- nel1 } yield x+y+readInt
     )}) alsoApply println
+    QueryPlanner(lq) alsoApply println
     
   }
   
   test("If-then-else Source") {
     
-    QueryLifter.liftQuery(code{abs(
+    val lq = QueryLifter.liftQuery(code{abs(
       for { x <- nel0; y <- if (x > 0) nel1 else nel0 } yield x+y+readInt
     )}) alsoApply println
+    QueryPlanner(lq) alsoApply println
     
   }
   
@@ -46,10 +48,10 @@ class QueryLiftingTests extends FunSuite {
   
   test("Intro Example 2") {
     
-    // FIXME
-    QueryLifter.liftQuery(code{
+    val lq = QueryLifter.liftQuery(code{
       ex2(depts,emps)
     }) alsoApply println
+    QueryPlanner(lq) alsoApply println
     
   }
   
@@ -57,9 +59,10 @@ class QueryLiftingTests extends FunSuite {
   
   
   test("N9") {
-    QueryLifter.liftQuery(code{
+    val lq = QueryLifter.liftQuery(code{
       for { x <- xs; if (for { y <- ys } yield ExistsAny(y > 0)) } yield ListOf(x)
     }) alsoApply println
+    QueryPlanner(lq) alsoApply println
   }
   
   
