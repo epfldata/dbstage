@@ -76,13 +76,13 @@ class QueryLifter {
   */
   
   def liftProductions[A:CodeType,R:CodeType,C<:E,E]
-  (q: Code[A,C], lmon: StagedMonoid[R,C], f: Code[A=>R,C], pred: Code[Bool,C])(k: Productions[R,C] => LiftedQuery[R,E]): LiftedQuery[R,E]
+  (q: Code[A,C], lmon: StagedMonoid[R,E], f: Code[A=>R,C], pred: Code[Bool,C])(k: Productions[R,C] => LiftedQuery[R,E]): LiftedQuery[R,E]
   = q match {
     case code"NonEmptyOrderedOps[$ast,$at]($as)($aord,$ane,$afin).map[A]($v => $body)($tsem)" =>
       liftSemigroup(tsem) match {
         case Right(lmon2) =>
           if (lmon == lmon2)
-            liftDataSource[at.Typ,ast.Typ,C,E,R](as,afin)((ds,p) =>
+            liftDataSource[at.Typ,ast.Typ,C,E,R](lmon,as,afin)((ds,p) =>
               liftProductions[A,R,C&v.Ctx,E](body, lmon, f, code"$pred&&$p(${v.toCode})")({prods =>
                 k(Iteration(ds,v)(prods))
                 //k(Iteration[at.Typ,R,C](ds,v)(prods))
@@ -96,7 +96,7 @@ class QueryLifter {
       val lmon2 = liftMonoid(mmon)
       //println(s">>> INTO $into")
       if (lmon == lmon2)
-        liftDataSource[at.Typ,ast.Typ,C,E,R](as,afin)((ds,p) =>
+        liftDataSource[at.Typ,ast.Typ,C,E,R](lmon,as,afin)((ds,p) =>
           liftProductions[rt.Typ,R,C&v.Ctx,E](body, lmon, code"(x:$rt)=>$f($into(x))",code"$pred&&$p(${v.toCode})")({prods =>
             k(Iteration(ds,v)(prods))
             //k(Iteration[at.Typ,R,C](ds,v)(prods))
@@ -111,15 +111,15 @@ class QueryLifter {
   }
   
   def liftDataSource[A:CodeType,As:CodeType,C<:E,E,R:CodeType]
-  (cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: (StagedDataSource[A,C],Code[A=>Bool,C]) => LiftedQuery[R,E]): LiftedQuery[R,E]
+  (lmon:StagedMonoid[R,E],cde: Code[As,C], srcEv: Code[As SourceOf A,C])(k: (StagedDataSource[A,C],Code[A=>Bool,C]) => LiftedQuery[R,E]): LiftedQuery[R,E]
   = cde match {
     //case code"SourceOps[As,A]($as)($asrc).withFilter($pred)" => // Note: will NOT match because `withFilter` wraps into `Filtered`
     case code"SourceOps[$ast,A]($as)($asrc).withFilter($pred)" => // here type As = Filtered[A,ast.Typ]
-      liftDataSource[A,ast.Typ,C,E,R](as,asrc)((ds,p) => k(ds,code"(a:A)=>$p(a)&&$pred(a)"))
+      liftDataSource[A,ast.Typ,C,E,R](lmon,as,asrc)((ds,p) => k(ds,code"(a:A)=>$p(a)&&$pred(a)"))
     case code"if ($cond) $thn else $els : As" =>
-      liftDataSource[A,As,C,E,R](thn,srcEv)((thn,p0) => liftDataSource[A,As,C,E,R](els,srcEv)((els,p1) => {
+      liftDataSource[A,As,C,E,R](lmon,thn,srcEv)((thn,p0) => liftDataSource[A,As,C,E,R](lmon,els,srcEv)((els,p1) => {
         val pred = code"(a:A)=>$p0(a)&&$p1(a)"
-        MonoidMerge(k(thn,pred),k(els,pred))
+        MonoidMerge(lmon,k(thn,pred),k(els,pred))
       }))
     case cde =>
       println(s"SOURCE:\n${indentString(cde|>showC)}")

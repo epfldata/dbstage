@@ -19,6 +19,7 @@ case class UnliftedQuery[A:CodeType,C](cde: Code[A,C]) extends QueryRepr[A,C] {
 abstract class LiftedQuery[A:CodeType,-C] extends QueryRepr[A,C]
 
 abstract class NestedQuery[A:CodeType,B:CodeType,C] extends LiftedQuery[A,C] {
+  def B = codeTypeOf[B]
   val v: Variable[B]
   val nestedQuery: LiftedQuery[B,C]
   val body: QueryRepr[A,C&v.Ctx]
@@ -54,7 +55,7 @@ case class IfThenElse[A:CodeType,C](cond: QueryRepr[Bool,C], thn: QueryRepr[A,C]
 
 case class MonoidEmpty[A:CodeType,-C](lmon: StagedMonoid[A,C]) extends LiftedQuery[A,C]
 
-case class MonoidMerge[A:CodeType,C](lhs: QueryRepr[A,C], rhs: QueryRepr[A,C]) extends LiftedQuery[A,C] {
+case class MonoidMerge[A:CodeType,C](mon: StagedMonoid[A,C], lhs: QueryRepr[A,C], rhs: QueryRepr[A,C]) extends LiftedQuery[A,C] {
   override def toString = s"merge ${blockIndentString(s"$lhs","|+|")} ${blockIndentString(s"$rhs")}"
 }
 
@@ -140,12 +141,15 @@ case class SingleElement[A:CodeType,C](query: LiftedQuery[A,C]) extends Path[A,C
 abstract class StagedMonoid[T:CodeType,-C](val commutes: Bool, val idempotent: Bool) {
   //def mkContext: MonoidContext[T,C,_]
   def zero: Code[T,C]
+  def combine: Code[(T,T)=>T,C]
   def empty = MonoidEmpty(this)
 }
 case class RawStagedMonoid[T:CodeType,C](cde: Code[Monoid[T],C], com: Bool, ide: Bool) extends StagedMonoid[T,C](com,ide) {
+  def combine: Code[(T,T)=>T,C] = code"$cde.combine(_:T,_:T)"
   def zero: Code[T,C] = code"$cde.empty"
 }
 case class RawStagedSemigroup[T:CodeType,C](cde: Code[Semigroup[T],C], com: Bool, ide: Bool) extends StagedMonoid[Option[T],C](com,ide) {
+  def combine = code"(ao:Option[T],bo:Option[T]) => for{a<-ao;b<-bo}yield$cde.combine(a,b)"
   def zero: Code[Option[T],C] = code"None"
 }
 
@@ -158,6 +162,7 @@ case class SortedByStagedMonoid[As:CodeType,O:CodeType,C](underlying: StagedMono
   /*implicit*/ def O = codeTypeOf[O]
   //def mkContext: MonoidContext[SortedBy[As,O],C,_] = ???
   def zero = code"SortedBy[As,O](${underlying.zero})"
+  def combine = ???
 }
 
 
