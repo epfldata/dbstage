@@ -19,6 +19,7 @@ class CodeGen {
   //def rec[A:CodeType,R:CodeType,C](p: QueryPlan[A,C])(k: Code[A,p.Ctx]=>Code[S,p.Ctx]): Code[R,C] = p match {
   //def rec[A:CodeType,R:CodeType,C](p: QueryPlan[A,C])(k: Code[Unit,C&p.Ctx]): Code[R,C] = p match {
   def rec[A:CodeType,C](p: QueryPlan[A,C])(k: Code[Unit,C&p.Ctx]): Code[A,C] = p match {
+      /*
     case r: Reduction[a,A,C] with p.type =>
       implicit val a = r.A
       import squid.lib.MutVar
@@ -30,6 +31,38 @@ class CodeGen {
         $cur.!
       """
       //${rec[a,A,C&cur.Ctx](r.src)(code"$cur := ${r.mon.combine}($cur.!, ${apply(r.expr)})")}
+      */
+    case r: Reduction[a,A,C] with p.type =>
+      implicit val a = r.A
+      import squid.lib.MutVar
+      val cur = new Variable[MutVar[A]]
+      val v: r.v.type = r.v
+      // TOOD use pred
+      code"""
+        val $cur = MutVar(${r.mon.zero})
+        ${rec[a,C&cur.Ctx](r.src)(code"$cur := ${r.mon.combine}($cur.!, ${apply(r.expr)})")}
+        val $v = $cur.!
+        ${k:Code[Unit,C&r.Ctx]}
+        $v
+      """
+      
+    case s: Scan[a,C] with p.type =>
+      s.src match {
+        case pp: PathPlan[a,as,C] =>
+          implicit val A = pp.A // lol: naming it `a` instead of `A` crashes the compiler while looking for its companion!
+          //code"${pp.srcEv}.iterator(${pp.src})"
+          //k(code"${pp.srcEv}.iterator(${pp.src})")
+          val v: s.v.type = s.v
+          code"${pp.srcEv}.iterator(${pp.src}).foreach($v => ${k:Code[Unit,C&s.Ctx]}); ???"
+      }
+    
+    //case pp @ PostProcessed(src,f) with p.type =>
+    case pp: PostProcessed[a,A,C] with p.type =>
+      implicit val r = pp.A
+      val v: pp.v.type = pp.v
+      code"val $v = ${pp.f}(${apply(pp.src)}); ${k:Code[Unit,C&pp.Ctx]}; $v"
+      
+    case PlainCode(cde) => code"$cde; $k".asInstanceOf[Code[A,C]]
       
     case _ => 
       println(p.toString)
