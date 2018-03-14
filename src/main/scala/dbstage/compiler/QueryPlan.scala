@@ -8,19 +8,26 @@ import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
 import Embedding.Predef._
 import dbstage.Embedding.HollowedCode
+import dbstage.query.SourceOf
 
 
 abstract class QueryPlan[A:CodeType,-C] { // C: context of leaves
   type Ctx // Ctx: context of leaves
 }
 
-abstract class Scan[A:CodeType,C](src: Path[A,C]/*, pred: Code[A=>Bool,C]*/) extends QueryPlan[A,C] {
+case class PathPlan[A:CodeType,As:CodeType,C](src: Code[As,C], srcEv: Code[As SourceOf A,C]) extends QueryPlan[Iterator[A],C] {
+  def A = codeTypeOf[A]
+}
+
+//abstract class Scan[A:CodeType,C](src: Path[A,C]/*, pred: Code[A=>Bool,C]*/) extends QueryPlan[A,C] {
+//abstract class Scan[A:CodeType,C](src: Path[A,C]/*, pred: Code[A=>Bool,C]*/) extends QueryPlan[Iterator[A],C] {
+abstract class Scan[A:CodeType,C](val src: PathPlan[A,_,C]/*, pred: Code[A=>Bool,C]*/) extends QueryPlan[Iterator[A],C] {
   val v: Variable[A]
   type Ctx = v.Ctx
   override def toString: String = s"Scan ${v|>showV} = ${src}"
 }
 object Scan {
-  def apply[A:CodeType,C](src: Path[A,C], _v: Variable[A]) = new Scan[A,C](src) {
+  def apply[A:CodeType,C](src: PathPlan[A,_,C], _v: Variable[A]) = new Scan[A,C](src) {
     val v: _v.type = _v
   }
 }
@@ -42,6 +49,7 @@ object Join {
 }
 
 abstract case class Reduction[A:CodeType,R:CodeType,C](src: QueryPlan[A,C], mon: StagedMonoid[R,C]) extends QueryPlan[R,C] {
+  def A = codeTypeOf[A]
   type Ctx = src.Ctx
   //val pred: Code[Bool,Ctx]
   val pred: QueryRepr[Bool,Ctx] // TODO unnest
@@ -62,6 +70,7 @@ object Reduction {
 }
 
 case class PostProcessed[A:CodeType,R:CodeType,C](src: QueryPlan[A,C], f: Code[A=>R,C]) extends QueryPlan[R,C] {
+  def A = codeTypeOf[A]
   override def toString: String = s"process ${blockIndentString(src.toString,"then apply")} ${f|>showC}"
 }
 

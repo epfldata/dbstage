@@ -114,7 +114,9 @@ object Yield {
   //}
 }
 
-sealed abstract class Path[A:CodeType,-C]
+sealed abstract class Path[A:CodeType,-C] {
+  //def iterator: Code[Iterator[A],C]
+}
 
 import query.SourceOf
 
@@ -123,6 +125,8 @@ import query.SourceOf
 sealed abstract class StagedDataSource[A:CodeType,C] extends Path[A,C]
 //case class StagedDataSourceOf[A:CodeType,As:CodeType,C](cde: Code[As,C], srcEv: Code[As SourceOf A,C]) extends StagedDataSource[A,C]
 case class StagedDataSourceOf[A:CodeType,As:CodeType,C](query: QueryRepr[As,C], srcEv: Code[As SourceOf A,C]) extends StagedDataSource[A,C] {
+  def As = codeTypeOf[As]
+  //def iterator = code"$srcEv.iterator($)"
   override def toString: String = s"Source ${query.toString|>blockIndentString}"
 }
 

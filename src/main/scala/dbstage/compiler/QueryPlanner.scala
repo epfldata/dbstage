@@ -49,8 +49,9 @@ class QueryPlanner {
     q.productions match { // Note that `q.productions` has type `IterationBase[R,C]` and thus cannot be `Yield`
       case ite: Iteration[a,R,C] =>
         implicit val a = ite.A
-        val scan = Scan(ite.src, ite.v)
-        planComprehensionRec[a,R,C](q.mon,scan)(ite.body.asInstanceOf[Productions[R,ite.v.Ctx]])
+        val scan = planScan(ite.src, ite.v)
+        //planComprehensionRec[a,R,C](q.mon,scan)(ite.body.asInstanceOf[Productions[R,ite.v.Ctx]])
+        planComprehensionRec[Iterator[a],R,C](q.mon,scan)(ite.body.asInstanceOf[Productions[R,ite.v.Ctx]])
     }
   }
   
@@ -59,10 +60,30 @@ class QueryPlanner {
       case ite: Iteration[a,R,E.Ctx] =>
         implicit val a = ite.A
         val src = ite.src.asInstanceOf[Path[a,C]] // TODO runtime check+decision here
-        val F = Join[A,a,R,C](E,Scan(src,ite.v))(code"true") // FIXME pred
+        //val F = Join[A,a,R,C](E,Scan(src,ite.v))(code"true") // FIXME pred
+        val F = Join[A,Iterator[a],R,C](E,planScan(src,ite.v))(code"true") // FIXME pred
         planComprehensionRec[R,R,C](mon,F)(ite.body)
       case Yield(p,c) => Reduction(E,mon)(p,apply(c))
     }
+  }
+  
+  //def planScan[A:CodeType,C](src: Path[A,C], v: Variable[A]) = Scan(src,v)
+  def planScan[A:CodeType,C](src: Path[A,C], v: Variable[A]): QueryPlan[Iterator[A],C]{type Ctx = v.Ctx} = {
+    //Scan(src,v)
+    
+    //apply(src) match {
+    //  case PlainCode(cde) => 
+    //}
+    src match {
+      case sd: StagedDataSourceOf[A,as,C] =>
+        implicit val as = sd.As
+        apply(sd.query) match {
+          case PlainCode(cde) =>
+            Scan(PathPlan(cde, sd.srcEv),v)
+        }
+    }
+    
+    //???
   }
   
 }

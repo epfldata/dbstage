@@ -20,7 +20,9 @@ class QueryLiftingTests extends FunSuite {
     val lq = QueryLifter.liftQuery(code{abs(
       for { x <- nel0; y <- nel1 } yield x+y+readInt
     )}) alsoApply println
-    QueryPlanner(lq) alsoApply println
+    println
+    val pq = QueryPlanner(lq) alsoApply println
+    CodeGen(pq) alsoApply println
     
   }
   
@@ -29,7 +31,9 @@ class QueryLiftingTests extends FunSuite {
     val lq = QueryLifter.liftQuery(code{abs(
       for { x <- nel0; y <- if (x > 0) nel1 else nel0 } yield x+y+readInt
     )}) alsoApply println
-    QueryPlanner(lq) alsoApply println
+    println
+    val pq = QueryPlanner(lq) alsoApply println
+    CodeGen(pq) alsoApply println
     
   }
   
@@ -52,7 +56,8 @@ class QueryLiftingTests extends FunSuite {
       ex2(depts,emps)
     }) alsoApply println
     println
-    QueryPlanner(lq) alsoApply println
+    val pq = QueryPlanner(lq) alsoApply println
+    CodeGen(pq) alsoApply println
     
   }
   
@@ -63,7 +68,9 @@ class QueryLiftingTests extends FunSuite {
     val lq = QueryLifter.liftQuery(code{
       for { x <- xs; if (for { y <- ys } yield ExistsAny(y > 0)) } yield ListOf(x)
     }) alsoApply println
-    QueryPlanner(lq) alsoApply println
+    println
+    val pq = QueryPlanner(lq) alsoApply println
+    CodeGen(pq) alsoApply println
   }
   
   
