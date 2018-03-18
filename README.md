@@ -1,5 +1,7 @@
 # DBStage – Flexible, Staged Query Compilation Playground
 
+![stability-experimental](https://img.shields.io/badge/stability-experimental-orange.svg)
+
 ## Introduction
 
 This repository contains a proof of concept for a configurable language-integrated runtime query compiler based on staging.
