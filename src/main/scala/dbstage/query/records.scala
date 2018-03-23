@@ -29,6 +29,7 @@ object ~ {
 
 final class RecordSyntax[A](private val self: A) extends AnyVal {
   def ~ [B] (that: B) = new ~(self,that)
+  /*
   /** Note that when defined, this is equivalent to project; but project can additionally reorder fields */
   def select[B](implicit ev: A CanAccess B): B = ev(self)
   // TODO: a selectFirst that is left-biased; use in apply? -- and a selectLast; reformulate RecordAccess in terms of these two?
@@ -38,6 +39,8 @@ final class RecordSyntax[A](private val self: A) extends AnyVal {
   //def apply[F](implicit access: CanAccess[A,F]): F#Typ = access(self).value
   def apply[F](implicit accessF: CanAccess[A,F], ws: WrapsBase[F]): ws.Typ = apply(ws.instance)
   def apply[F,V](w: F Wraps V)(implicit accessF: A CanAccess F): V = accessF(self) |> w.deapply
+  */
+  def apply[B](implicit ev: A ProjectsOn B): B = ev(self)
   
   //def map[F,V](w: F Wraps V)(f: V => V)(implicit accessF: A CanAccess F): A = ???
   // TODO ^ CanAccess needs a deapp method; better: a generic replacement capability that can change the field type...

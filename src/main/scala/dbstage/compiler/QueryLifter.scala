@@ -116,7 +116,7 @@ class QueryLifter {
     //case code"SourceOps[As,A]($as)($asrc).withFilter($pred)" => // Note: will NOT match because `withFilter` wraps into `Filtered`
     case code"SourceOps[$ast,A]($as)($asrc).withFilter($pred)" => // here type As = Filtered[A,ast.Typ]
       liftDataSource[A,ast.Typ,C,E,R](lmon,as,asrc)((ds,p) => k(ds,code"(a:A)=>$p(a)&&$pred(a)"))
-    case code"if ($cond) $thn else $els : As" =>
+    case code"if ($cond) $thn else $els : As" if lmon.commutes =>
       liftDataSource[A,As,C,E,R](lmon,thn,srcEv)((thn,p0) => liftDataSource[A,As,C,E,R](lmon,els,srcEv)((els,p1) => {
         val pred = code"(a:A)=>$p0(a)&&$p1(a)"
         MonoidMerge(lmon,k(thn,pred),k(els,pred))

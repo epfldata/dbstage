@@ -15,7 +15,8 @@ class InspectionTests extends FunSuite {
     
     def process[T:CodeType,C](p: Code[T,C]) = {
       object Ins extends Embedding.Inspector[T,C,InsRes[T,_,C]] {
-        override def traverse[S:CodeType]: PartialFunction[Code[S,C], HollowedCode[T,S,C] => InsRes[T,S,C]] = {
+        //override def traverse[S:CodeType]: PartialFunction[Code[S,C], HollowedCode[T,S,C] => InsRes[T,S,C]] = {
+        def traverse[S:CodeType] = {
           case code"readInt" => h => InsRes(h)
         }
       }

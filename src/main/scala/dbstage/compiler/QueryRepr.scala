@@ -16,7 +16,7 @@ case class UnliftedQuery[A:CodeType,C](cde: Code[A,C]) extends QueryRepr[A,C] {
   override def toString: String = cde.toString
 }
 
-abstract class LiftedQuery[A:CodeType,-C] extends QueryRepr[A,C]
+sealed abstract class LiftedQuery[A:CodeType,-C] extends QueryRepr[A,C]
 
 abstract class NestedQuery[A:CodeType,B:CodeType,C] extends LiftedQuery[A,C] {
   def B = codeTypeOf[B]
@@ -153,6 +153,8 @@ case class RawStagedMonoid[T:CodeType,C](cde: Code[Monoid[T],C], com: Bool, ide:
   def zero: Code[T,C] = code"$cde.empty"
 }
 case class RawStagedSemigroup[T:CodeType,C](cde: Code[Semigroup[T],C], com: Bool, ide: Bool) extends StagedMonoid[Option[T],C](com,ide) {
+//trait StagedSemigroup[T,-C]
+//case class RawStagedSemigroup[T:CodeType,C](cde: Code[Semigroup[T],C], com: Bool, ide: Bool) extends StagedMonoid[Option[T],C](com,ide) with StagedSemigroup[T,C] {
   def combine = code"(ao:Option[T],bo:Option[T]) => for{a<-ao;b<-bo}yield$cde.combine(a,b)"
   def zero: Code[Option[T],C] = code"None"
 }

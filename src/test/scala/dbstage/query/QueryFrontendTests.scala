@@ -4,6 +4,7 @@ package query
 import org.scalatest.FunSuite
 import squid.utils._
 import cats.Monoid
+import cats.Semigroup
 import cats.implicits._
 import cats.kernel.CommutativeMonoid
 import cats.kernel.CommutativeSemigroup
@@ -92,6 +93,62 @@ class QueryFrontendTests extends FunSuite {
     assert(p[Name] == "Jo")
     
     println(avgJobSalaries(MultiSetOf(p),MultiSetOf.empty,MultiSetOf(j)))
+    
+  }
+  
+  test("Phantom Subtype Instances") {
+    import example._
+    
+    //implicitly[Age Wraps Int]
+    //implicitly[Monoid[Age]]
+    val s = Age(1) |+| Age(2)
+    println(s: Age)
+    
+  }
+  
+  
+  @field type Color <: String
+  //@field type Size <: Int
+  @field type Size <: String
+  @field type Cost <: Int
+  //Debug show
+  //{object A{@field type C <: Int}}
+  
+  test("Data Cube") {
+    
+    val sales = ListOf(
+      Size("large") ~ Color("blue") ~ Cost(10),
+      Size("large") ~ Color("red") ~ Cost(20),
+      Size("small") ~ Color("blue") ~ Cost(30),
+      Size("small") ~ Color("red") ~ Cost(40)
+    //) // FIXME ambiguous implicit: method monoid in object ~ and method commutativeSemigroup in object ~
+    ) : ListOf[Size ~ Color ~ Cost]
+    
+    def cube2[A,B,C:Semigroup](a: A, b: B)(c: C) = c ~ c.groupBy(a) ~ c.groupBy(b) ~ c.groupBy(a ~ b)
+    
+    val res = for { s <- sales } yield cube2(s[Size],s[Color])(s[Cost])
+    println(res : Cost ~ Map[Size,Cost] ~ Map[Color,Cost] ~ Map[Size ~ Color,Cost])
+    
+    //Debug show
+    //implicitly[Monoid[Cost]]
+    //IntoMonoid.infer(Cost(0))
+    //(for { s <- sales } yield s[Cost])
+    //sales.map[Cost,Cost](s => s[Cost])
+    //  : Cost.Typ
+    //  : Cost
+    
+  }
+  
+  
+  
+  test("Dummy Ex") {
+    
+    val ys = ListOf(0,1,2)
+    
+    //println(for { y <- ys } yield SetOf(for { x <- new ListOf(0 to y) if x*2 > y } yield x * y))
+    println(for { y <- ys } yield SetOf(for { x <- new ListOf(y to y*2) if x*2 > y } yield 
+      print(s"+$x*$y") thenReturn
+      x * y) alsoDo println)
     
   }
   

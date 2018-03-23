@@ -39,8 +39,13 @@ object IntoMonoid extends IntoMonoidLowPrio {
   //case class apply[A](implicit A IntoMonoid M) =
 }
 @embed
-class IntoMonoidLowPrio {
+class IntoMonoidLowPrio extends IntoMonoidLowPrio2 {
+  implicit def intoRec[A0,A,B0,B](implicit a: A0 IntoMonoid A, b: B0 IntoMonoid B): (A0 ~ B0) IntoMonoid (A ~ B) =
+    //instance((a0,b0) => a(a0) ~ )
+    IntoMonoid.instance(ab => a(ab.lhs) ~ b(ab.rhs))
+}
+@embed
+class IntoMonoidLowPrio2 {
   @desugar
   implicit def id[M:Monoid]: (M IntoMonoid M) = IntoMonoid.instance(identity)
-  implicit def intoRec[A0,A,B0,B](implicit a: A0 IntoMonoid A, b: B0 IntoMonoid B): (A0 ~ B0) IntoMonoid (A ~ B) = ???
 }

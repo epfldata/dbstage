@@ -46,6 +46,7 @@ object Embedding
   embed(AbstractsLoPri)
   embed(IntoMonoid)
   embed(IntoMonoidLowPrio)
+  embed(IntoMonoidLowPrio2)
   //embed(CanAccess)
   //embed(ProjectsOn)
   //embed(ProjectLowPrio)
@@ -146,8 +147,8 @@ object Embedding
     
     // TODO there should be a more lenient way to lift queries out even when they refer to locally-bound executed-once values...
     // FIXME have a way to account for when a hole appears in an uncertain evaluation context...
-    // FIXME account for current FVs with `inScope` and make sure no extrusion can happen
-    def apply(cde: Code[T,C]): Either[Code[T,C],R] = {
+    // FIXedME account for current FVs with `inScope` and make sure no extrusion can happen
+    def apply(cde: Code[T,C]): Either[Code[T,C],R] = {  // FIXME returning an option is sufficient
       var result: Option[(HollowedCode[T,Any,C] => R,Variable[Any])] = None
       val boundInCde = cde.rep.boundVals
       val res = topDown(cde.rep) {
@@ -263,11 +264,15 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"Nil.forall($p)" => code"true"
     case code"FieldPair[$ta]($a0,$a1).same" => code"$a0 == $a1"
       
+      // FIXME renamed/removed:
+    /*
     case code"recordSyntax[$at]($a).apply[$f]($acc, $w: f Wraps $v)" => code"$w.instance.deapply($acc($a))"
     case code"recordSyntax[$at]($a).apply[$f,$v]($w)($acc)" => code"$w.deapply($acc($a))"
     case code"recordSyntax[$at]($a).project[$rt]($proj)" => code"$proj($a)"
     case code"recordSyntax[$at]($a).p[$rt]($proj)" => code"$proj($a)"
     case code"recordSyntax[$at]($a).select[$rt]($sel)" => code"$sel($a)"
+    */
+    case code"recordSyntax[$at]($a).apply[$rt]($proj)" => code"$proj($a)"
       
     case code"CanAccess[$at,$rt]($f).fun" => f
     case code"CanAccess[$at,$rt]($f).apply($x)" => code"$f($x)"

@@ -86,6 +86,9 @@ object MultiSetOf {
   
 }
 
+class MapOf[K,V](val as: Map[K,V]) // TODO
+
+
 case class SortedBy[As,O](as: As) {
   override def toString: String = s"$as.sorted"
 }
@@ -115,3 +118,24 @@ object SortedBy {
   implicit def nonEmptySrc[A,As,O](implicit src: As NonEmptySourceOf A): (As SortedBy O) NonEmptySourceOf A = ???
   
 }
+
+
+
+@embed
+class MonoidSyntax[A](private val self: A)(implicit mon: A |> Monoid) {
+  //@phase('Sugar)
+  def pairWith[B](f: A => B) = self ~ f(self)
+  //@phase('Sugar)
+  //def whereMin[T:Ordering](t:T): ArgMin[T,A] = ???
+}
+@embed
+class SemigroupSyntax[A](private val self: A)(implicit sem: A |> Semigroup) {
+  //@phase('Sugar)  // exposes private value `self`
+  @transparencyPropagating
+  //def groupBy[B](that: B) = Groups.single(that, self)
+  def groupBy[B](that: B) =
+    //MapOf.single(that, self) // TODO
+    Map(that -> self)
+}
+
+

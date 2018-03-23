@@ -41,7 +41,9 @@ package object example {
   val j = JobTitle("Researcher") ~ Salary(420) ~ Address("NYC")
   
   val recordSet = p ~ j
-  assert(p == recordSet.select[Person])
-  assert(j == recordSet.select[Job])
+  //assert(p == recordSet.select[Person])
+  //assert(j == recordSet.select[Job])
+  assert(p == recordSet[Person])
+  assert(j == recordSet[Job])
   
 }

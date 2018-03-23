@@ -5,7 +5,7 @@ import squid.utils._
 import dbstage.compiler._
 import org.scalatest.FunSuite
 import cats.Monoid
-import cats.implicits._
+import cats.implicits.{catsKernelStdOrderForInt=>_,_}
 import cats.kernel.CommutativeSemigroup
 import Embedding.Predef._
 import Embedding.Quasicodes._
@@ -22,7 +22,7 @@ class QueryLiftingTests extends FunSuite {
     )}) alsoApply println
     println
     val pq = QueryPlanner(lq) alsoApply println
-    CodeGen(pq) alsoApply println
+    //CodeGen(pq) alsoApply println
     
   }
   
@@ -33,14 +33,13 @@ class QueryLiftingTests extends FunSuite {
     )}) alsoApply println
     println
     val pq = QueryPlanner(lq) alsoApply println
-    CodeGen(pq) alsoApply println
+    //CodeGen(pq) alsoApply println
     
   }
   
   
   test("Intro Example 1") {
-    
-    
+    // TODO
     
   }
   
@@ -57,7 +56,7 @@ class QueryLiftingTests extends FunSuite {
     }) alsoApply println
     println
     val pq = QueryPlanner(lq) alsoApply println
-    CodeGen(pq) alsoApply println
+    //CodeGen(pq) alsoApply println
     
   }
   
@@ -70,7 +69,7 @@ class QueryLiftingTests extends FunSuite {
     }) alsoApply println
     println
     val pq = QueryPlanner(lq) alsoApply println
-    CodeGen(pq) alsoApply println
+    //CodeGen(pq) alsoApply println
   }
   
   

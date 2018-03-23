@@ -31,6 +31,12 @@ package object query extends EmbeddedDefs with LowPrioQueryImplicits {
     def combine(x: A, y: A): A = _combine(x,y)
   }
   
+  @transparencyPropagating
+  implicit def monoidSyntax[A:Monoid](self: A): MonoidSyntax[A] = new MonoidSyntax(self)
+  @transparencyPropagating
+  implicit def semigroupSyntax[A:Semigroup](self: A): SemigroupSyntax[A] = new SemigroupSyntax(self)
+  
+  
   
   type Bag[A] = MultiSetOf[A]
   
