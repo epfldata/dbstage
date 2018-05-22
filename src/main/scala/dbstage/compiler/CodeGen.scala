@@ -35,7 +35,7 @@ class CodeGen {
     case r: Reduction[a,A,C] with p.type =>
       implicit val a = r.A
       import squid.lib.MutVar
-      val cur = new Variable[MutVar[A]]
+      val cur = Variable[MutVar[A]]
       val v: r.v.type = r.v
       // TOOD use pred
       code"""

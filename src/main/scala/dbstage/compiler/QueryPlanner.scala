@@ -32,8 +32,8 @@ class QueryPlanner {
         }
         
       case MonoidMerge(mon,lhs,rhs) =>
-        val v0 = new Variable[A]
-        val v1 = new Variable[A]
+        val v0 = Variable[A]
+        val v1 = Variable[A]
         SequencedPlans(v0,apply(lhs))(
           SequencedPlans[A,A,C&v0.Ctx](v1,apply(rhs))(PlainCode(code"${mon.combine}($v0,$v1)")))
         

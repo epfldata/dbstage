@@ -5,18 +5,9 @@ name := "dbstage"
 version := "0.2"
 
 lazy val commonSettings = Seq(
-  scalaVersion := "2.11.11",
-  resolvers ++= Seq(
-    Resolver.sonatypeRepo("releases"),
-    Resolver.sonatypeRepo("snapshots")
-  ),
-  libraryDependencies ++= Seq(
-    "ch.epfl.data" %% "squid" % "0.3.0-SNAPSHOT",
-    //"com.chuusai" %% "shapeless" % "2.3.2",
-    "org.typelevel" %% "cats-core" % "1.0.1",
-    "junit" % "junit-dep" % "4.10" % "test",
-    "org.scalatest" % "scalatest_2.11" % "2.2.0" % "test"
-  ),
+  scalaVersion := "2.12.6",
+  resolvers += Resolver.sonatypeRepo("snapshots"),
+  resolvers += Resolver.sonatypeRepo("releases"),
   autoCompilerPlugins := true,
   addCompilerPlugin("org.scalamacros" % "paradise" % paradiseVersion cross CrossVersion.full),
   addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.4"),
@@ -25,7 +16,15 @@ lazy val commonSettings = Seq(
     //, "-Xprint:typer", "-Xlog-implicits"
     //, "-Yliteral-types" // yields error:  bad option: '-Yliteral-types'
   ),
-  scalacOptions += "-Ypartial-unification" // for Cats (https://github.com/typelevel/cats#getting-started)
+  scalacOptions += "-Ypartial-unification", // for Cats (https://github.com/typelevel/cats#getting-started)
+  
+  libraryDependencies += "ch.epfl.data" %% "squid" % "0.3.1-SNAPSHOT",
+  libraryDependencies += "org.scalactic" %% "scalactic" % "3.0.5",
+  libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.5" % "test",
+  //libraryDependencies += "com.chuusai" %% "shapeless" % "2.3.2",
+  libraryDependencies += "org.typelevel" %% "cats-core" % "1.0.1",
+  // libraryDependencies += "com.lihaoyi" %% "sourcecode" % "0.1.4",
+  
 )
 
 lazy val main = (project in file("."))

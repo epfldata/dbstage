@@ -39,7 +39,7 @@ class QueryLifter {
           val res = liftSemigroup(tsem) match {
             case Right(lmon) =>
               val lifted = liftProductions[S,Option[S],C,C](cde,lmon,code"(x:S)=>Some(x)", code"true")(prods => Comprehension(prods,lmon))
-              val w = new Variable[Option[S]]()
+              val w = Variable[Option[S]]()
               val res = NestedQuery(w,lifted)(UnliftedQuery(code"$w.get"))
               //println(res)
               res
@@ -106,7 +106,7 @@ class QueryLifter {
     case r =>
       println(s"YIELD:\n${indentString(r|>showC)}")
       k(Yield(liftQuery(pred), liftQuery(
-        f(q)
+        code"$f($q)"
       )))
   }
   

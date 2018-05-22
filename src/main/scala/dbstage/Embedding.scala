@@ -9,7 +9,7 @@ import squid.anf.transfo.{
 , LogicNormalizer
 , OptionNormalizer
 , FunctionNormalizer
-, EffectsNormalizer
+//, EffectsNormalizer
 , StandardNormalizer
 , VarFlattening
 }
@@ -157,7 +157,7 @@ object Embedding
           val rtp = r.typ|>CodeType.apply[Any]
           val t = traverse[Any](rtp)
           val c = Code[Any,Any](r)
-          t.lift(c).fold(r){f => assert(result.isEmpty); result = Some((f,new Variable[Any]()(rtp))); result.get._2.rep}
+          t.lift(c).fold(r){f => assert(result.isEmpty); result = Some((f,Variable[Any]()(rtp))); result.get._2.rep}
         case r => r
       }
       result.fold[Either[Code[T,C],R]](Left(cde)){
@@ -195,7 +195,7 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   with OptionNormalizer
   with FunctionNormalizer
   with EqualityNormalizer
-  with EffectsNormalizer
+  //with EffectsNormalizer
   with CurryEncoding.ApplicationNormalizer
 {
   import base.Predef._
@@ -321,8 +321,8 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
   
   rewrite {
       
-    case code"Abstracts[$at,$bt]($f).apply($x)" => f(x)
-    case code"IntoMonoid.instance[$at,$mt]($f).apply($x)" => f(x)
+    case code"Abstracts[$at,$bt]($f).apply($x)" => code"$f($x)"
+    case code"IntoMonoid.instance[$at,$mt]($f).apply($x)" => code"$f($x)"
     case code"FiniteOps[$ct,$ta]($self)($ev).orderingBy[$ot]($oord,$aoproj)" => code"SortedBy[$ct,$ot]($self)"
     case code"SortedBy[$ast,$ot]($as).as" => as
       

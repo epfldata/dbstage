@@ -64,7 +64,7 @@ object Reduction {
   //def apply[A:CodeType,R:CodeType,C](_src: QueryPlan[A,C], mon: StagedMonoid[R,C])(_pred: Code[Bool,_src.Ctx], _expr: Code[R,_src.Ctx]) =
   def apply[A:CodeType,R:CodeType,C](_src: QueryPlan[A,C], mon: StagedMonoid[R,C])(_pred: QueryRepr[Bool,_src.Ctx], _expr: QueryPlan[R,_src.Ctx]) =
     new Reduction[A,R,C](_src,mon) {
-      val v = new Variable[R]()
+      val v = Variable[R]()
       override val src: _src.type = _src
       //type Ctx = src.Ctx
       val pred/*: Code[Bool,Ctx]*/ = _pred
@@ -73,7 +73,7 @@ object Reduction {
 }
 
 case class PostProcessed[A:CodeType,R:CodeType,C](src: QueryPlan[A,C], f: Code[A=>R,C]) extends QueryPlan[R,C] {
-  val v = new Variable[R]()
+  val v = Variable[R]()
   type Ctx = v.Ctx
   def A = codeTypeOf[A]
   override def toString: String = s"process ${blockIndentString(src.toString,"then apply")} ${f|>showC}"
