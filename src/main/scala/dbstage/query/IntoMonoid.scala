@@ -16,7 +16,7 @@ trait IntoMonoid[A,M] {
   @transparencyPropagating
   def apply(a: A): M
 }
-@embed
+//@embed
 object IntoMonoid extends IntoMonoidLowPrio {
   @doNotEmbed @transparencyPropagating
   def instance[A,M](f: A => M): (A IntoMonoid M) = new (A IntoMonoid M) { def apply(a: A): M = f(a) }

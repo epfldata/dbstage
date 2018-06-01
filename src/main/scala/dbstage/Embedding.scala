@@ -44,7 +44,7 @@ object Embedding
 {
   embed(EmbeddedDefs)
   embed(AbstractsLoPri)
-  embed(IntoMonoid)
+  //embed(IntoMonoid)
   embed(IntoMonoidLowPrio)
   embed(IntoMonoidLowPrio2)
   //embed(CanAccess)
@@ -65,6 +65,8 @@ object Embedding
   //embed(Normalizes)
   //embed(NormalizesLowPriority0)
   //embed(NormalizesLowPriority1)
+  
+  def typeInter(lhs: dbstage.Embedding.TypeRep, rhs: dbstage.Embedding.TypeRep):dbstage.Embedding.TypeRep = ???
   
   // --- //
   
