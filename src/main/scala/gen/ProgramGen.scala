@@ -165,7 +165,7 @@ abstract class ProgramGen {
     }
     abstract class Method[T:CodeType](name: String) extends MethodBase[T] with Definition {
       def mkBody: Code[T,Ctx & self.Ctx] // FIXME self.Ctx useless?
-      lazy val body: Code[Typ,Ctx & self.Ctx] = mkBody
+      lazy val body: Code[Typ,Ctx & self.Ctx] = mkBody //alsoApply (m=>println("M "+m))
       //methods += this
       // TODO upd symTable
       //val ref: Variable[T] = Variable[T]
@@ -195,23 +195,39 @@ abstract class ProgramGen {
         //q"def ${TermName(name)}: ${typeRepOf[T].tpe} = ${if (withBody) bodyToScalaTree else EmptyTree}"
         //q"def ${TermName(name)}: ${newBody.Typ.rep.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"
         //def getArgLists[T](body: OpenCode[T]): List[List[Tree]] -> Tree = body match {
-        def getArgLists[T](body: OpenCode[T]): List[List[ValDef]] -> OpenCode[_] = body match {
-          case c"$b: (($ta) => $tb)" if !(body.Typ <:< Nothing) =>
-            val x -> nb = b match {
-              case c"($x:$$ta) => ($nb:$$tb)" => x.`internal bound` -> nb
-              case _ =>
-                //freshBoundVal(ta.Typ.rep) -> b
-                bindVal("_",ta.rep,Nil) -> b
-            }
-            //val tn = srui.reificationSupport.freshTermName(x.`internal bound`.name)
-            val name = x.name + "_" + freshName
-            val tn = TermName(name)
-            //val tree = Ident(tn)
-            val tree = ValDef(Modifiers(),tn,TypeTree(x.typ.tpe),EmptyTree)
-            symTable += x -> tn.toString
-            val (rest,newBody) = getArgLists(nb)
-            ((tree::Nil)::rest) -> newBody
-          case _ => Nil -> body
+        println(name,body.Typ)
+        def getArgLists[T](body: OpenCode[T]): List[List[ValDef]] -> OpenCode[_] = {
+          val wrapped = dbg_code"Set[${body.Typ}](${body.withUnderlyingTyp})"
+          //println(s"MATCH $body")
+          //println(s"MATCH $wrapped ${body.withUnderlyingTyp}")
+          wrapped match {
+            //case c"Set[${body.Typ}]($b): Set[(($ta) => $tb)]" if !(body.Typ <:< Nothing) =>
+            case c"Set[($ta) => $tb]($b)"
+              //if !(body.Typ <:< Nothing) 
+            =>
+              val x -> nb = b match {
+                case c"($x:$$ta) => ($nb:$$tb)" => x.`internal bound` -> nb.asOpenCode
+                case _ =>
+                  //freshBoundVal(ta.Typ.rep) -> b
+                  bindVal("_",ta.rep,Nil) -> b
+              }
+              //val tn = srui.reificationSupport.freshTermName(x.`internal bound`.name)
+              val name = x.name + "_" + freshName
+              val tn = TermName(name)
+              //val tree = Ident(tn)
+              val tree = ValDef(Modifiers(),tn,TypeTree(x.typ.tpe),EmptyTree)
+              symTable += x -> tn.toString
+              val (rest,newBody) = getArgLists(nb)
+              ((tree::Nil)::rest) -> newBody
+            case _ =>
+              //val x = dbg_code"Set[${body.Typ}](${body.withUnderlyingTyp})"
+              //println(x)
+              //base.debug(
+              //  x match {
+              //    case c"Set[($ta) => $tb]($b)" =>
+              //  })
+              Nil -> body
+          }
         }
         val (argss,newBody) = getArgLists(body)
         q"def ${TermName(name)}(...$argss): ${newBody.Typ.rep.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"

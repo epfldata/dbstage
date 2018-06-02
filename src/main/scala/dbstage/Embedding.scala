@@ -42,7 +42,10 @@ object Embedding
     with ScalaCore
     //with EqualityNormalizer
     //with CurryEncoding.ApplicationNormalizer
-    with CrossStageAST
+  //----------------------------------------------------
+    //with CrossStageAST
+  // ^^^^^ causes bugs!!
+  //----------------------------------------------------
     //with gen.Gen.SymbolLoadingKludge
     //with gen.ProgramGenBase
 {
@@ -147,7 +150,8 @@ object Embedding
   abstract class HollowedCode[T,S,C] {
     val v: Variable[S]
     def body: Code[T,C&v.Ctx]
-    override def toString: String = s"Hollow[${v.rep|>showScala}]{${body|>showC}}"
+    //override def toString: String = s"Hollow[${v.rep|>showScala}]{${body|>showC}}"
+    override def toString: String = s"Hollow[${v.rep|>showScala}]{${showC(body.asOpenCode)}}"
   }
   abstract class Inspector[T,C,R] {
     

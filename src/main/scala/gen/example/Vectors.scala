@@ -40,7 +40,7 @@ trait Vectors extends Embedding.ProgramGen {
       // ^ would be nice to somehow allow syntax sugar so c"a + b" means c"${N.plus}(a, b)"
     }
     val curried = method(prod.inlined)
-    val lol = method(code"??? : (Int=>Int)")
+    val lol = method(code"??? : (Int=>Int)" alsoApply println)
   }
   def Vector[N: CodeType: Num](n: Int) = new Vector[N](n: Int)
   
