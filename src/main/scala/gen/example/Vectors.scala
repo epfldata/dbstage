@@ -39,8 +39,7 @@ trait Vectors extends Embedding.ProgramGen {
       c"{ ($that) => ${xs.foldLeft[C[N, Ctx & that.Ctx]](N.zero)((r,x) => c"${N.plus}($r, ${N.prod}($x, ${x.asLambda}($that)))")} }"
       // ^ would be nice to somehow allow syntax sugar so c"a + b" means c"${N.plus}(a, b)"
     }
-    val curried = method(prod.inlined)
-    val lol = method(code"??? : (Int=>Int)" alsoApply println)
+    val lol = method[Int => Int](code"???") // also works as: method(code"??? : (Int=>Int)")
   }
   def Vector[N: CodeType: Num](n: Int) = new Vector[N](n: Int)
   
