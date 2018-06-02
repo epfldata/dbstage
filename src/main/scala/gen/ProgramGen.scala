@@ -77,7 +77,8 @@ abstract class ProgramGen {
       sru.TypeName(name),
       sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false)
     sru.internal.reificationSupport.setInfo[sru.Symbol](sym,
-      sru.internal.reificationSupport.ClassInfoType(Nil,sru.internal.reificationSupport.newScopeWith(),sym)
+      //sru.internal.reificationSupport.ClassInfoType(Nil,sru.internal.reificationSupport.newScopeWith(),sym)
+      sru.internal.reificationSupport.ClassInfoType(sru.typeOf[Any]::Nil,sru.internal.reificationSupport.newScopeWith(),sym)
     )
     //println(sym,sym.fullName)
     sym.asType alsoApply (s => freshTypeSymbols += ruh.encodedTypeSymbol(s) -> s)
@@ -86,9 +87,10 @@ abstract class ProgramGen {
   // TODO handle overloading
   def freshMethodSymbol(tsym: TypSymbol, name: String, typ: base.TypeRep) = {
     val $m: sru.Mirror = scala.reflect.runtime.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
-    //sru.symbolOf[ProgramGen]
-    val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(rootSym, sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
+    val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(tsym, sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
     sru.internal.reificationSupport.setInfo[sru.Symbol](symdef$foo1, sru.internal.reificationSupport.NullaryMethodType(typ.tpe));
+    //println(symdef$foo1,symdef$foo1.owner,symdef$foo1.fullName)
+    // ^ note: for some reason, we get (method isMajor,type Person,gen.Gen.isMajor); instead of the last one bein gen.Gen.Person.isMajor
     symdef$foo1.asMethod alsoApply {sym => freshMethodSymbols += ((tsym,name,0) -> sym)}
   }
   
@@ -104,6 +106,9 @@ abstract class ProgramGen {
     //  type Ctx <: scp.Ctx
     //}
   }
+  
+  implicit def toRef[T,C](mtd: Class[C]#Method[T]): Code[Class[C]#Repr => T,C] =
+    mtd.toLambda.asInstanceOf[Code[Class[C]#Repr => T,C]]
   
   //class ClassImpl extends Scope {
   //  type Ctx <: World
@@ -130,7 +135,7 @@ abstract class ProgramGen {
     private val params: mutable.Buffer[Param[_]] = mutable.Buffer()
     private val fields: mutable.Buffer[Field[_]] = mutable.Buffer()
     
-    implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.ref
+    protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.ref
     
     def apply[C](args: Code[Any,C]*): Code[Repr,C] = {
       def location = s"in ${defName}(${args.map(showC).mkString(", ")})"
@@ -169,27 +174,10 @@ abstract class ProgramGen {
       symTable += access.`internal bound` -> name
       */
       val sym = { // TODO put purity annotation depending on body!
-        //srui.newMethodSymbol(sru.symbolOf[ProgramGen], sru.TermName(name))
-        //srui.reificationSupport.se
-        /*
-        val $u: reflect.runtime.universe.type = scala.reflect.runtime.`package`.universe;
-        val $m: $u.Mirror = scala.reflect.runtime.`package`.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
-        //val $u: U = $m$untyped.universe;
-        //val $m: $u.Mirror = $m$untyped.asInstanceOf[$u.Mirror];
-        //val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol($u.internal.reificationSupport.selectTerm($m.staticModule("Main").asModule.moduleClass, "main"), $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
-        //val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
-        //val `lessrefinement>1`: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(anon1, $u.TypeName.apply("<refinement>"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(0L), true);
-        //val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(`lessrefinement>1`, $u.TermName.apply("foo"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
-        val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TermName.apply(name), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
-        //val lessinit>1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(anon1, $u.TermName.apply("<init>"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(64L), false);
-        //$u.internal.reificationSupport.setInfo[$u.Symbol](anon1, $u.internal.reificationSupport.ClassInfoType(scala.collection.immutable.List.apply[$u.Type]($u.internal.reificationSupport.TypeRef($u.internal.reificationSupport.ThisType($m.staticPackage("scala").asModule.moduleClass), $u.internal.reificationSupport.selectType($m.staticPackage("scala").asModule.moduleClass, "AnyRef"), immutable.this.Nil)), $u.internal.reificationSupport.newScopeWith(lessinit>1), anon1));
-        //$u.internal.reificationSupport.setInfo[$u.Symbol](`lessrefinement>1`, $u.internal.reificationSupport.RefinedType(scala.collection.immutable.List.apply[$u.Type]($u.internal.reificationSupport.TypeRef($u.internal.reificationSupport.ThisType($m.staticPackage("scala").asModule.moduleClass), $u.internal.reificationSupport.selectType($m.staticPackage("scala").asModule.moduleClass, "AnyRef"), immutable.this.Nil)), $u.internal.reificationSupport.newScopeWith(symdef$foo1), `lessrefinement>1`));
-        $u.internal.reificationSupport.setInfo[$u.Symbol](symdef$foo1, $u.internal.reificationSupport.NullaryMethodType($m.staticClass("scala.Int").asType.toTypeConstructor));
-        symdef$foo1.asMethod
-        */
         freshMethodSymbol(tsym, name, typeRepOf[T])
       }
       def ref: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
+      def toLambda: Code[Repr => T,C] = code"($self: Repr) => $ref".asInstanceOf[Code[Repr => T,C]] // FIXME
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
       //override def toString = s"def $name = ${sru.showCode(toScalaTree)}"
       def bodyToScalaTree = base.scalaTree(body.rep, {

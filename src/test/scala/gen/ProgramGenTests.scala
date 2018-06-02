@@ -8,14 +8,16 @@ import Embedding.Quasicodes.{code=>c,_}
 //object Gen extends ProgramGen {
 object Gen extends Embedding.ProgramGen {
   val root = Root.apply
+  
+  object Person extends Class {
+    val name = param[String]
+    val age = param[Int]
+    val isMajor = method(c{$(age) > 18})
+  }
+  
 }
 import Gen._
-
-object Person extends Class {
-  val name = param[String]
-  val age = param[Int]
-  val isMajor = method(c{$(age) > 18})
-}
+import Person.{Repr => PersonT}  // FIXME not importing this uses the abstract type :-/
 
 object ProgramGenTests extends App {
   
@@ -29,6 +31,7 @@ object ProgramGenTests extends App {
   println(inst)
   //println(inst.run) // Could not find overloading index -1 for method gen.Gen.<init>; perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?
   //println(inst.compile) // scala.tools.reflect.ToolBoxError: reflective compilation has failed: no arguments allowed for nullary constructor Person: ()gen.Gen.Person
+  println(code"(p: PersonT) => ${Person.age}($inst)")
   
   /*
   import scala.tools.reflect.ToolBox
@@ -37,3 +40,9 @@ object ProgramGenTests extends App {
   toolBox.eval(Person.toScalaTree) alsoApply println
   */
 }
+
+/*
+Note:
+Can define a ClassWith[T] type that bounds its Repr to T and uses the evidence to find type params and fields; so we can pass a
+structural type and use the methods on Repr in QQs! – just needs reflective methods on record types as a feature
+*/
