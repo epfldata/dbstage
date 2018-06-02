@@ -137,10 +137,11 @@ abstract class ProgramGen {
     
     protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.ref
     
-    def apply[C](args: Code[Any,C]*): Code[Repr,C] = {
-      def location = s"in ${defName}(${args.map(showC).mkString(", ")})"
+    def apply[C](args: Code[Any,C]*)(implicit pos: Pos): Code[Repr,C] = {
+      def location = s"in ${defName}(${args.map(showC).mkString(", ")})\n\tat line ${pos.file}:${pos.line}"
       frozenFields = true
-      assert(args.size === params.size, s"Wrong number of parameters $location for $this")
+      //assert(args.size === params.size, s"Wrong number of parameters $location for $this")
+      assert(args.size === params.size, s"Wrong number of parameters for $this; $location")
       //(params zip args) foreach {
       val as = (params zip args) map {
         case p -> a =>

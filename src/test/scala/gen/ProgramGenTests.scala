@@ -31,7 +31,7 @@ object ProgramGenTests extends App {
   println(inst)
   //println(inst.run) // Could not find overloading index -1 for method gen.Gen.<init>; perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?
   //println(inst.compile) // scala.tools.reflect.ToolBoxError: reflective compilation has failed: no arguments allowed for nullary constructor Person: ()gen.Gen.Person
-  println(code"(p: PersonT) => ${Person.age}($inst)")
+  println(code"(p: PersonT) => ${Person.name}(p) * ${Person.age}($inst)")
   
   /*
   import scala.tools.reflect.ToolBox
