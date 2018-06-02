@@ -78,7 +78,7 @@ class ProgramGen {
       def ref: Code[T,Ctx] = access.toCode
       symTable += access.`internal bound` -> name
       */
-      val sym = {
+      val sym = { // TODO put purity annotation depending on body!
         //srui.newMethodSymbol(sru.symbolOf[ProgramGen], sru.TermName(name))
         //srui.reificationSupport.se
         
@@ -88,9 +88,9 @@ class ProgramGen {
         //val $m: $u.Mirror = $m$untyped.asInstanceOf[$u.Mirror];
         //val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol($u.internal.reificationSupport.selectTerm($m.staticModule("Main").asModule.moduleClass, "main"), $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
         val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
-        val `lessrefinement>1`: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(anon1, $u.TypeName.apply("<refinement>"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(0L), true);
+        //val `lessrefinement>1`: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(anon1, $u.TypeName.apply("<refinement>"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(0L), true);
         //val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(`lessrefinement>1`, $u.TermName.apply("foo"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
-        val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TermName.apply("foo"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
+        val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TermName.apply(name), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
         //val lessinit>1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(anon1, $u.TermName.apply("<init>"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(64L), false);
         //$u.internal.reificationSupport.setInfo[$u.Symbol](anon1, $u.internal.reificationSupport.ClassInfoType(scala.collection.immutable.List.apply[$u.Type]($u.internal.reificationSupport.TypeRef($u.internal.reificationSupport.ThisType($m.staticPackage("scala").asModule.moduleClass), $u.internal.reificationSupport.selectType($m.staticPackage("scala").asModule.moduleClass, "AnyRef"), immutable.this.Nil)), $u.internal.reificationSupport.newScopeWith(lessinit>1), anon1));
         //$u.internal.reificationSupport.setInfo[$u.Symbol](`lessrefinement>1`, $u.internal.reificationSupport.RefinedType(scala.collection.immutable.List.apply[$u.Type]($u.internal.reificationSupport.TypeRef($u.internal.reificationSupport.ThisType($m.staticPackage("scala").asModule.moduleClass), $u.internal.reificationSupport.selectType($m.staticPackage("scala").asModule.moduleClass, "AnyRef"), immutable.this.Nil)), $u.internal.reificationSupport.newScopeWith(symdef$foo1), `lessrefinement>1`));
@@ -134,10 +134,10 @@ class ProgramGen {
         q"val ${TermName(name)}: ${typeRepOf[T].tpe}"
       }
     }
-    protected def method[T:CodeType](body: => Code[T,Ctx])(implicit srcName: SrcName): Method[T] =
-      new Method[T](srcName.value) { def mkBody = body } alsoApply {methods += _}
-    protected def field[T:CodeType](body: => Code[T, Ctx])(implicit srcName: SrcName): Field[T] =
-      new Field[T](srcName.value) { def mkBody = body } alsoApply {fields += _}
+    protected def method[T:CodeType](bodyFun: => Code[T,Ctx])(implicit srcName: SrcName): Method[T] =
+      new Method[T](srcName.value) { def mkBody = bodyFun } alsoApply {methods += _}
+    protected def field[T:CodeType](bodyFun: => Code[T, Ctx])(implicit srcName: SrcName): Field[T] =
+      new Field[T](srcName.value) { def mkBody = bodyFun } alsoApply {fields += _}
     protected def param[T:CodeType](implicit srcName: SrcName): Param[T] =
       new Param[T](srcName.value) alsoApply {params += _}
     
