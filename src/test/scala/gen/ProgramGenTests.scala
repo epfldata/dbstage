@@ -5,9 +5,9 @@ import dbstage.Embedding
 import Embedding.Predef._
 import Embedding.Quasicodes.{code=>c,_}
 
-object Gen extends ProgramGen {
+//object Gen extends ProgramGen {
+object Gen extends Embedding.ProgramGen {
   val root = Root.apply
-  class Person // TODO modify symbol loading so this becomes unnecessary
 }
 import Gen._
 

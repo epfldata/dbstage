@@ -6,18 +6,46 @@ import scala.collection.mutable
 import scala.reflect.runtime.{universe => sru}
 import scala.reflect.runtime.universe.{internal => srui}
 import sourcecode.{Name => SrcName}
+import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 
 import squid.utils._
-import dbstage.Embedding
-import Embedding.Predef._
-import dbstage.showC
+//import dbstage.Embedding
+//import Embedding.Predef._
+//import dbstage.showC
+
+
+//trait ProgramGenBase {
+//trait ProgramGenBase { selfIR: squid.ir.AST =>
+abstract class ProgramGenBaseClass extends ProgramGenBase // To avoid recompilation of Embedding on change to ProgramGenBase
+trait ProgramGenBase extends squid.ir.AST {
+//val IR: squid.lang.IntermediateBase
+//val IR: squid.ir.AST // ^ TODO generalize to squid.lang.IntermediateBase
+//import IR.Predef._
+//import IR.IntermediateCodeOps
+//import selfIR.Predef._
+import Predef._
+
+//private val freshTypeSymbols: Set[]
+protected lazy val freshMethodSymbols: mutable.Map[(TypSymbol,String,Int), MtdSymbol] = mutable.Map()
+// ^ Note: making it private makes it null in the loadMtdSymbol override called too early!
+
+override def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Bool): MtdSymbol =
+  //println(freshMethodSymbols) thenReturn 
+  freshMethodSymbols.getOrElse((typ,symName,index.getOrElse(0)), super.loadMtdSymbol(typ, symName, index, static))
+
+protected lazy val freshTypeSymbols: mutable.Map[String, TypSymbol] = mutable.Map()
+override def loadTypSymbol(fullName: String): ScalaTypeSymbol =
+  //println(fullName,freshTypeSymbols,freshTypeSymbols.get(fullName)) thenReturn 
+  freshTypeSymbols.getOrElse(fullName, super.loadTypSymbol(fullName))
 
 //object ProgramGen
 abstract class ProgramGen {
 //class ProgramGen(implicit rootSym: sru.TypeTag[]) {
   type World
   
-  class Root private(val sym: sru.Symbol)
+  protected def showC(cde: OpenCode[Any]) = cde.rep|>base.showRep // TODO mv to Squid?
+  
+  protected class Root private(val sym: sru.Symbol)
   val root: Root
   //def here(implicit rootTyp: sru.TypeTag[this.type]) = {
   object Root { def apply(implicit rootTyp: sru.TypeTag[ProgramGen.this.type]) = {
@@ -31,6 +59,11 @@ abstract class ProgramGen {
   
   protected val fatalFrozenFieldError = false
   
+  //trait SymbolLoadingKludge extends squid.ir.RuntimeSymbols {
+  //  override def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Bool): MtdSymbol =
+  //    ???
+  //}
+  
   trait Definition {
     def toScalaTree: sru.Tree
     def showCode = sru.showCode(toScalaTree)
@@ -39,12 +72,24 @@ abstract class ProgramGen {
   //  
   //}
   
-  def freshMethodSymbol(name: String, typ: base.TypeRep) = {
+  protected def freshTypeSymbol(name: String) = {
+    val sym = sru.internal.reificationSupport.newNestedSymbol(rootSym,
+      sru.TypeName(name),
+      sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false)
+    sru.internal.reificationSupport.setInfo[sru.Symbol](sym,
+      sru.internal.reificationSupport.ClassInfoType(Nil,sru.internal.reificationSupport.newScopeWith(),sym)
+    )
+    //println(sym,sym.fullName)
+    sym.asType alsoApply (s => freshTypeSymbols += ruh.encodedTypeSymbol(s) -> s)
+  }
+  
+  // TODO handle overloading
+  def freshMethodSymbol(tsym: TypSymbol, name: String, typ: base.TypeRep) = {
     val $m: sru.Mirror = scala.reflect.runtime.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
     //sru.symbolOf[ProgramGen]
     val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(rootSym, sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
     sru.internal.reificationSupport.setInfo[sru.Symbol](symdef$foo1, sru.internal.reificationSupport.NullaryMethodType(typ.tpe));
-    symdef$foo1.asMethod
+    symdef$foo1.asMethod alsoApply {sym => freshMethodSymbols += ((tsym,name,0) -> sym)}
   }
   
   //trait Scope { scp =>
@@ -76,15 +121,9 @@ abstract class ProgramGen {
     protected lazy val tsym = {
       // FIXME
       //base.loadTypSymbol("gen.ProgramGen")
-      println(defName)
+      //println(defName)
       //val sym = sru.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen.type],
-      val sym = sru.internal.reificationSupport.newNestedSymbol(rootSym,
-        sru.TypeName(defName),
-        sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false)
-      sru.internal.reificationSupport.setInfo[sru.Symbol](sym,
-        sru.internal.reificationSupport.ClassInfoType(Nil,sru.internal.reificationSupport.newScopeWith(),sym)
-      )
-      sym.asType
+      freshTypeSymbol(defName)
     }
     
     protected val methods: mutable.Buffer[Method[_]] = mutable.Buffer()
@@ -108,7 +147,7 @@ abstract class ProgramGen {
     }
     
     lazy val ctor = {
-      freshMethodSymbol("<init>", Repr.rep)
+      freshMethodSymbol(tsym, "<init>", Repr.rep)
     }
     
     // rename to TermMember?
@@ -148,7 +187,7 @@ abstract class ProgramGen {
         $u.internal.reificationSupport.setInfo[$u.Symbol](symdef$foo1, $u.internal.reificationSupport.NullaryMethodType($m.staticClass("scala.Int").asType.toTypeConstructor));
         symdef$foo1.asMethod
         */
-        freshMethodSymbol(name, typeRepOf[T])
+        freshMethodSymbol(tsym, name, typeRepOf[T])
       }
       def ref: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
@@ -220,4 +259,5 @@ abstract class ProgramGen {
     def definitions = classes
   }
   
+}
 }

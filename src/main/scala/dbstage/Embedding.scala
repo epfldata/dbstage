@@ -19,8 +19,8 @@ import squid.ir.{
 , FixPointRuleBasedTransformer
 , FixPointTransformer
 , OnlineOptimizer
-, SchedulingANF
-, SimpleANF
+, SchedulingANF, SimpleANF
+, SchedulingANFBase, SimpleANFBase
 , SimpleRuleBasedTransformer
 , StandardEffects
 , TopDownTransformer
@@ -29,8 +29,10 @@ import squid.lang.ScalaCore
 import query._
 
 object Embedding 
-  extends SimpleANF 
+  //extends SimpleANF 
+  extends gen.ProgramGenBaseClass
   //extends SchedulingANF 
+    with SchedulingANFBase 
     with StandardEffects 
     with OnlineOptimizer
     ////with StandardNormalizer 
@@ -41,6 +43,8 @@ object Embedding
     //with EqualityNormalizer
     //with CurryEncoding.ApplicationNormalizer
     with CrossStageAST
+    //with gen.Gen.SymbolLoadingKludge
+    //with gen.ProgramGenBase
 {
   embed(EmbeddedDefs)
   embed(AbstractsLoPri)
