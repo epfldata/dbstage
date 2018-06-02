@@ -9,7 +9,9 @@ import cats.kernel.CommutativeSemigroup
 import cats.syntax.all._
 import squid.lib.transparencyPropagating
 import squid.quasi.{phase, embed}
+import scala.annotation.showAsInfix
 
+@showAsInfix
 case class ~[A,B](lhs: A, rhs: B) {
   override def toString: String = rhs match {
     case ~(a,b) => s"$lhs ~ ($rhs)"
@@ -56,6 +58,7 @@ final class RecordSyntax[A](private val self: A) extends AnyVal {
 
 // TODO rename to `contains`?
 @implicitNotFound("Type ${R} is not known to be accessible in ${A}")
+@showAsInfix
 case class CanAccess[A,R](fun: A => R) extends (A => R) { def apply(a: A) = fun(a) } // TODO rem indirection; make abstract class?
 @embed
 object CanAccess {
@@ -70,6 +73,7 @@ object CanAccess {
 //trait ProjectsOnVar[-A,+B] extends (A => B)  // implicit search doesn't find it
 
 @implicitNotFound("Type ${A} cannot be projected onto type ${B}")
+@showAsInfix
 case class ProjectsOn[-A,B](fun: A => B) extends (A => B) { def apply(a: A) = fun(a) }
 //case class ProjectsOn[A,B](fun: A => B) extends (A => B) with ProjectsOnVar[A,B] { def apply(a: A) = fun(a) }
 @embed
