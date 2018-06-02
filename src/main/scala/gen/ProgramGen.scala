@@ -59,10 +59,7 @@ abstract class ProgramGen {
   
   protected val fatalFrozenFieldError = false
   
-  //trait SymbolLoadingKludge extends squid.ir.RuntimeSymbols {
-  //  override def loadMtdSymbol(typ: ScalaTypeSymbol, symName: String, index: Option[Int], static: Bool): MtdSymbol =
-  //    ???
-  //}
+  protected def BASE_NAME_INDEX = 1
   
   trait Definition {
     def toScalaTree: sru.Tree
@@ -107,8 +104,8 @@ abstract class ProgramGen {
     //}
   }
   
-  implicit def toRef[T,C](mtd: Class[C]#Method[T]): Code[Class[C]#Repr => T,C] =
-    mtd.toLambda.asInstanceOf[Code[Class[C]#Repr => T,C]]
+  implicit def toRef[T,C](mtd: Class[C]#Method[T]): Code[Class[C]#Self => T,C] =
+    mtd.asLambda.asInstanceOf[Code[Class[C]#Self => T,C]]
   
   //class ClassImpl extends Scope {
   //  type Ctx <: World
@@ -117,11 +114,11 @@ abstract class ProgramGen {
     val defName = srcName.value
     //type Ctx >: C
     type Ctx >: C & self.Ctx
-    type Repr
-    implicit val Repr = {
-      base.CodeType[Repr](base.staticTypeApp(tsym, Nil))
+    type Self
+    implicit val Self = {
+      base.CodeType[Self](base.staticTypeApp(tsym, Nil))
     }
-    val self = Variable[Repr]("self")
+    val self = Variable[Self]("self")
     private val SelfBound = self.`internal bound`
     protected lazy val tsym = {
       // FIXME
@@ -134,10 +131,12 @@ abstract class ProgramGen {
     protected val methods: mutable.Buffer[Method[_]] = mutable.Buffer()
     private val params: mutable.Buffer[Param[_]] = mutable.Buffer()
     private val fields: mutable.Buffer[Field[_]] = mutable.Buffer()
+    //private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = new mutable.HashMap[String,Int] with 
+    private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = mutable.Map().withDefaultValue(BASE_NAME_INDEX) 
     
-    protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.ref
+    protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.insideRef
     
-    def apply[C](args: Code[Any,C]*)(implicit pos: Pos): Code[Repr,C] = {
+    def apply[C](args: Code[Any,C]*)(implicit pos: Pos): Code[Self,C] = {
       def location = s"in ${defName}(${args.map(showC).mkString(", ")})\n\tat line ${pos.file}:${pos.line}"
       frozenFields = true
       //assert(args.size === params.size, s"Wrong number of parameters $location for $this")
@@ -148,12 +147,12 @@ abstract class ProgramGen {
           assert(a.Typ <:< p.Typ, s"Type of argument $a: ${a.Typ} is incompatible with type of parameter $p; $location")
           a.rep
       }
-      val inst = base.methodApp(base.newObject(Repr.rep),ctor,Nil,base.Args(as:_*)::Nil,Repr.rep)
+      val inst = base.methodApp(base.newObject(Self.rep),ctor,Nil,base.Args(as:_*)::Nil,Self.rep)
       base.Code(inst)
     }
     
     lazy val ctor = {
-      freshMethodSymbol(tsym, "<init>", Repr.rep)
+      freshMethodSymbol(tsym, "<init>", Self.rep)
     }
     
     // rename to TermMember?
@@ -177,8 +176,9 @@ abstract class ProgramGen {
       val sym = { // TODO put purity annotation depending on body!
         freshMethodSymbol(tsym, name, typeRepOf[T])
       }
-      def ref: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
-      def toLambda: Code[Repr => T,C] = code"($self: Repr) => $ref".asInstanceOf[Code[Repr => T,C]] // FIXME
+      def insideRef: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
+      def asLambda: Code[Self => T,C] = code"($self: Self) => $insideRef".asInstanceOf[Code[Self => T,C]] // FIXME
+      def inlined: Code[Self => T,C] = code"($self: Self) => $body".asInstanceOf[Code[Self => T,C]] // FIXME
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
       //override def toString = s"def $name = ${sru.showCode(toScalaTree)}"
       def bodyToScalaTree = base.scalaTree(body.rep, {
@@ -191,7 +191,8 @@ abstract class ProgramGen {
         import sru._
         q"def ${TermName(name)}: ${typeRepOf[T].tpe} = $bodyToScalaTree"
       }
-      override def toString = sru.showCode(toScalaTree)
+      //override def toString = sru.showCode(toScalaTree)
+      override def toString = s"${defName}#def ${name}: ${typeRepOf[T].tpe}"
     }
     //abstract class Field[T:CodeType](name: String, mkBody: => Code[T,Ctx & args.Ctx]) extends Method(name, mkBody) {
     abstract class Field[T:CodeType](name: String) extends Method[T](name) {
@@ -209,18 +210,24 @@ abstract class ProgramGen {
     }
     class Param[T:CodeType](name: String) extends Field[T](name) {
       //val accessor = Variable[T]("accessor")
-      def mkBody: Code[T,Ctx & self.Ctx] = ref // Q: makes sense?
+      def mkBody: Code[T,Ctx & self.Ctx] = insideRef // Q: makes sense?
       override def toScalaTree = {
         import sru._
         q"val ${TermName(name)}: ${typeRepOf[T].tpe}"
       }
     }
+    protected def allocateName(isTerm: Bool)(name: String) = {
+      val m = if (isTerm) usedTermNames else usedTypeNames
+      val idx = m(name)
+      m(name) = idx + 1
+      if (idx > BASE_NAME_INDEX) s"${name}_$idx" else name
+    }
     protected def method[T:CodeType](bodyFun: => Code[T,Ctx])(implicit srcName: SrcName): Method[T] =
-      new Method[T](srcName.value) { def mkBody = bodyFun } alsoApply {methods += _}
+      new Method[T](srcName.value |> allocateName(false)) { def mkBody = bodyFun } alsoApply {methods += _}
     protected def field[T:CodeType](bodyFun: => Code[T, Ctx])(implicit srcName: SrcName): Field[T] =
-      new Field[T](srcName.value) { def mkBody = bodyFun } alsoApply {fields += _}
+      new Field[T](srcName.value |> allocateName(false)) { def mkBody = bodyFun } alsoApply {fields += _}
     protected def param[T:CodeType](implicit srcName: SrcName): Param[T] =
-      new Param[T](srcName.value) alsoApply {params += _}
+      new Param[T](srcName.value |> allocateName(false)) alsoApply {params += _}
     
     def toScalaTree = {
       import sru._

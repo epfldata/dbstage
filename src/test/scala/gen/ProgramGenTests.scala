@@ -17,7 +17,7 @@ object Gen extends Embedding.ProgramGen {
   
 }
 import Gen._
-import Person.{Repr => PersonT}  // FIXME not importing this uses the abstract type :-/
+import Person.{Self => PersonT}  // FIXME not importing this uses the abstract type :-/
 
 object ProgramGenTests extends App {
   
