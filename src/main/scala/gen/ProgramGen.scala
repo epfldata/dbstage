@@ -12,8 +12,20 @@ import dbstage.Embedding
 import Embedding.Predef._
 import dbstage.showC
 
-class ProgramGen {
+//object ProgramGen
+abstract class ProgramGen {
+//class ProgramGen(implicit rootSym: sru.TypeTag[]) {
   type World
+  
+  class Root private(val sym: sru.Symbol)
+  val root: Root
+  //def here(implicit rootTyp: sru.TypeTag[this.type]) = {
+  object Root { def apply(implicit rootTyp: sru.TypeTag[ProgramGen.this.type]) = {
+    val rootSym = rootTyp.tpe.typeSymbol
+    assert(rootSym.isStatic, s"root symbol $rootSym is not static") // TODO B/E
+    new Root(rootSym)
+  }}
+  lazy val rootSym = root.sym
   
   protected val symTable: mutable.Map[base.BoundVal,String] = mutable.Map()
   
@@ -29,7 +41,8 @@ class ProgramGen {
   
   def freshMethodSymbol(name: String, typ: base.TypeRep) = {
     val $m: sru.Mirror = scala.reflect.runtime.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
-    val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
+    //sru.symbolOf[ProgramGen]
+    val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(rootSym, sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
     sru.internal.reificationSupport.setInfo[sru.Symbol](symdef$foo1, sru.internal.reificationSupport.NullaryMethodType(typ.tpe));
     symdef$foo1.asMethod
   }
@@ -51,16 +64,28 @@ class ProgramGen {
   //  type Ctx <: World
   class Class[-C](implicit srcName: SrcName) extends Scope[C] with Definition with DelayedInit { selfClass =>
     // TODO method, staticMethod, param, field
+    val defName = srcName.value
     //type Ctx >: C
     type Ctx >: C & self.Ctx
     type Repr
     implicit val Repr = {
-      // FIXME
-      base.CodeType[Repr](base.staticTypeApp(base.loadTypSymbol("gen.ProgramGen"), Nil))
+      base.CodeType[Repr](base.staticTypeApp(tsym, Nil))
     }
     val self = Variable[Repr]("self")
     private val SelfBound = self.`internal bound`
-    val defName = srcName.value
+    protected lazy val tsym = {
+      // FIXME
+      //base.loadTypSymbol("gen.ProgramGen")
+      println(defName)
+      //val sym = sru.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen.type],
+      val sym = sru.internal.reificationSupport.newNestedSymbol(rootSym,
+        sru.TypeName(defName),
+        sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false)
+      sru.internal.reificationSupport.setInfo[sru.Symbol](sym,
+        sru.internal.reificationSupport.ClassInfoType(Nil,sru.internal.reificationSupport.newScopeWith(),sym)
+      )
+      sym.asType
+    }
     
     protected val methods: mutable.Buffer[Method[_]] = mutable.Buffer()
     private val params: mutable.Buffer[Param[_]] = mutable.Buffer()
