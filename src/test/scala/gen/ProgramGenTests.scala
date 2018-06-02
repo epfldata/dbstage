@@ -42,7 +42,14 @@ object ProgramGenTests extends App {
 }
 
 /*
-Note:
+
+Notes:
+
 Can define a ClassWith[T] type that bounds its Repr to T and uses the evidence to find type params and fields; so we can pass a
 structural type and use the methods on Repr in QQs! – just needs reflective methods on record types as a feature
+
+A crucial part of the system will be the generation-time cycle detector and recovery!
+Currently it's all too easy to get a stack overflow...
+TODO: precise when cyclic errors should happen and what exactly is alloed –– for sure mutually recursive methods and classes are allowed! 
+
 */

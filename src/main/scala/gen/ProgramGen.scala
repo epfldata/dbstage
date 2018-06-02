@@ -6,6 +6,8 @@ import scala.collection.mutable
 import scala.reflect.runtime.{universe => sru}
 import scala.reflect.runtime.universe.{internal => srui}
 import sourcecode.{Name => SrcName}
+import squid.ir.SimpleEffect
+import squid.ir.SimpleEffects
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import squid.utils._
 
@@ -24,7 +26,7 @@ import Helper.Dummy
 //trait ProgramGenBase {
 //trait ProgramGenBase { selfIR: squid.ir.AST =>
 abstract class ProgramGenBaseClass extends ProgramGenBase // To avoid recompilation of Embedding on change to ProgramGenBase
-trait ProgramGenBase extends squid.ir.AST {
+trait ProgramGenBase extends squid.ir.AST with SimpleEffects {
 //val IR: squid.lang.IntermediateBase
 //val IR: squid.ir.AST // ^ TODO generalize to squid.lang.IntermediateBase
 //import IR.Predef._
@@ -91,13 +93,13 @@ abstract class ProgramGen {
   }
   
   // TODO handle overloading
-  def freshMethodSymbol(tsym: TypSymbol, name: String, typ: base.TypeRep) = {
+  def freshMethodSymbol(tsym: TypSymbol, name: String, typ: base.TypeRep, effect: SimpleEffect) = {
     val $m: sru.Mirror = scala.reflect.runtime.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
     val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(tsym, sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
     sru.internal.reificationSupport.setInfo[sru.Symbol](symdef$foo1, sru.internal.reificationSupport.NullaryMethodType(typ.tpe));
     //println(symdef$foo1,symdef$foo1.owner,symdef$foo1.fullName)
     // ^ note: for some reason, we get (method isMajor,type Person,gen.Gen.isMajor); instead of the last one bein gen.Gen.Person.isMajor
-    symdef$foo1.asMethod alsoApply {sym => freshMethodSymbols += ((tsym,name,0) -> sym)}
+    symdef$foo1.asMethod alsoApply { sym => freshMethodSymbols += ((tsym,name,0) -> sym); transparencyPropagatingMtds += sym }
   }
   
   //trait Scope { scp =>
@@ -161,7 +163,9 @@ abstract class ProgramGen {
     }
     
     lazy val ctor = {
-      freshMethodSymbol(tsym, "<init>", Self.rep)
+      frozenFields = true
+      freshMethodSymbol(tsym, "<init>", Self.rep,
+        (fields ++ params).map(_.effect).reduceOption(_ | _).getOrElse(SimpleEffect.Pure))
     }
     
     // rename to TermMember?
@@ -173,6 +177,7 @@ abstract class ProgramGen {
     abstract class Method[T:CodeType](name: String) extends MethodBase[T] with Definition {
       def mkBody: Code[T,Ctx & self.Ctx] // FIXME self.Ctx useless?
       lazy val body: Code[Typ,Ctx & self.Ctx] = mkBody
+      def effect = effectCached(body.rep)
       //methods += this
       // TODO upd symTable
       //val ref: Variable[T] = Variable[T]
@@ -182,8 +187,9 @@ abstract class ProgramGen {
       def ref: Code[T,Ctx] = access.toCode
       symTable += access.`internal bound` -> name
       */
-      val sym = { // TODO put purity annotation depending on body!
-        freshMethodSymbol(tsym, name, typeRepOf[T])
+      lazy val sym = { // TODO put purity annotation depending on body!
+        //println(s"Sym of $tsym.$name")
+        freshMethodSymbol(tsym, name, typeRepOf[T], effect)
       }
       def insideRef: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
       def asLambda: Code[Self => T,C] = code"($self: Self) => $insideRef".asInstanceOf[Code[Self => T,C]] // FIXME
@@ -197,46 +203,49 @@ abstract class ProgramGen {
         case bv => sru.Ident(sru.TermName(symTable(bv)))
       })
       def toScalaTree = toScalaTree(true)
-      def toScalaTree(withBody: Bool): sru.ValOrDefDef = {
+      /** Generate Scala tree for a method def, where methods of function types are transformed to methods with arguments. */
+      def toScalaTree(withBody: Bool): sru.ValOrDefDef = {  // TODO also convert applications of Y combinator to recursive def!
         import sru._
-        //q"def ${TermName(name)}: ${typeRepOf[T].tpe} = ${if (withBody) bodyToScalaTree else EmptyTree}"
         //q"def ${TermName(name)}: ${newBody.Typ.rep.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"
-        //def getArgLists[T](body: OpenCode[T]): List[List[Tree]] -> Tree = body match {
-        //println(name,body.Typ)
         def getArgLists[T](body: OpenCode[T], bodyTyp: TypeRep): (List[List[ValDef]], OpenCode[_], TypeRep) = {
           val wrapped = code"Dummy[${body.Typ}](${body.withUnderlyingTyp})"
-          wrapped match {
-            //case c"Set[${body.Typ}]($b): Set[(($ta) => $tb)]" if !(body.Typ <:< Nothing) =>
-            case c"Dummy[($ta) => $tb]($b)"
-            //case c"Dummy($b):Dummy[($ta) => $tb]"
-              //if !(body.Typ <:< Nothing) 
-            =>
+          wrapped match { // wrapped so we can match on the types invariantly (otherwise all kind of nuisances happen)
+            case c"Dummy[($t0) => $tr]($b)" =>
               val x -> nb = b match {
-                case c"($x:$$ta) => ($nb:$$tb)" => x.`internal bound` -> nb.asOpenCode
-                case _ =>
-                  //freshBoundVal(ta.Typ.rep) -> b
-                  bindVal("_",ta.rep,Nil) -> b
+                case c"($x:$$t0) => ($nb:$$tr)" => x.`internal bound` -> nb.asOpenCode
+                case _ => bindVal("_",t0.rep,Nil) -> b
               }
-              //val tn = srui.reificationSupport.freshTermName(x.`internal bound`.name)
               val name = x.name + "_" + freshName
               val tn = TermName(name)
-              //val tree = Ident(tn)
-              val tree = ValDef(Modifiers(),tn,TypeTree(x.typ.tpe),EmptyTree)
-              symTable += x -> tn.toString
-              //println(x,nb)
-              val (rest,newBody,newBodyTyp) = getArgLists(nb, tb.rep)
-              (((tree::Nil)::rest), newBody, newBodyTyp)
-            case _ =>
-              /*
-              val x = dbg_code"Dummy[${body.Typ}](${body.withUnderlyingTyp})"
-              println("HUH "+x)
-              base.debugFor(
-                x match {
-                  case c"Dummy[($ta) => $tb]($b)" =>
-                  case _ =>
-                })
-              */
-              (Nil, body, bodyTyp)
+              symTable += x -> tn.toString // TODO use weakHashMap for symTable?
+              val (rest,newBody,newBodyTyp) = getArgLists(nb, tr.rep)
+              (((q"val $tn: ${x.typ.tpe}" :: Nil)::rest), newBody, newBodyTyp)
+            case c"Dummy[($t0,$t1) => $tr]($b)" =>
+              val (x0,x1) -> nb = b match {
+                case c"($x0:$$t0, $x1:$$t1) => ($nb:$$tr)" => (x0.`internal bound`, x1.`internal bound`) -> nb.asOpenCode
+                case _ => (bindVal("_",t0.rep,Nil), bindVal("_",t1.rep,Nil)) -> b
+              }
+              val tn0 = TermName(x0.name + "_" + freshName)
+              val tn1 = TermName(x1.name + "_" + freshName)
+              symTable += x0 -> tn0.toString
+              symTable += x1 -> tn1.toString
+              val (rest,newBody,newBodyTyp) = getArgLists(nb, tr.rep)
+              (((q"val $tn0: ${x0.typ.tpe}" :: q"val $tn1: ${x1.typ.tpe}" :: Nil)::rest), newBody, newBodyTyp)
+            case c"Dummy[($t0,$t1,$t2) => $tr]($b)" =>
+              val (x0,x1,x2) -> nb = b match {
+                case c"($x0:$$t0, $x1:$$t1, $x2:$$t2) => ($nb:$$tr)" =>
+                  (x0.`internal bound`, x1.`internal bound`, x2.`internal bound`) -> nb.asOpenCode
+                case _ => (bindVal("_",t0.rep,Nil), bindVal("_",t1.rep,Nil), bindVal("_",t2.rep,Nil)) -> b
+              }
+              val tn0 = TermName(x0.name + "_" + freshName)
+              val tn1 = TermName(x1.name + "_" + freshName)
+              val tn2 = TermName(x2.name + "_" + freshName)
+              symTable += x0 -> tn0.toString
+              symTable += x1 -> tn1.toString
+              symTable += x2 -> tn1.toString
+              val (rest,newBody,newBodyTyp) = getArgLists(nb, tr.rep)
+              (((q"val $tn0: ${x0.typ.tpe}" :: q"val $tn1: ${x1.typ.tpe}" :: q"val $tn2: ${x2.typ.tpe}" :: Nil)::rest), newBody, newBodyTyp)
+            case _ => (Nil, body, bodyTyp)
           }
         }
         val (argss,newBody,bodyTyp) = getArgLists(body,typeRepOf[T])
@@ -262,6 +271,7 @@ abstract class ProgramGen {
     class Param[T:CodeType](name: String) extends Field[T](name) {
       //val accessor = Variable[T]("accessor")
       def mkBody: Code[T,Ctx & self.Ctx] = insideRef // Q: makes sense?
+      override def effect: SimpleEffect = SimpleEffect.Pure // or cyclic def!!
       override def toScalaTree = {
         import sru._
         q"val ${TermName(name)}: ${typeRepOf[T].tpe}"
