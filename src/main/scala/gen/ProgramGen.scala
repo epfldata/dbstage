@@ -10,6 +10,7 @@ import sourcecode.{Name => SrcName}
 import squid.utils._
 import dbstage.Embedding
 import Embedding.Predef._
+import dbstage.showC
 
 class ProgramGen {
   type World
@@ -25,6 +26,13 @@ class ProgramGen {
   //class MethodBase[T:CodeType](name: String, mkBody: => Code[T,Ctx & args.Ctx]) extends Definition {
   //  
   //}
+  
+  def freshMethodSymbol(name: String, typ: base.TypeRep) = {
+    val $m: sru.Mirror = scala.reflect.runtime.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
+    val symdef$foo1: sru.Symbol = sru.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], sru.TermName.apply(name), sru.NoPosition, sru.internal.reificationSupport.FlagsRepr.apply(80L), false);
+    sru.internal.reificationSupport.setInfo[sru.Symbol](symdef$foo1, sru.internal.reificationSupport.NullaryMethodType(typ.tpe));
+    symdef$foo1.asMethod
+  }
   
   //trait Scope { scp =>
   trait Scope[-C] { scp =>
@@ -60,6 +68,24 @@ class ProgramGen {
     
     implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.ref
     
+    def apply[C](args: Code[Any,C]*): Code[Repr,C] = {
+      def location = s"in ${defName}(${args.map(showC).mkString(", ")})"
+      frozenFields = true
+      assert(args.size === params.size, s"Wrong number of parameters $location for $this")
+      //(params zip args) foreach {
+      val as = (params zip args) map {
+        case p -> a =>
+          assert(a.Typ <:< p.Typ, s"Type of argument $a: ${a.Typ} is incompatible with type of parameter $p; $location")
+          a.rep
+      }
+      val inst = base.methodApp(base.newObject(Repr.rep),ctor,Nil,base.Args(as:_*)::Nil,Repr.rep)
+      base.Code(inst)
+    }
+    
+    lazy val ctor = {
+      freshMethodSymbol("<init>", Repr.rep)
+    }
+    
     // rename to TermMember?
     abstract class MethodBase[T:CodeType] {
       type Typ = T
@@ -81,13 +107,13 @@ class ProgramGen {
       val sym = { // TODO put purity annotation depending on body!
         //srui.newMethodSymbol(sru.symbolOf[ProgramGen], sru.TermName(name))
         //srui.reificationSupport.se
-        
+        /*
         val $u: reflect.runtime.universe.type = scala.reflect.runtime.`package`.universe;
         val $m: $u.Mirror = scala.reflect.runtime.`package`.universe.runtimeMirror(classOf[ProgramGen].getClassLoader());
         //val $u: U = $m$untyped.universe;
         //val $m: $u.Mirror = $m$untyped.asInstanceOf[$u.Mirror];
         //val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol($u.internal.reificationSupport.selectTerm($m.staticModule("Main").asModule.moduleClass, "main"), $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
-        val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
+        //val anon1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TypeName.apply("$anon"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(32L), true);
         //val `lessrefinement>1`: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(anon1, $u.TypeName.apply("<refinement>"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(0L), true);
         //val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(`lessrefinement>1`, $u.TermName.apply("foo"), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
         val symdef$foo1: $u.Symbol = $u.internal.reificationSupport.newNestedSymbol(sru.symbolOf[ProgramGen], $u.TermName.apply(name), $u.NoPosition, $u.internal.reificationSupport.FlagsRepr.apply(80L), false);
@@ -96,6 +122,8 @@ class ProgramGen {
         //$u.internal.reificationSupport.setInfo[$u.Symbol](`lessrefinement>1`, $u.internal.reificationSupport.RefinedType(scala.collection.immutable.List.apply[$u.Type]($u.internal.reificationSupport.TypeRef($u.internal.reificationSupport.ThisType($m.staticPackage("scala").asModule.moduleClass), $u.internal.reificationSupport.selectType($m.staticPackage("scala").asModule.moduleClass, "AnyRef"), immutable.this.Nil)), $u.internal.reificationSupport.newScopeWith(symdef$foo1), `lessrefinement>1`));
         $u.internal.reificationSupport.setInfo[$u.Symbol](symdef$foo1, $u.internal.reificationSupport.NullaryMethodType($m.staticClass("scala.Int").asType.toTypeConstructor));
         symdef$foo1.asMethod
+        */
+        freshMethodSymbol(name, typeRepOf[T])
       }
       def ref: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
