@@ -61,6 +61,8 @@ abstract class ProgramGen {
   
   protected def BASE_NAME_INDEX = 1
   
+  private val Nothing = codeTypeOf[Nothing]
+  
   trait Definition {
     def toScalaTree: sru.Tree
     def showCode = sru.showCode(toScalaTree)
@@ -181,18 +183,41 @@ abstract class ProgramGen {
       def inlined: Code[Self => T,C] = code"($self: Self) => $body".asInstanceOf[Code[Self => T,C]] // FIXME
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
       //override def toString = s"def $name = ${sru.showCode(toScalaTree)}"
-      def bodyToScalaTree = base.scalaTree(body.rep, {
+      def exprToScalaTree(expr: OpenCode[_]) = base.scalaTree(expr.rep, {
         case SelfBound =>
           import sru._
           q"${TypeName(defName)}.this"
         case bv => sru.Ident(sru.TermName(symTable(bv)))
       })
-      def toScalaTree: sru.ValOrDefDef = {
+      def toScalaTree = toScalaTree(true)
+      def toScalaTree(withBody: Bool): sru.ValOrDefDef = {
         import sru._
-        q"def ${TermName(name)}: ${typeRepOf[T].tpe} = $bodyToScalaTree"
+        //q"def ${TermName(name)}: ${typeRepOf[T].tpe} = ${if (withBody) bodyToScalaTree else EmptyTree}"
+        //q"def ${TermName(name)}: ${newBody.Typ.rep.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"
+        //def getArgLists[T](body: OpenCode[T]): List[List[Tree]] -> Tree = body match {
+        def getArgLists[T](body: OpenCode[T]): List[List[ValDef]] -> OpenCode[_] = body match {
+          case c"$b: (($ta) => $tb)" if !(body.Typ <:< Nothing) =>
+            val x -> nb = b match {
+              case c"($x:$$ta) => ($nb:$$tb)" => x.`internal bound` -> nb
+              case _ =>
+                //freshBoundVal(ta.Typ.rep) -> b
+                bindVal("_",ta.rep,Nil) -> b
+            }
+            //val tn = srui.reificationSupport.freshTermName(x.`internal bound`.name)
+            val name = x.name + "_" + freshName
+            val tn = TermName(name)
+            //val tree = Ident(tn)
+            val tree = ValDef(Modifiers(),tn,TypeTree(x.typ.tpe),EmptyTree)
+            symTable += x -> tn.toString
+            val (rest,newBody) = getArgLists(nb)
+            ((tree::Nil)::rest) -> newBody
+          case _ => Nil -> body
+        }
+        val (argss,newBody) = getArgLists(body)
+        q"def ${TermName(name)}(...$argss): ${newBody.Typ.rep.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"
       }
       //override def toString = sru.showCode(toScalaTree)
-      override def toString = s"${defName}#def ${name}: ${typeRepOf[T].tpe}"
+      override def toString = defName+"#"+sru.showCode(toScalaTree(false))
     }
     //abstract class Field[T:CodeType](name: String, mkBody: => Code[T,Ctx & args.Ctx]) extends Method(name, mkBody) {
     abstract class Field[T:CodeType](name: String) extends Method[T](name) {
