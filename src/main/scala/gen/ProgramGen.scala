@@ -110,7 +110,9 @@ abstract class ProgramGen {
     sru.internal.reificationSupport.setInfo[sru.Symbol](symdef$foo1, sru.internal.reificationSupport.NullaryMethodType(typ.tpe));
     //println(symdef$foo1,symdef$foo1.owner,symdef$foo1.fullName)
     // ^ note: for some reason, we get (method isMajor,type Person,gen.Gen.isMajor); instead of the last one bein gen.Gen.Person.isMajor
-    symdef$foo1.asMethod alsoApply { sym => freshMethodSymbols += ((tsym,name,0) -> sym); transparencyPropagatingMtds += sym }
+    symdef$foo1.asMethod alsoApply { sym =>
+      freshMethodSymbols += ((tsym,name,0) -> sym)
+      if (!effect.immediate) transparencyPropagatingMtds += sym }
   }
   
   //trait Scope { scp =>
@@ -146,7 +148,8 @@ abstract class ProgramGen {
     val defName = srcName.value
     //type Ctx >: C
     type Ctx >: C & self.Ctx
-    type Self
+    //type Self
+    type Self <: ClassSelfType
     implicit val Self = {
       base.CodeType[Self](base.staticTypeApp(tsym, Nil))
     }

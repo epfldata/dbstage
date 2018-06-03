@@ -16,6 +16,7 @@ object Gen extends Embedding.ProgramGen {
     val isMajor = method(c{$(age) > 18})
     val upcaseName = field(c"$name.toUpperCase")
     effect(c{println(s"Person created! ${$(name)}")})
+    //val countDown: Method[Int => Unit] = method(c"(n: Int) => { println(n.toString); if (n > 0) $countDown(n-1) }") // SOF
   }
   
 }
@@ -33,10 +34,15 @@ object ProgramGenTests extends App {
   println(inst.rep.dfn)
   println(inst)
   //println(code"$inst")
+  
   println(Person.age(inst))
+  //println(inst.age) // okay: value age is not a member of dbstage.Embedding.Code[gen.Gen.Person.Self,Any]
+  //println((s:PersonT) => s.age) // okay: Unquote syntax ${...} cannot be used outside of a quasiquote.
+  
   //println(inst.run) // Could not find overloading index -1 for method gen.Gen.<init>; perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?
   //println(inst.compile) // scala.tools.reflect.ToolBoxError: reflective compilation has failed: no arguments allowed for nullary constructor Person: ()gen.Gen.Person
-  val p = code"(p: PersonT) => ${Person.name}(p) * ${Person.age}($inst)"
+  //val p = code"(p: PersonT) => ${Person.name}(p) * ${Person.age}($inst)"
+  val p = code"(p: PersonT) => p.name * $inst.age"
   println(p)
   //base debugFor 
   println(p rewrite {
@@ -45,17 +51,21 @@ object ProgramGenTests extends App {
     //case dbg_code"${Person.age}.apply(${Person(Seq(xs))}:PersonT)" => ???  // PROBLEM
     //
     //case code"${Person.age(p)}:Int" => println(p); code"0" // ok, matches
+    
     case code"${Person.age(Person(name,code"$age:Int"))}:Int" => println(name,age); age // type error was due to patmat virt
+    // FIXME doesn't match:
+    case code"(${Person(name,code"$age:Int")}:PersonT).age" => println(name,age); age // type error was due to patmat virt
   })
-  println(inst.rep.dfn)
+  //println(inst.rep.dfn)
   //base debugFor 
   //println(inst match {
-  println(code"${Person.age}apply$inst" match {
+  //println(code"${Person.age}apply$inst" match {
+  println(code"$inst.age" match {
     //case Person(Seq(xs)) => xs
     //case Person(xs@_*) => xs
     case Person(name,age) => (name,age)
     case Person.age(Person(name,age)) => (name,age)
-    case _ => // field is now inlined!
+    case _ => // Person ctor now effectful; and it it were not, its field access would now be inlined!
   })
   
   /*
@@ -76,5 +86,17 @@ structural type and use the methods on Repr in QQs! – just needs reflective me
 A crucial part of the system will be the generation-time cycle detector and recovery!
 Currently it's all too easy to get a stack overflow...
 TODO: precise when cyclic errors should happen and what exactly is alloed –– for sure mutually recursive methods and classes are allowed! 
+
+
+
+// --- OLD ---
+
+EDIT: this was fixed
+Q: why isn't 'new Person', which is effectful, scheduled in:
+    code"""((p_0: gen.Gen.Person) => {
+      val x_1 = Predef.augmentString(p_0.name);
+      x_1.*(new gen.Gen.Person("Bob", 42).age)
+    })"""
+
 
 */

@@ -35,6 +35,7 @@ object MyApp extends Embedding.ProgramGen with Vectors with App {
   //println(VD4.showCode)
   
   println(code"println(1337)")
+  println(code"(x:Int) => x*x".rep.effect)
   
   println("Done.")
   
@@ -71,5 +72,6 @@ AS in:
     val sch_14 = sch_12.+(x_13);
     sch_14.+(sch_14)
   }
+EDIT: in fact, the problem is that multiplication somehows seems to not be pure...
 
 */
