@@ -31,7 +31,26 @@ object ProgramGenTests extends App {
   println(inst)
   //println(inst.run) // Could not find overloading index -1 for method gen.Gen.<init>; perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?
   //println(inst.compile) // scala.tools.reflect.ToolBoxError: reflective compilation has failed: no arguments allowed for nullary constructor Person: ()gen.Gen.Person
-  println(code"(p: PersonT) => ${Person.name}(p) * ${Person.age}($inst)")
+  val p = code"(p: PersonT) => ${Person.name}(p) * ${Person.age}($inst)"
+  println(p)
+  //base debugFor 
+  println(p rewrite {
+    //case code"(${Person(Seq(xs))}:PersonT)|>$${Person.age}" => ???
+    //case code"$${tryInline(Person.age)}(${Person(Seq(xs))}:PersonT)" => ???  // PROBLEM
+    //case dbg_code"${Person.age}.apply(${Person(Seq(xs))}:PersonT)" => ???  // PROBLEM
+    //
+    //case code"${Person.age(p)}:Int" => println(p); code"0" // ok, matches
+    case code"${Person.age(Person(name,code"$age:Int"))}:Int" => println(name,age); age // type error was due to patmat virt
+  })
+  println(inst.rep.dfn)
+  //base debugFor 
+  //println(inst match {
+  println(code"${Person.age}apply$inst" match {
+    //case Person(Seq(xs)) => xs
+    //case Person(xs@_*) => xs
+    case Person(name,age) => (name,age)
+    case Person.age(Person(name,age)) => (name,age)
+  })
   
   /*
   import scala.tools.reflect.ToolBox

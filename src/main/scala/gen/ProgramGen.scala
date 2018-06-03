@@ -161,6 +161,10 @@ abstract class ProgramGen {
       val inst = base.methodApp(base.newObject(Self.rep),ctor,Nil,base.Args(as:_*)::Nil,Self.rep)
       base.Code(inst)
     }
+    def unapplySeq[C](cde: Code[Any,C]): Option[Seq[Code[Any,C]]] = cde.rep |>? {
+    //def unapply[C](cde: Code[Any,C]): Option[Seq[Code[Any,C]]] = cde.rep |>? {
+      case RepDef(MethodApp(RepDef(NewObject(_)),this.ctor,Nil,Args(as@_*)::Nil,ret)) => as.map(Code.apply)
+    }
     
     lazy val ctor = {
       frozenFields = true
@@ -192,8 +196,18 @@ abstract class ProgramGen {
         freshMethodSymbol(tsym, name, typeRepOf[T], effect)
       }
       def insideRef: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
+      // TODO tryInline in:
       def asLambda: Code[Self => T,C] = code"($self: Self) => $insideRef".asInstanceOf[Code[Self => T,C]] // FIXME
       def inlined: Code[Self => T,C] = code"($self: Self) => $body".asInstanceOf[Code[Self => T,C]] // FIXME
+      
+      //def apply[C](self: Code[Self,C])(xs: Code[Any,C]*): Code[Any,C]
+      def apply[C](self: Code[Self,C]): Code[T,C] = ??? // TODO
+      def unapply[C](expr: Code[T,C]): Option[Code[Self,C]] = expr.rep match {
+        case RepDef(MethodApp(self,this.sym,Nil,Nil,_)) => // TODO make sure args always Nil?
+          Some(Code(self))
+        case _ => None
+      }
+      
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
       //override def toString = s"def $name = ${sru.showCode(toScalaTree)}"
       def exprToScalaTree(expr: OpenCode[_]) = base.scalaTree(expr.rep, {
