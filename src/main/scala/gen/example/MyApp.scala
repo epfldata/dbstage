@@ -6,7 +6,7 @@ import Embedding.Predef._
 import Embedding.Quasicodes.{code=>c,_}
 
 object MyApp extends Embedding.ProgramGen with Vectors with App {
-  val root = Root.apply
+  val root = Root.thisEnclosingInstance
   
   val V3 = Vector[Int](3)
   import V3.{Self => V3T}
@@ -17,14 +17,21 @@ object MyApp extends Embedding.ProgramGen with Vectors with App {
     val curried = method(V3.prod.inlined)
     val curried2 = method(c"(a:V3T,b:V3T) => ${V3.prod.inlined}(a)(b) + ${V3.prod.inlined}(a)(b)")
   }
+  //import Main.{Self=>MainT}
+  //println(Main.curried.effect)
   println(Main.showCode)
-  println(Main.curried.effect)
+  // ^ FIXME scheduling fail in curried2: some thinds are shceduled and never used!
+  
+  //println(dbg_code"${Main.curried}(${toRef(Main())})")
+  println(c"${Main.curried}(${Main()})")
+  //println(dbg_code"${Main.curried}(${V3(c"0",c"1",c"2")})")  // note: nice error
+  println(c"${Main.curried.inlined}(${Main()})(${V3(c"0",c"1",c"2")})") // nice, vector is partially evaluated
   
   //println(c{(v: V3T) => $(V3.xs(1))(v)+1})
   //println(c"(v: V3T) => ${V3.xs(0)}(v)+1")
   //println(V3.prod.inlined)
   
-  val VD4 = Vector[Double](4)
+  //val VD4 = Vector[Double](4)
   //println(VD4.showCode)
   
   println("Done.")
@@ -32,6 +39,15 @@ object MyApp extends Embedding.ProgramGen with Vectors with App {
 }
 
 /*
+
+
+FIXedME: widening of type paths is actually DANGEROUS!!
+I could do this:
+  c"${Main.curried}(${V3(c"0",c"1",c"2")})"
+because
+  Main.Self was widened to gen.example.MyApp.Class[Any]#Self
+EDIT: was caused by old toRef implicit method being defined on type projections...
+
 
 FIXME: SchedulingANF produces duplicated values
 AS in:

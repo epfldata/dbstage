@@ -7,7 +7,7 @@ import Embedding.Quasicodes.{code=>c,_}
 
 //object Gen extends ProgramGen {
 object Gen extends Embedding.ProgramGen {
-  val root = Root.apply
+  val root = Root.thisEnclosingInstance
   
   object Person extends Class {
     //println("Creating Person class")

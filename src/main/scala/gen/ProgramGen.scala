@@ -64,7 +64,7 @@ abstract class ProgramGen {
   protected class Root private(val sym: sru.Symbol)
   val root: Root
   //def here(implicit rootTyp: sru.TypeTag[this.type]) = {
-  object Root { def apply(implicit rootTyp: sru.TypeTag[ProgramGen.this.type]) = {
+    object Root { def thisEnclosingInstance(implicit rootTyp: sru.TypeTag[ProgramGen.this.type]) = {
     val rootSym = rootTyp.tpe.typeSymbol
     assert(rootSym.isStatic, s"root symbol $rootSym is not static") // TODO B/E
     new Root(rootSym)
@@ -122,12 +122,22 @@ abstract class ProgramGen {
     //}
   }
   
-  implicit def toRef[T,C](mtd: Class[C]#Method[T]): Code[Class[C]#Self => T,C] =
-    mtd.asLambda.asInstanceOf[Code[Class[C]#Self => T,C]]
+  //implicit def toRef[T,C](mtd: Class[C]#Method[T]): Code[Class[C]#Self => T,C] =
+  //  mtd.asLambda.asInstanceOf[Code[Class[C]#Self => T,C]]
+  
+  // too complicated for Scala:
+  //implicit def toRef[T,C,Cls<:Class[C] with Singleton](mtd: Cls#Method[T]): Code[Cls#Self => T,C] =
+  //  mtd.asLambda.asInstanceOf[Code[Cls#Self => T,C]]
+  
   
   //class ClassImpl extends Scope {
   //  type Ctx <: World
-  class Class[-C](implicit srcName: SrcName) extends Scope[C] with Definition with DelayedInit { selfClass =>
+  class Class[-C](implicit srcName: SrcName) extends ClassImpl[C] {
+    
+    protected implicit def toInsideRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.insideRef
+    
+  }
+  class ClassImpl[-C](implicit srcName: SrcName) extends Scope[C] with Definition with DelayedInit { selfClass =>
     // TODO method, staticMethod, param, field
     val defName = srcName.value
     //type Ctx >: C
@@ -152,7 +162,11 @@ abstract class ProgramGen {
     //private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = new mutable.HashMap[String,Int] with 
     private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = mutable.Map().withDefaultValue(BASE_NAME_INDEX) 
     
-    protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.insideRef
+    //protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.insideRef
+    // conflicts
+    //implicit def toRef[T](mtd: Method[T]): Code[Self => T,C] =
+    implicit def toOutsideRef[T](mtd: Method[T]): Code[Self => T,C] =
+      mtd.asLambda//.asInstanceOf[Code[Self => T,C]]
     
     def apply[C](args: Code[Any,C]*)(implicit pos: Pos): Code[Self,C] = {
       def location = s"in ${defName}(${args.map(showC).mkString(", ")})\n\tat line ${pos.file}:${pos.line}"
@@ -175,7 +189,7 @@ abstract class ProgramGen {
     }
     protected object New {
       def unapply(r: Rep): Option[Seq[Rep]] = r |>? {
-        case RepDef(MethodApp(RepDef(NewObject(_)),Class.this.ctor,Nil,Args(as@_*)::Nil,ret)) => as
+        case RepDef(MethodApp(RepDef(NewObject(_)),ClassImpl.this.ctor,Nil,Args(as@_*)::Nil,ret)) => as
       }
       def apply(as: Seq[Rep]) =
         base.methodApp(base.newObject(Self.rep),ctor,Nil,base.Args(as:_*)::Nil,Self.rep)
@@ -230,6 +244,8 @@ abstract class ProgramGen {
           Some(Code(self))
         case _ => None
       }
+      
+      //implicit def toRef[T]: Code[Self => T,C] = asLambda.asInstanceOf[Code[Self => T,C]]
       
       //def toScalaTree = base.scalaTree(body.rep, bv => sru.Ident(sru.TermName(symTable(bv))))
       //override def toString = s"def $name = ${sru.showCode(toScalaTree)}"
