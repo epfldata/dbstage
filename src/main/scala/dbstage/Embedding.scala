@@ -73,6 +73,9 @@ object Embedding
   //embed(NormalizesLowPriority0)
   //embed(NormalizesLowPriority1)
   
+  override val programGenTransformer = OnlineRewritings
+  
+  // FIXME:
   def typeInter(lhs: dbstage.Embedding.TypeRep, rhs: dbstage.Embedding.TypeRep):dbstage.Embedding.TypeRep = ???
   
   // --- //

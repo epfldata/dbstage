@@ -8,6 +8,7 @@ import scala.reflect.runtime.universe.{internal => srui}
 import sourcecode.{Name => SrcName}
 import squid.ir.SimpleEffect
 import squid.ir.SimpleEffects
+import squid.ir.SimpleRuleBasedTransformer
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import squid.utils._
 
@@ -26,13 +27,17 @@ import Helper.Dummy
 //trait ProgramGenBase {
 //trait ProgramGenBase { selfIR: squid.ir.AST =>
 abstract class ProgramGenBaseClass extends ProgramGenBase // To avoid recompilation of Embedding on change to ProgramGenBase
-trait ProgramGenBase extends squid.ir.AST with SimpleEffects {
+trait ProgramGenBase extends squid.ir.AST with SimpleEffects { IR =>
 //val IR: squid.lang.IntermediateBase
 //val IR: squid.ir.AST // ^ TODO generalize to squid.lang.IntermediateBase
 //import IR.Predef._
 //import IR.IntermediateCodeOps
 //import selfIR.Predef._
 import Predef._
+
+val programGenTransformer: squid.ir.RuleBasedTransformer { val base: IR.type } =
+  //new squid.ir.IdentityTransformer { val base: IR.type = IR  }
+  new SimpleRuleBasedTransformer with SelfTransformer //{ val base: IR.type = IR  }
 
 //private val freshTypeSymbols: Set[]
 protected lazy val freshMethodSymbols: mutable.Map[(TypSymbol,String,Int), MtdSymbol] = mutable.Map()
@@ -267,6 +272,21 @@ abstract class ProgramGen {
       }
       //override def toString = sru.showCode(toScalaTree)
       override def toString = defName+"#"+sru.showCode(toScalaTree(false))
+      
+      //val ANF = IR.asInstanceOf[squid.ir.SimpleANFBase]
+      programGenTransformer.registerRule(
+        //code"123".rep,
+        //const(123),
+        wrapExtract(const(123)), // without wrapExtract, it tries to rewrite it with itself!!!
+        //ANF.Rep(Constant(123).asInstanceOf[ANF.Def]).asInstanceOf[Rep],
+        //const(123) alsoApply println alsoApply ???,
+        xtr => 
+        //println(s"Matched $xtr") thenReturn 
+        Some(code"666".rep)
+        //  base.debugFor(Some(const(666))) thenReturn
+        //??? thenReturn
+        //Some(const(666))
+      )
     }
     //abstract class Field[T:CodeType](name: String, mkBody: => Code[T,Ctx & args.Ctx]) extends Method(name, mkBody) {
     abstract class Field[T:CodeType](name: String) extends Method[T](name) {
