@@ -16,7 +16,15 @@ object Gen extends Embedding.ProgramGen {
     val isMajor = method(c{$(age) > 18})
     val upcaseName = field(c"$name.toUpperCase")
     effect(c{println(s"Person created! ${$(name)}")})
-    //val countDown: Method[Int => Unit] = method(c"(n: Int) => { println(n.toString); if (n > 0) $countDown(n-1) }") // SOF
+    val countAge = method(c"${RecFun()}.countDown.apply($age)")
+  }
+  object RecFun extends Class {
+    val countDownPure: Method[Int => String] =
+      method(c"(n: Int) => if (n > 0) $countDownPure(n-1)+'|'.toString+n.toString else ${Const("")}")
+    val countDown: Method[Int => Unit] =
+      method(c"(n: Int) => { println(n.toString); if (n > 0) $countDown(n-1) }")
+    val countOdds:  Method[Int => Unit] = method(c"(n: Int) => if (n > 0) $countEvens(n-1)")
+    val countEvens: Method[Int => Unit] = method(c"(n: Int) => if (n > 0) $countOdds (n-1)")
   }
   
 }
@@ -27,6 +35,11 @@ object ProgramGenTests extends App {
   
   //println(Person)
   println(Person.showCode)
+  println(RecFun.showCode)
+  
+  // both latent effect; though in principle countDownPure should be pure
+  println(RecFun.countDown.effect)
+  println(RecFun.countDownPure.effect)
   
   //println(Person(c{42})) // assertion failed: Wrong number of parameters in Person(42) for class Person(val name: String, val age: Int)
   //println(Person(c{42}, c{"Bob"})) // assertion failed: Type of argument code"42": CodeType(Int(42)) is incompatible with type of parameter val name = val name: String; in in Person(42, "Bob")

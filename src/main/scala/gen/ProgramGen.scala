@@ -112,7 +112,11 @@ abstract class ProgramGen {
     // ^ note: for some reason, we get (method isMajor,type Person,gen.Gen.isMajor); instead of the last one bein gen.Gen.Person.isMajor
     symdef$foo1.asMethod alsoApply { sym =>
       freshMethodSymbols += ((tsym,name,0) -> sym)
-      if (!effect.immediate) transparencyPropagatingMtds += sym }
+      if (!effect.immediate) {
+        transparencyPropagatingMtds += sym
+        if (!effect.latent) transparentMtds += sym
+      }
+    }
   }
   
   //trait Scope { scp =>
@@ -225,7 +229,7 @@ abstract class ProgramGen {
     abstract class Method[T:CodeType](name: String) extends MethodBase[T](name) with Definition {
       def mkBody: Code[T,Ctx & self.Ctx] // FIXME self.Ctx useless?
       lazy val body: Code[Typ,Ctx & self.Ctx] = mkBody
-      def effect = effectCached(body.rep)
+      def effect = if (symIsComputing) SimpleEffect.Pure else effectCached(body.rep)
       //methods += this
       // TODO upd symTable
       //val ref: Variable[T] = Variable[T]
@@ -235,9 +239,12 @@ abstract class ProgramGen {
       def ref: Code[T,Ctx] = access.toCode
       symTable += access.`internal bound` -> name
       */
+      private var symIsComputing = false 
       lazy val sym = { // TODO put purity annotation depending on body!
         //println(s"Sym of $tsym.$name")
-        freshMethodSymbol(tsym, name, typeRepOf[T], effect)
+        symIsComputing = true
+        try freshMethodSymbol(tsym, name, typeRepOf[T], effect)
+        finally symIsComputing = false
       }
       def insideRef: Code[T,Ctx] = base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[T]))
       // TODO tryInline in:
