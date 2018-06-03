@@ -10,9 +10,12 @@ object Gen extends Embedding.ProgramGen {
   val root = Root.apply
   
   object Person extends Class {
+    //println("Creating Person class")
     val name = param[String]
     val age = param[Int]
     val isMajor = method(c{$(age) > 18})
+    val upcaseName = field(c"$name.toUpperCase")
+    effect(c{println(s"Person created! ${$(name)}")})
   }
   
 }
@@ -26,9 +29,11 @@ object ProgramGenTests extends App {
   
   //println(Person(c{42})) // assertion failed: Wrong number of parameters in Person(42) for class Person(val name: String, val age: Int)
   //println(Person(c{42}, c{"Bob"})) // assertion failed: Type of argument code"42": CodeType(Int(42)) is incompatible with type of parameter val name = val name: String; in in Person(42, "Bob")
-  val inst = Person(c{"Bob"}, c{123})
+  val inst = Person(c{"Bob"}, c{42})
   println(inst.rep.dfn)
   println(inst)
+  //println(code"$inst")
+  println(Person.age(inst))
   //println(inst.run) // Could not find overloading index -1 for method gen.Gen.<init>; perhaps a quasiquote has not been recompiled atfer a change in the source of the quoted code?
   //println(inst.compile) // scala.tools.reflect.ToolBoxError: reflective compilation has failed: no arguments allowed for nullary constructor Person: ()gen.Gen.Person
   val p = code"(p: PersonT) => ${Person.name}(p) * ${Person.age}($inst)"
@@ -50,6 +55,7 @@ object ProgramGenTests extends App {
     //case Person(xs@_*) => xs
     case Person(name,age) => (name,age)
     case Person.age(Person(name,age)) => (name,age)
+    case _ => // field is now inlined!
   })
   
   /*

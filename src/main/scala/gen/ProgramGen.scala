@@ -52,6 +52,8 @@ override def loadTypSymbol(fullName: String): ScalaTypeSymbol =
   //println(fullName,freshTypeSymbols,freshTypeSymbols.get(fullName)) thenReturn 
   freshTypeSymbols.getOrElse(fullName, super.loadTypSymbol(fullName))
 
+override def postProcess(r: Rep): Rep = super.postProcess(r)
+
 //object ProgramGen
 abstract class ProgramGen {
 //class ProgramGen(implicit rootSym: sru.TypeTag[]) {
@@ -146,7 +148,7 @@ abstract class ProgramGen {
     
     protected val methods: mutable.Buffer[Method[_]] = mutable.Buffer()
     private val params: mutable.Buffer[Param[_]] = mutable.Buffer()
-    private val fields: mutable.Buffer[Field[_]] = mutable.Buffer()
+    private val fields: mutable.Buffer[Field[_]] = mutable.Buffer() // note: fields with empty name are considered ctor effects
     //private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = new mutable.HashMap[String,Int] with 
     private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = mutable.Map().withDefaultValue(BASE_NAME_INDEX) 
     
@@ -163,27 +165,43 @@ abstract class ProgramGen {
           assert(a.Typ <:< p.Typ, s"Type of argument $a: ${a.Typ} is incompatible with type of parameter $p; $location")
           a.rep
       }
-      val inst = base.methodApp(base.newObject(Self.rep),ctor,Nil,base.Args(as:_*)::Nil,Self.rep)
+      val inst = New(as)
       base.Code(inst)
     }
     def unapplySeq[C](cde: Code[Any,C]): Option[Seq[Code[Any,C]]] = cde.rep |>? {
     //def unapply[C](cde: Code[Any,C]): Option[Seq[Code[Any,C]]] = cde.rep |>? {
-      case RepDef(MethodApp(RepDef(NewObject(_)),this.ctor,Nil,Args(as@_*)::Nil,ret)) => as.map(Code.apply)
+    //  case RepDef(MethodApp(RepDef(NewObject(_)),this.ctor,Nil,Args(as@_*)::Nil,ret)) => as.map(Code.apply)
+      case New(as) => as.map(Code.apply)
+    }
+    protected object New {
+      def unapply(r: Rep): Option[Seq[Rep]] = r |>? {
+        case RepDef(MethodApp(RepDef(NewObject(_)),Class.this.ctor,Nil,Args(as@_*)::Nil,ret)) => as
+      }
+      def apply(as: Seq[Rep]) =
+        base.methodApp(base.newObject(Self.rep),ctor,Nil,base.Args(as:_*)::Nil,Self.rep)
     }
     
+    lazy val ctorEffect = {
+      //frozenFields = true
+      requireFrozenFields
+      //???
+      //println(tsym,(fields ++ params).map(_.effect))
+      (fields ++ params).map(_.effect).reduceOption(_ | _).getOrElse(SimpleEffect.Pure)
+    }
     lazy val ctor = {
-      frozenFields = true
-      freshMethodSymbol(tsym, "<init>", Self.rep,
-        (fields ++ params).map(_.effect).reduceOption(_ | _).getOrElse(SimpleEffect.Pure))
+      //frozenFields = true
+      //requireFrozenFields
+      //println(tsym,ctorEffect)
+      freshMethodSymbol(tsym, "<init>", Self.rep, ctorEffect)
     }
     
     // rename to TermMember?
-    abstract class MethodBase[T:CodeType] {
+    abstract class MethodBase[T:CodeType](val name: String) {
       type Typ = T
       implicit val Typ = codeTypeOf[T] // extracted to MethodBase to avoid causing trouble...
       
     }
-    abstract class Method[T:CodeType](name: String) extends MethodBase[T] with Definition {
+    abstract class Method[T:CodeType](name: String) extends MethodBase[T](name) with Definition {
       def mkBody: Code[T,Ctx & self.Ctx] // FIXME self.Ctx useless?
       lazy val body: Code[Typ,Ctx & self.Ctx] = mkBody
       def effect = effectCached(body.rep)
@@ -206,7 +224,7 @@ abstract class ProgramGen {
       def inlined: Code[Self => T,C] = code"($self: Self) => $body".asInstanceOf[Code[Self => T,C]] // FIXME
       
       //def apply[C](self: Code[Self,C])(xs: Code[Any,C]*): Code[Any,C]
-      def apply[C](self: Code[Self,C]): Code[T,C] = ??? // TODO
+      def apply[D](self: Code[Self,D]): Code[T,C&D] = code"$asLambda($self)"
       def unapply[C](expr: Code[T,C]): Option[Code[Self,C]] = expr.rep match {
         case RepDef(MethodApp(self,this.sym,Nil,Nil,_)) => // TODO make sure args always Nil?
           Some(Code(self))
@@ -221,9 +239,10 @@ abstract class ProgramGen {
           q"${TypeName(defName)}.this"
         case bv => sru.Ident(sru.TermName(symTable(bv)))
       })
-      def toScalaTree = toScalaTree(true)
+      final def toScalaTree = toScalaTreeImpl(true)
       /** Generate Scala tree for a method def, where methods of function types are transformed to methods with arguments. */
-      def toScalaTree(withBody: Bool): sru.ValOrDefDef = {  // TODO also convert applications of Y combinator to recursive def!
+      //def toScalaTree(withBody: Bool): sru.ValOrDefDef = {  // TODO also convert applications of Y combinator to recursive def!
+      def toScalaTreeImpl(withBody: Bool): sru.Tree = {  // TODO also convert applications of Y combinator to recursive def!
         import sru._
         //q"def ${TermName(name)}: ${newBody.Typ.rep.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"
         def getArgLists[T](body: OpenCode[T], bodyTyp: TypeRep): (List[List[ValDef]], OpenCode[_], TypeRep) = {
@@ -271,8 +290,8 @@ abstract class ProgramGen {
         q"def ${TermName(name)}(...$argss): ${bodyTyp.tpe} = ${if (withBody) exprToScalaTree(newBody) else EmptyTree}"
       }
       //override def toString = sru.showCode(toScalaTree)
-      override def toString = defName+"#"+sru.showCode(toScalaTree(false))
-      
+      override def toString = defName+"#"+sru.showCode(toScalaTreeImpl(false))
+      /*
       //val ANF = IR.asInstanceOf[squid.ir.SimpleANFBase]
       programGenTransformer.registerRule(
         //code"123".rep,
@@ -287,9 +306,10 @@ abstract class ProgramGen {
         //??? thenReturn
         //Some(const(666))
       )
+      */
     }
     //abstract class Field[T:CodeType](name: String, mkBody: => Code[T,Ctx & args.Ctx]) extends Method(name, mkBody) {
-    abstract class Field[T:CodeType](name: String) extends Method[T](name) {
+    abstract class Field[T:CodeType] private[ProgramGen](name: String) extends Method[T](name) {
       //def mkBody: Code[T,Ctx & access.Ctx]
       //def mkBody: Code[T,Ctx]
       def mkBody: Code[T,Ctx & self.Ctx]
@@ -300,13 +320,18 @@ abstract class ProgramGen {
         if (fatalFrozenFieldError) throw e else e.printStackTrace()
       }
       //fields += this
+      override def toScalaTreeImpl(withBody: Bool) = { // TODO use withBody?
+        import sru._
+        val scalaBody = exprToScalaTree(body)
+        if (name.isEmpty) scalaBody else q"val ${TermName(name)}: ${typeRepOf[T].tpe} = $scalaBody"
+      }
       override def toString = s"val $name = ${sru.showCode(toScalaTree)}"
     }
-    class Param[T:CodeType](name: String) extends Field[T](name) {
+    class Param[T:CodeType] private[ProgramGen](name: String) extends Field[T](name) {
       //val accessor = Variable[T]("accessor")
       def mkBody: Code[T,Ctx & self.Ctx] = insideRef // Q: makes sense?
       override def effect: SimpleEffect = SimpleEffect.Pure // or cyclic def!!
-      override def toScalaTree = {
+      override def toScalaTreeImpl(withBody: Bool) = {
         import sru._
         q"val ${TermName(name)}: ${typeRepOf[T].tpe}"
       }
@@ -317,10 +342,12 @@ abstract class ProgramGen {
       m(name) = idx + 1
       if (idx > BASE_NAME_INDEX) s"${name}_$idx" else name
     }
-    protected def method[T:CodeType](bodyFun: => Code[T,Ctx])(implicit srcName: SrcName): Method[T] =
+    def method[T:CodeType](bodyFun: => Code[T,Ctx])(implicit srcName: SrcName): Method[T] =
       new Method[T](srcName.value |> allocateName(false)) { def mkBody = bodyFun } alsoApply {methods += _}
     protected def field[T:CodeType](bodyFun: => Code[T, Ctx])(implicit srcName: SrcName): Field[T] =
       new Field[T](srcName.value |> allocateName(false)) { def mkBody = bodyFun } alsoApply {fields += _}
+    protected def effect[T:CodeType](bodyFun: => Code[T, Ctx]): Field[T] =
+      new Field[T]("") { def mkBody = bodyFun } alsoApply {fields += _}
     protected def param[T:CodeType](implicit srcName: SrcName): Param[T] =
       new Param[T](srcName.value |> allocateName(false)) alsoApply {params += _}
     
@@ -335,13 +362,52 @@ abstract class ProgramGen {
       if (params.isEmpty) s"class $defName"
       else s"class $defName(${params.map(sru showCode _.toScalaTree).mkString(", ")})"
     
+    def requireFrozenFields = assert(frozenFields)
     private[this] var frozenFields = false
     def delayedInit(body: => Unit) = {
-      //println(s"Init ${selfClass.name}")
-      frozenFields = false // it turns out that `delayedInit` can actually be called several times...
+      //println(s"Init ${selfClass.defName} ${frozenFields}")
+      val earlyInit = selfClass.defName === null
+      // ^ it turns out that `delayedInit` can actually be called several times... the first time (where defName is null) it's too early to register rules!
+      frozenFields = false
       body
-      frozenFields = true
+      if (!earlyInit) {
+        frozenFields = true
+        registerReductions()
+      }
       //println(s"Done ${selfClass.name}")
+    }
+    private def registerReductions() = {
+      requireFrozenFields
+      // TODOne if pure
+      //println(ctor,ctorEffect,ctorEffect.immediate)
+      if (!ctorEffect.immediate) // we could also inline effects, but that could be dangerous (increases program size)
+      for {
+        //(f,i) <- (fields ++ params).zipWithIndex
+        (f,i) <- params.zipWithIndex
+      } yield {
+        val pnames = params.map(p => p -> (p.name+"_hole"))
+        programGenTransformer.registerRule(
+        //code"123".rep,
+        //const(123),
+          wrapExtract{
+            //rep(MethodApp(hole("self",Self.rep),f.sym,Nil,Nil,f.Typ.rep))
+            rep(MethodApp(New(pnames.map{case p->n=>hole(n,p.Typ.rep)}),f.sym,Nil,Nil,f.Typ.rep))
+          },
+          xtr => {
+            val args = pnames.map(_._2).map(xtr._1)
+            // inlining effects: this impl is buggy as it does not take care of self references!
+            /*
+            val res = args(i)
+            val effects = fields.filter(_.effect.immediate).map(_.body.rep)
+            //val ret = effects.foldLeft()
+            val ret = Imperative(effects:_*)(res)
+            Some(ret)
+            */
+            Some(args(i))
+            //Some(const(123))
+          }
+        )
+      }
     }
   }
   
