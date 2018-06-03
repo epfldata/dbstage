@@ -59,6 +59,8 @@ abstract class ProgramGen {
 //class ProgramGen(implicit rootSym: sru.TypeTag[]) {
   type World
   
+  protected val online: programGenTransformer.type = programGenTransformer
+  
   protected def showC(cde: OpenCode[Any]) = cde.rep|>base.showRep // TODO mv to Squid?
   
   protected class Root private(val sym: sru.Symbol)
@@ -78,6 +80,8 @@ abstract class ProgramGen {
   protected def BASE_NAME_INDEX = 1
   
   private val Nothing = codeTypeOf[Nothing]
+  
+  def rewrite[T:CodeType,C]: PartialFunction[Code[T,C], Code[T,C]] = { case cde => cde }
   
   trait Definition {
     def toScalaTree: sru.Tree

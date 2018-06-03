@@ -34,6 +34,8 @@ object MyApp extends Embedding.ProgramGen with Vectors with App {
   //val VD4 = Vector[Double](4)
   //println(VD4.showCode)
   
+  println(code"println(1337)")
+  
   println("Done.")
   
 }

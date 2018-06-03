@@ -43,4 +43,14 @@ trait Vectors extends Embedding.ProgramGen {
   }
   def Vector[N: CodeType: Num](n: Int) = new Vector[N](n: Int)
   
+  // just to test the syntax; not properly wired yet:
+  override def rewrite[T:CodeType,C] = {
+    case code"1337" => code"-7331:T"
+    case t => super.rewrite[T,C] apply t
+  }
+  // compare to:
+  online.dbg_rewrite {
+    case code"1337" => code"-7331"
+  }
+  
 }
