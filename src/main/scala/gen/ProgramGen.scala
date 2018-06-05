@@ -9,6 +9,7 @@ import sourcecode.{Name => SrcName}
 import squid.ir.SimpleEffect
 import squid.ir.SimpleEffects
 import squid.ir.SimpleRuleBasedTransformer
+import squid.lang.ScalaCore
 import squid.utils.meta.{RuntimeUniverseHelpers => ruh}
 import squid.utils._
 
@@ -21,13 +22,14 @@ object Helper {
   class Dummy[T]
   @compileTimeOnly("dummy")
   def Dummy[T](arg: => T): Dummy[T] = ???
+  def Dummy0[T]: Dummy[T] = ???
 }
-import Helper.Dummy
+import Helper.{Dummy,Dummy0}
 
 //trait ProgramGenBase {
 //trait ProgramGenBase { selfIR: squid.ir.AST =>
 abstract class ProgramGenBaseClass extends ProgramGenBase // To avoid recompilation of Embedding on change to ProgramGenBase
-trait ProgramGenBase extends squid.ir.AST with SimpleEffects { IR =>
+trait ProgramGenBase extends squid.ir.AST with SimpleEffects with ScalaCore { IR =>
 //val IR: squid.lang.IntermediateBase
 //val IR: squid.ir.AST // ^ TODO generalize to squid.lang.IntermediateBase
 //import IR.Predef._
@@ -338,6 +340,20 @@ abstract class ProgramGen {
       )
       */
     }
+    
+    //private val varAssign = freshMethodSymbol(
+    //  //loadMtdSymbol("")
+    //  base.`squid.lib.MutVar`.tsym,
+    //  "=",
+    //  typeRepOf[Unit],
+    //  SimpleEffect.Impure
+    //)
+    private val pgrmGenModule = staticModule("gen.ProgramGen")
+    private val varAssign = loadMtdSymbol(
+      loadTypSymbol("gen.ProgramGen$"),
+      "assignVar"
+    )
+    
     //abstract class Field[T:CodeType](name: String, mkBody: => Code[T,Ctx & args.Ctx]) extends Method(name, mkBody) {
     abstract class Field[T:CodeType] private[ProgramGen](name: String) extends Method[T](name) {
       //def mkBody: Code[T,Ctx & access.Ctx]
@@ -350,10 +366,50 @@ abstract class ProgramGen {
         if (fatalFrozenFieldError) throw e else e.printStackTrace()
       }
       //fields += this
+      
+      import squid.lib.MutVar
+      
+      override def effect = effectValue 
+      private lazy val effectValue =  c"Dummy[T]($body)" match {
+        case c"Dummy[MutVar[$tp]]($_)" =>
+          SimpleEffect.Impure // note:
+        case _ =>
+          super.effect
+      }
+      
+      override def insideRef: Code[T,Ctx] = c"Dummy[T]($body)" match {
+        case c"Dummy[MutVar[$tp]]($_)" =>
+          c"squid.lib.MutVarProxy[$tp](${
+            //super.insideRef.asInstanceOf[ClosedCode[tp.Typ]]
+            base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[tp.Typ]))
+          }, ${
+            val a = Variable[tp.Typ]
+            val s = base.byName(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[tp.Typ]))
+            c"{$a=>${
+              base.Code[Unit,Any](base.methodApp(pgrmGenModule, varAssign, Nil, Args(s,a.toCode.rep)::Nil, typeRepOf[Unit]))
+            }}"
+          }):T"
+        case _ =>
+          super.insideRef
+      }
+      // TODO override `inlined`?
+      //def inlined: Code[Self => T,C]
+      
       override def toScalaTreeImpl(withBody: Bool) = { // TODO use withBody?
         import sru._
-        val scalaBody = exprToScalaTree(body)
-        if (name.isEmpty) scalaBody else q"val ${TermName(name)}: ${typeRepOf[T].tpe} = $scalaBody"
+        //val scalaBody = exprToScalaTree(body)
+        //if (name.isEmpty) scalaBody else c"null:Dummy[T]" match { // TODO inline tuples?
+        //if (name.isEmpty) scalaBody else c"Dummy0[T]" match { // TODO inline tuples?
+        if (name.isEmpty) exprToScalaTree(body) else c"Dummy[T]($body)".erase match { // TODO inline tuples?
+          //case c"$_:Dummy[squid.lib.MutVar[$tp]]" =>
+          case c"Dummy[MutVar[$tp]](MutVar($b))" =>
+            q"var ${TermName(name)}: ${typeRepOf[tp.Typ].tpe} = ${exprToScalaTree(b)}"
+          case c"Dummy[MutVar[$tp]]($b)" =>
+            q"var ${TermName(name)}: ${typeRepOf[tp.Typ].tpe} = ${exprToScalaTree(c"$b.!")}"
+            // TODO also change usages everywhere! -- is it even feasible?
+          case _ =>
+            q"val ${TermName(name)}: ${typeRepOf[T].tpe} = ${exprToScalaTree(body)}"
+        }
       }
       override def toString = s"val $name = ${sru.showCode(toScalaTree)}"
     }
@@ -447,4 +503,8 @@ abstract class ProgramGen {
   }
   
 }
+}
+object ProgramGen {
+  // TODO macro
+  def assignVar[A](theVar: => A, value: A): Unit = ???
 }

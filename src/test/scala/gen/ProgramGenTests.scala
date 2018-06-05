@@ -27,6 +27,11 @@ object Gen extends Embedding.ProgramGen {
     val countEvens: Method[Int => Unit] = method(c"(n: Int) => if (n > 0) $countOdds (n-1)")
   }
   
+  object Counter extends Class {
+    val count = field(c"squid.lib.MutVar(0)")
+    val inc = method(c"$count := $count.! + 1")
+  }
+  
 }
 import Gen._
 import Person.{Self => PersonT}  // FIXME not importing this uses the abstract type :-/
@@ -87,6 +92,11 @@ object ProgramGenTests extends App {
   val toolBox = sru.runtimeMirror(getClass.getClassLoader).mkToolBox()
   toolBox.eval(Person.toScalaTree) alsoApply println
   */
+}
+object ProgramGenTests_MutVars extends App {
+  
+  println(Counter.showCode)
+  
 }
 
 /*

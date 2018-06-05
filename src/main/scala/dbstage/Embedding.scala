@@ -140,7 +140,6 @@ object Embedding
   //transparencyPropagatingMtds += methodSymbol[dbstage.moncomp.SortedBy.type]("apply")
   
   
-  
   // TODO move to Squid
   object ClosedCode {
     def unapply[T,C](c:Code[T,C]): Option[ClosedCode[T]] = {
@@ -232,6 +231,18 @@ object OnlineRewritings extends Embedding.SelfTransformer with SimpleRuleBasedTr
     case code"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._4" => x3
     case code"($x0:$t0,$x1:$t1,$x2:$t2,$x3:$t3,$x4:$t4)._5" => x4
   }
+  
+  rewrite {
+    //case x@code"squid.lib.`package`.MutVarProxy[$at]($a,$f)" =>
+    //  //test(x)
+    //  code"squid.lib.`package`.MutVarProxy[$at]($a,$f):squid.lib.MutVar[$at]"
+    case code"squid.lib.`package`.MutVarProxy[$at]($a,$f).!" => a
+    case code"squid.lib.`package`.MutVarProxy[$at]($a,$f):=$v" => c"$f($v)"
+    //case code"???" => c"die"
+  }
+  //def test(x:OpenCode[Any]) = base debugFor (x match {
+  //      case code"squid.lib.`package`.MutVarProxy[$at]($a,$f).!" => ???
+  //    })
   
   rewrite {
     case code"the[$t where (t <:< AnyRef)]($x:t)" => x
