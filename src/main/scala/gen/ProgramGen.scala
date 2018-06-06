@@ -377,8 +377,8 @@ abstract class ProgramGen {
           super.effect
       }
       
-      override def insideRef: Code[T,Ctx] = c"Dummy[T]($body)" match {
-        case c"Dummy[MutVar[$tp]]($_)" =>
+      override def insideRef: Code[T,Ctx] = c"Dummy0[T]" match {
+        case c"Dummy0[MutVar[$tp]]" =>
           c"squid.lib.MutVarProxy[$tp](${
             //super.insideRef.asInstanceOf[ClosedCode[tp.Typ]]
             base.Code(base.methodApp(self.rep, sym, Nil, Nil, typeRepOf[tp.Typ]))
