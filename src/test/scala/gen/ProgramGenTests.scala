@@ -34,9 +34,9 @@ object Gen extends Embedding.ProgramGen {
   
 }
 import Gen._
-import Person.{Self => PersonT}  // FIXME not importing this uses the abstract type :-/
 
 object ProgramGenTests extends App {
+  import Person.{Self => PersonT}  // FIXME not importing this uses the abstract type :-/
   
   //println(Person)
   println(Person.showCode)
@@ -92,6 +92,16 @@ object ProgramGenTests extends App {
   val toolBox = sru.runtimeMirror(getClass.getClassLoader).mkToolBox()
   toolBox.eval(Person.toScalaTree) alsoApply println
   */
+}
+object ProgramGenTests_2 extends App {
+  
+  //(Person:CodeType[_]) alsoApply println
+  
+  code"collection.mutable.Buffer[$Person]()" alsoApply println
+  
+  //code"(p: Person) => p.name * p.age" alsoApply println // [good] Embedding Error: Quoted expression does not type check: not found: type Person
+  code"(p: $Person) => p.name * p.age" alsoApply println
+  
 }
 object ProgramGenTests_MutVars extends App {
   

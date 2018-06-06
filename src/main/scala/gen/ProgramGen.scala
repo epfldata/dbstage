@@ -175,6 +175,8 @@ abstract class ProgramGen {
     //private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = new mutable.HashMap[String,Int] with 
     private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = mutable.Map().withDefaultValue(BASE_NAME_INDEX) 
     
+    implicit def toType(self: this.type): CodeType[Self] = Self
+    
     //protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.insideRef
     // conflicts
     //implicit def toRef[T](mtd: Method[T]): Code[Self => T,C] =
@@ -368,6 +370,8 @@ abstract class ProgramGen {
       //fields += this
       
       import squid.lib.MutVar
+      
+      import squid.quasi.SuppressWarning.`scrutinee type mismatch`
       
       override def effect = effectValue 
       private lazy val effectValue =  c"Dummy[T]($body)" match {
