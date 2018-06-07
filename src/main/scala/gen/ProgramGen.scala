@@ -176,6 +176,7 @@ abstract class ProgramGen {
     private val usedTermNames, usedTypeNames: mutable.Map[String,Int] = mutable.Map().withDefaultValue(BASE_NAME_INDEX) 
     
     implicit def toType(self: this.type): CodeType[Self] = Self
+    //implicit def toCtor(self: this.type): Code[Any => Self,C] = Code()
     
     //protected implicit def toRef[T](mtd: Method[T]): Code[T,Ctx] = mtd.insideRef
     // conflicts
