@@ -56,7 +56,7 @@ class StagedDatabase(implicit name: Name)
     // Helpers for the generated code:
     val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]])
     def getSize: Code[Int, Ctx] =
-      code{ $(variableInGeneratedCode).size }.unsafe_asClosedCode // FIXME scope
+      code{ $(variableInGeneratedCode).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
     def getAt: Code[Int => T, Ctx] =
       code{ i: Int => $(variableInGeneratedCode)(i) }.unsafe_asClosedCode // FIXME scope
   }

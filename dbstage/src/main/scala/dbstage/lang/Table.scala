@@ -19,6 +19,12 @@ abstract class TableView[T] { view =>
     protected def iterator: Iterator[T] = view.iterator.filter(pred)
     def size: Int = iterator.size
   }
+  def map(f: T => T): TableView[T] = new Map(f)
+
+  class Map(f: T => T) extends TableView[T] {
+    protected def iterator: Iterator[T] = view.iterator.map(f)
+    def size: Int = view.size
+  }
 }
 class TableScan[T](tbl: Table[T]) extends TableView[T] {
   protected def iterator: Iterator[T] = tbl.iterator

@@ -26,6 +26,7 @@ trait QueryCompiler { self: StagedDatabase =>
     val res: IterationPlan[_, Ctx] = rep match {
       case View(tbl) => Scan(tbl)
       case Filter(view, pred) => Selection(planIteration(view), pred)
+      case Map(view, f) => QueryMap(planIteration(view), f)
     }
     res.asInstanceOf[IterationPlan[T, Ctx]]
   }
@@ -48,9 +49,10 @@ trait QueryCompiler { self: StagedDatabase =>
   /** The plan for some iteration as part of a bigger query plan. */
   sealed abstract class IterationPlan[Row: CodeType, -C] {
     // def pull: Code[(() => T) => Unit, ] // TODO pull plans
+    // What are pull plans?
     
     /** A way to generate code for pushing rows. */
-    def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0]
+    def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] // Why Row => Boolean? Where is it used?
     
     def foreach[C0 <: C](step: Code[Row => Unit, C0]): Code[Unit, C0] =
       push(code{ row: Row => $(step)(row); true })
@@ -73,6 +75,14 @@ trait QueryCompiler { self: StagedDatabase =>
   {
     def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] =
       src.push[C0](code{ row: Row => if ($(pred)(row)) $(step)(row) else true })
+  }
+
+  case class QueryMap[Row: CodeType, C >: Ctx]
+    (src: IterationPlan[Row, C], f: Code[Row => Row, C])
+    extends IterationPlan[Row, C]
+  {
+    def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] =
+      src.push[C0](code{ row: Row => $(step)($(f)(row))})
   }
   
 }

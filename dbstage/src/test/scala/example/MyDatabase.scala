@@ -25,11 +25,15 @@ object MyDatabase extends StagedDatabase {
     $(personsTable).view.filter(_.isMinor).size
   })
   
+  val allOld = query[Int](code{
+    $(personsTable).view.map(p => new Person(p.name, p.age+100)).size
+  })
 }
 
 
 import squid.quasi.{lift, dbg_lift}
 
+// Why not case class?
 @lift
 class Person(val name: String, val age: Int) {
   def isMinor = age < 18
