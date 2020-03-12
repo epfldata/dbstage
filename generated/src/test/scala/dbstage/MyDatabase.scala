@@ -1,25 +1,22 @@
 
     import scala.collection.mutable
     object MyDatabase {
-      class Person {
-  val name : String = null;
-  val age : Int = 0;
-
-}
-      def isMinor_57c263e7(this_792dd012: Person): Boolean = {
-  val x_0 = this_792dd012.age;
+      case class Person (  name : String,   age : Int)
+      def insert_5344f565(this_47560426: Person): Unit.type = scala.Unit
+def isMinor_28ffb38f(this_47560426: Person): Boolean = {
+  val x_0 = this_47560426.age;
   x_0.<(18)
 }
-      val personsTable_7da930fd = mutable.ArrayBuffer.empty[Person]
+      val personsTable_5669af5d = mutable.ArrayBuffer.empty[Person]
       def allOld = {
   var res_0: scala.Int = 0;
-  val size_1 = personsTable_7da930fd.size;
+  val size_1 = personsTable_5669af5d.size;
   var i_2: scala.Int = 0;
   while ({
     val x_3 = i_2;
     x_3.<(size_1).&&({
       val i_4 = i_2;
-      val x_5 = personsTable_7da930fd(i_4);
+      val x_5 = personsTable_5669af5d(i_4);
       val x_6 = x_5.name;
       val x_7 = x_5.age;
       val x_8 = new Person(x_6, x_7.+(100));
@@ -36,16 +33,17 @@
   ;
   res_0
 }
+def insert = personsTable_5669af5d.append(p_1a1eb10d)
 def allMinors = {
   var res_0: scala.Int = 0;
-  val size_1 = personsTable_7da930fd.size;
+  val size_1 = personsTable_5669af5d.size;
   var i_2: scala.Int = 0;
   while ({
     val x_3 = i_2;
     x_3.<(size_1).&&({
       val i_4 = i_2;
-      val x_5 = personsTable_7da930fd(i_4);
-      val x_6 = isMinor_57c263e7(x_5);
+      val x_5 = personsTable_5669af5d(i_4);
+      val x_6 = isMinor_28ffb38f(x_5);
       if (x_6.asInstanceOf[scala.Boolean])
         {
           val x_7 = res_0;

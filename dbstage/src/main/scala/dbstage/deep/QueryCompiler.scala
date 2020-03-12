@@ -18,6 +18,9 @@ trait QueryCompiler { self: StagedDatabase =>
         import s.{Res, Row} // to get the right implicit type representations in scope
         Aggregate[Row, Int, Ctx](planIteration(s.q),
           code{ 0 }, code{ (_: Row, acc: Int) => acc + 1 })
+      case i: Insert[_, C @unchecked] =>
+        import i.{Row}
+        Insertion[Row, Ctx](i.tbl, i.el)
       case _ => ??? // unsupported for now
     }
     res.asInstanceOf[QueryPlan[T, Ctx]]
@@ -44,6 +47,14 @@ trait QueryCompiler { self: StagedDatabase =>
         $(src.foreach(code{ row: Row => res = $(acc)(row, res) }))
         res
       }
+    }
+  
+  case class Insertion[Row, C]
+    (src: TableRep[Row], el: Code[Row, C])
+    extends QueryPlan[Unit, C] {
+      def getCode: Code[Unit, C] = code{
+        $(src.append)($(el))
+      }.unsafe_asClosedCode
     }
   
   /** The plan for some iteration as part of a bigger query plan. */

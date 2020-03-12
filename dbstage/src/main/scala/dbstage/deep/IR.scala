@@ -17,6 +17,7 @@ object IR extends SimpleANF
   // These are used to allow the ANF representation not to let-bind them,
   // as they can be considered pure (if their arguments are):
   transparencyPropagatingMtds += methodSymbol[Table[_]]("view")
+  transparencyPropagatingMtds += methodSymbol[Table[_]]("insert")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("filter")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("size")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("map")

@@ -59,6 +59,8 @@ class StagedDatabase(implicit name: Name)
       code{ $(variableInGeneratedCode).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
     def getAt: Code[Int => T, Ctx] =
       code{ i: Int => $(variableInGeneratedCode)(i) }.unsafe_asClosedCode // FIXME scope
+    def append: Code[T => Unit, Ctx] =
+      code{ t: T => $(variableInGeneratedCode).append(t) }.unsafe_asClosedCode // FIXME scope
   }
   
   /** The representation of a query expressed in this staged database. */

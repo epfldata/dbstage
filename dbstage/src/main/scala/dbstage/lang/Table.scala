@@ -7,6 +7,7 @@ class Table[T] {
   def iterator: Iterator[T] = data.iterator
   def size: Int = data.size
   def view: TableView[T] = new TableScan(this)
+  def insert(t: T): TableView[T] = new Insert(this, t)
 }
 abstract class TableView[T] { view =>
   protected def iterator: Iterator[T]
@@ -26,6 +27,11 @@ abstract class TableView[T] { view =>
     def size: Int = view.size
   }
 }
+class Insert[T](tbl: Table[T], t: T) extends TableView[T] {
+  protected def iterator: Iterator[T] = tbl.iterator ++ Iterator(t)
+  def size: Int = iterator.size
+}
+
 class TableScan[T](tbl: Table[T]) extends TableView[T] {
   protected def iterator: Iterator[T] = tbl.iterator
   def size: Int = tbl.size

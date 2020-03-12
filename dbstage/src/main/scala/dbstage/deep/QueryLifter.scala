@@ -41,6 +41,12 @@ trait QueryLifter { db: StagedDatabase =>
               .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
             View(tbl)
           //case code"""{val ${x} = ${s}; ${x}.${f}}""" => code"$s.$f"
+          case code"($t0: $tx) => ($tableCode: Table[$ty]).insert($t1)" => // Write this better
+            // Doesn't work, just has a reference
+            val tbl = getTable(tableCode)
+              .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
+            println(queryCode.showScala)
+            Insert[ty.Typ, C](tbl, t1.asInstanceOf[IR.Code[ty.Typ, C]]) // Erasing t0 ctx?
           case _ =>
             liftingError(s"do not know how to lift query: ${queryCode.showScala}")
         }
@@ -76,6 +82,12 @@ trait QueryLifter { db: StagedDatabase =>
 
   case class Size[T: CodeType, C](q: QueryRep[TableView[T], C])
     extends QueryRep[Int, C] {
+      type Row = T
+      implicit val Row = codeTypeOf[Row]
+    }
+  
+  case class Insert[T: CodeType, C]
+    (tbl: TableRep[T], el: Code[T, C]) extends QueryRep[TableView[T], C] {
       type Row = T
       implicit val Row = codeTypeOf[Row]
     }

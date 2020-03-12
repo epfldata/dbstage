@@ -3,6 +3,7 @@ package example
 import dbstage.deep._
 import IR.Predef._
 import IR.Quasicodes._
+import dbstage.lang.TableView
 
 
 // For now, we will define the database in a programmatic way as follows.
@@ -28,6 +29,10 @@ object MyDatabase extends StagedDatabase {
   val allOld = query[Int](code{
     $(personsTable).view.map(p => new Person(p.name, p.age+100)).size
   })
+
+  val insert = query[Person=>TableView[Person]](code{
+    p: Person => $(personsTable).insert(p)
+  })
 }
 
 
@@ -35,7 +40,7 @@ import squid.quasi.{lift, dbg_lift}
 
 // Why not case class?
 @lift
-class Person(val name: String, val age: Int) {
+case class Person(val name: String, val age: Int) {
   def isMinor = age < 18
 }
 
