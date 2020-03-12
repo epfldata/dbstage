@@ -17,13 +17,19 @@ trait DatabaseCompiler { self: StagedDatabase =>
       val body = cls.fields.foldRight("") {
         case (f, acc) =>
           import f.A
-          s"  val ${f.name}: ${A.rep} = ${f.init.getOrElse(nullValue[A]).showScala};\n$acc"
+          val init = f.init match {
+            case Some(value) => s" = ${value.showScala}"
+            case None => ""
+          }
+          val previous = if (acc.nonEmpty) s", $acc" else ""
+
+          s"  ${f.name}: ${A.rep}$init$previous"
       }
-      s"class ${cls.name}${
+      s"case class ${cls.name}${
         if (cls.tparams.isEmpty) "" else cls.tparams.map(_.name).mkString("[", ", ", "]")
-      } {\n" +
+      } (" +
         body +
-      "\n}"
+      ")"
     }
     val methods = knownMethods.map { case (_, mtd) =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
