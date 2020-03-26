@@ -2,56 +2,56 @@
     import scala.collection.mutable
     object MyDatabase {
       case class Person (  name : String,   age : Int)
-      def insert_5344f565(this_47560426: Person): Unit.type = scala.Unit
-def isMinor_28ffb38f(this_47560426: Person): Boolean = {
-  val x_0 = this_47560426.age;
+      def isMinor_4cb0f030(this_53f81b46: Person): Boolean = {
+  val x_0 = this_53f81b46.age;
   x_0.<(18)
 }
-      val personsTable_5669af5d = mutable.ArrayBuffer.empty[Person]
-      def allOld = {
+      def age_2d71e45e(this_53f81b46: Person): Int = this_53f81b46._2
+def name_3e9d09d7(this_53f81b46: Person): String = this_53f81b46._1
+      val personsTable_500db6 = mutable.ArrayBuffer.empty[Person]
+      def insert = personsTable_500db6.append(p_1580e2c4)
+def allMinors = {
   var res_0: scala.Int = 0;
-  val size_1 = personsTable_5669af5d.size;
+  val size_1 = personsTable_500db6.size;
   var i_2: scala.Int = 0;
   while ({
     val x_3 = i_2;
     x_3.<(size_1).&&({
       val i_4 = i_2;
-      val x_5 = personsTable_5669af5d(i_4);
-      val x_6 = x_5.name;
-      val x_7 = x_5.age;
-      val x_8 = new Person(x_6, x_7.+(100));
-      val x_9 = res_0;
-      val x_12 = ((x$1_10: Person, acc_11: scala.Int) => acc_11.+(1)).apply(x_8, x_9);
-      res_0 = x_12;
+      val x_5 = personsTable_500db6(i_4);
+      val x_6 = isMinor_4cb0f030(x_5);
+      if (x_6.asInstanceOf[scala.Boolean])
+        {
+          val x_7 = res_0;
+          res_0 = x_7.+(1);
+          true
+        }
+      else
       true
     })
   }) 
     {
-      val x_13 = i_2;
-      i_2 = x_13.+(1)
+      val x_8 = i_2;
+      i_2 = x_8.+(1)
     }
   ;
   res_0
 }
-def insert = personsTable_5669af5d.append(p_1a1eb10d)
-def allMinors = {
+def allOld = {
   var res_0: scala.Int = 0;
-  val size_1 = personsTable_5669af5d.size;
+  val size_1 = personsTable_500db6.size;
   var i_2: scala.Int = 0;
   while ({
     val x_3 = i_2;
     x_3.<(size_1).&&({
       val i_4 = i_2;
-      val x_5 = personsTable_5669af5d(i_4);
-      val x_6 = isMinor_28ffb38f(x_5);
-      if (x_6.asInstanceOf[scala.Boolean])
-        {
-          val x_7 = res_0;
-          val x_10 = ((x$1_8: Person, acc_9: scala.Int) => acc_9.+(1)).apply(x_5, x_7);
-          res_0 = x_10;
-          true
-        }
-      else
+      val x_5 = personsTable_500db6(i_4);
+      val x_6 = name_3e9d09d7(x_5);
+      val x_7 = age_2d71e45e(x_5);
+      val x_8 = x_7.asInstanceOf[scala.Int].+(100);
+      val x_9 = new Person(x_6.asInstanceOf[java.lang.String], x_8);
+      val x_10 = res_0;
+      res_0 = x_10.+(1);
         true
     })
   }) 

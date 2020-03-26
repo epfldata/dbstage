@@ -40,7 +40,7 @@ import squid.quasi.{lift, dbg_lift}
 
 // Why not case class?
 @lift
-case class Person(val name: String, val age: Int) {
+case class Person(var name: String, var age: Int) {
   def isMinor = age < 18
 }
 

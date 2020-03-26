@@ -35,6 +35,10 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
         s"${mtd.body.Typ.rep} = ${mtd.body.showScala}"
     }
+    val fieldGetters = knownFieldGetters.map { case (_, (mtd, typ, body)) =>
+      s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
+        s"${typ} = ${body}"
+    }
     // For now, use an mutable.ArrayBuffer; in the future it will use LMDB
     val tables = tablesMapping.map { case (_, tbl) =>
       s"val ${tbl.variableInGeneratedCode.toCode.showScala} = mutable.ArrayBuffer.empty[${tbl.T.rep}]"
@@ -49,6 +53,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     object $dbName {
       ${dataClasses.mkString("\n")}
       ${methods.mkString("\n")}
+      ${fieldGetters.mkString("\n")}
       ${tables.mkString("\n")}
       ${queries.mkString("\n")}
     }

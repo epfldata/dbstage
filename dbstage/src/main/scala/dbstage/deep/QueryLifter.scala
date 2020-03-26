@@ -62,6 +62,11 @@ trait QueryLifter { db: StagedDatabase =>
       assert(app.args.size == 1) // we will handle methods with parameters later
       val thisArg = app.args.head.head
       code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
+    case code"${MethodApplication(app)}: $ty" if knownFieldGetters.contains(app.symbol) =>
+      val m = knownFieldGetters(app.symbol)._1
+      assert(app.args.size == 1) // we will handle methods with parameters later
+      val thisArg = app.args.head.head
+      code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
   }
   
   /** Internal representation of database queries. */

@@ -36,6 +36,7 @@ class StagedDatabase(implicit name: Name)
   protected val knownClasses = mutable.Set.empty[Clasz[_]]
   protected val knownMethods = mutable.Map.empty[IR.MtdSymbol, ClassMethod]
   protected val knownQueries = mutable.Set.empty[Query[_]]
+  protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, (ClassMethod, String, String)]
   
   protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]]
   def getTable[T](cde: Code[Table[T], _]): Option[TableRep[T]] =
@@ -52,6 +53,14 @@ class StagedDatabase(implicit name: Name)
     }
     val variable = adaptVariable(Variable[Table[T]])
     tablesMapping += variable.toCode.rep -> this
+    cls.fields.foreach { field =>
+      val ind = cls.fields.indexOf(field) + 1
+    
+      // Getter
+      val body = s"${cls.self.toCode.showScala}._${ind}"
+      knownFieldGetters += field.get ->
+        (ClassMethod(cls, field.symbol, Nil, Nil, null), field.A.rep.tpe.toString, body) // How to rewrite code?
+    }
     
     // Helpers for the generated code:
     val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]])
