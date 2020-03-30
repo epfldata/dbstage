@@ -35,9 +35,13 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
         s"${mtd.body.Typ.rep} = ${mtd.body.showScala}"
     }
-    val fieldGetters = knownFieldGetters.map { case (_, (mtd, typ, body)) =>
-      s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
-        s"${typ} = ${body}"
+    val fieldGetters = knownFieldGetters.map { case (_, getter) =>
+      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep}): " +
+        s"${getter.typ} = ${getter.owner.self.toCode.showScala}._${getter.index}"
+    }
+    val fieldSetters = knownFieldSetters.map { case (_, setter) =>
+      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.field.name}: ${setter.field.A.rep}): " +
+        s"Unit = ${setter.owner.self.toCode.showScala}._${setter.index} = ${setter.field.name}"
     }
     // For now, use an mutable.ArrayBuffer; in the future it will use LMDB
     val tables = tablesMapping.map { case (_, tbl) =>
@@ -54,6 +58,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       ${dataClasses.mkString("\n")}
       ${methods.mkString("\n")}
       ${fieldGetters.mkString("\n")}
+      ${fieldSetters.mkString("\n")}
       ${tables.mkString("\n")}
       ${queries.mkString("\n")}
     }

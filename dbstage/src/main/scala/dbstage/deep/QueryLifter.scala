@@ -22,6 +22,24 @@ trait QueryLifter { db: StagedDatabase =>
     val variable = Variable[Any => Any](symbol.name.toString)
   }
   
+  case class ClassGetter(
+    val owner: IR.TopLevel.Clasz[_],
+    val symbol: IR.MtdSymbol,
+    val index: Int,
+    val typ: IR.TypeRep
+  ) {
+    val getter = Variable[Any => Any](symbol.name.toString())
+  }
+
+  case class ClassSetter(
+    val owner: IR.TopLevel.Clasz[_],
+    val symbol: IR.MtdSymbol,
+    val index: Int
+  ) {
+    val field = owner.fields(index-1)
+    val setter = Variable[(Any, Any) => Unit](symbol.name.toString())
+  }
+  
   def liftingError(msg: String): Nothing = throw new Exception("lifting error: " + msg)
   
   def liftQuery[T: CodeType, C](queryCode: Code[T, C]): QueryRep[T, C] =
@@ -63,10 +81,16 @@ trait QueryLifter { db: StagedDatabase =>
       val thisArg = app.args.head.head
       code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
     case code"${MethodApplication(app)}: $ty" if knownFieldGetters.contains(app.symbol) =>
-      val m = knownFieldGetters(app.symbol)._1
+      val g = knownFieldGetters(app.symbol)
       assert(app.args.size == 1) // we will handle methods with parameters later
       val thisArg = app.args.head.head
-      code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
+      code{$(g.getter)($(thisArg)).asInstanceOf[ty.Typ]}
+    case code"${MethodApplication(app)}: $ty" if knownFieldSetters.contains(app.symbol) =>
+      val s = knownFieldSetters(app.symbol)
+      assert(app.args.size == 2) // we will handle methods with parameters later
+      val thisArg = app.args.head.head
+      val newValue = app.args.tail.head.head
+      code{$(s.setter)($(thisArg), $(newValue)).asInstanceOf[ty.Typ]}
   }
   
   /** Internal representation of database queries. */

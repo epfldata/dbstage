@@ -36,7 +36,8 @@ class StagedDatabase(implicit name: Name)
   protected val knownClasses = mutable.Set.empty[Clasz[_]]
   protected val knownMethods = mutable.Map.empty[IR.MtdSymbol, ClassMethod]
   protected val knownQueries = mutable.Set.empty[Query[_]]
-  protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, (ClassMethod, String, String)]
+  protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
+  protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
   
   protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]]
   def getTable[T](cde: Code[Table[T], _]): Option[TableRep[T]] =
@@ -59,7 +60,16 @@ class StagedDatabase(implicit name: Name)
       // Getter
       val body = s"${cls.self.toCode.showScala}._${ind}"
       knownFieldGetters += field.get ->
-        (ClassMethod(cls, field.symbol, Nil, Nil, null), field.A.rep.tpe.toString, body) // How to rewrite code?
+        ClassGetter(cls, field.symbol, ind, field.A.rep)
+        
+      // Setter
+      val setterOpt = field.set
+      if (setterOpt.isDefined) {
+        val setter = setterOpt.get
+
+        knownFieldSetters += setter ->
+          ClassSetter(cls, setter, ind)
+      }
     }
     
     // Helpers for the generated code:
