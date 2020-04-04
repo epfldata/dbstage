@@ -15,13 +15,25 @@ trait DatabaseCompiler { self: StagedDatabase =>
     // Temporary representation of classes; will change/be configurable
     val dataClasses = knownClasses.values.map( tableRep => tableRep.cls )
     val classes = dataClasses.map { cls =>
-          }
-          val previous = if (acc.nonEmpty) s", $acc" else ""
+      cls.fields.foreach( field => {
+        val knownDataType = dataClasses.exists(c => c.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
+        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double]
+
+        if (field.A.=:=(codeTypeOf[String])) {
+          // Special error
+          throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type String, please use Str")
+        }
+
+        if(!(knownPrimitiveType || knownPrimitiveType)) {
+          // Error
+          throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+        } 
+      })
 
       s"type ${cls.name} = CStruct${cls.fields.size}${
         cls.fields.map(f => s"C${f.A.rep}").mkString("[", ", ", "]")
       }"
-      }
+    }
     val constructors = knownConstructors.map { case (_, constructor) =>
       s"def ${constructor.constructor.toCode.showScala}(params: Tuple${constructor.params.length}[${constructor.params.map(p => p.Typ.rep).mkString(", ")}])" +
         s": ${constructor.owner.C.rep} = {\n" +
