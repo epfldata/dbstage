@@ -52,7 +52,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"def ${q.name} = " + planQuery(rep).getCode.showScala
     }
     
-    s"""
+    val program = s"""
     import scala.collection.mutable
     object $dbName {
       ${dataClasses.mkString("\n")}
@@ -63,6 +63,13 @@ trait DatabaseCompiler { self: StagedDatabase =>
       ${queries.mkString("\n")}
     }
     """.replaceAll("@", "_")
+
+    val regex = "\\.apply(?:\\[[^\\n\\r]+\\])?(\\([^\\n\\r]+\\))"
+
+    val matches = regex.r.findAllMatchIn(program)
+    matches.foreach(m => println(s"Replacing ${m.source.subSequence(m.start, m.end)} with ${m.group(1)}"))
+
+    program.replaceAll(regex, "$1")
   }
   
 }
