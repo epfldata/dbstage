@@ -10,6 +10,8 @@ this_744ab078._1 = params._1
 this_744ab078._2 = params._2
 this_744ab078
 }
+      def isMinor_3540840e(this_744ab078: Person): Boolean = {
+  val x_0 = age_cc56b2d(this_744ab078);
   x_0.<(18)
 }
       def name_424f9caf(this_744ab078: Person): String = this_744ab078._1

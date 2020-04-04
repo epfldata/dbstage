@@ -16,10 +16,12 @@ trait QueryLifter { db: StagedDatabase =>
     val symbol: IR.MtdSymbol,
     val tparams: List[IR.TypParam],
     val vparamss: List[List[Variable[_]]],
-    val body: OpenCode[_]
+    val body_0: OpenCode[_]
   ) {
     // A variable that refers to the method's implementation in the generated code.
     val variable = Variable[Any => Any](symbol.name.toString)
+
+    lazy val body = adaptCode(body_0)
   }
   
   case class ClassConstructor(
@@ -46,7 +48,7 @@ trait QueryLifter { db: StagedDatabase =>
     val index: Int
   ) {
     val field = owner.fields(index-1)
-    val setter = Variable[(Any, Any) => Unit](symbol.name.toString())
+    val setter = Variable[(Any, Any) => Unit](symbol.name.toString)
   }
   
   def liftingError(msg: String): Nothing = throw new Exception("lifting error: " + msg)
@@ -93,7 +95,7 @@ trait QueryLifter { db: StagedDatabase =>
       val g = knownFieldGetters(app.symbol)
       assert(app.args.size == 1)
       val thisArg = app.args.head.head
-      code{$(g.getter)($(thisArg)).asInstanceOf[ty.Typ]}
+      code{$(g.getter)($(thisArg))}.asInstanceOf[Code[ty.Typ, C]]
     case code"${MethodApplication(app)}: $ty" if knownFieldSetters.contains(app.symbol) =>
       val s = knownFieldSetters(app.symbol)
       assert(app.args.size == 2)
