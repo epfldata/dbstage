@@ -22,13 +22,22 @@ trait QueryLifter { db: StagedDatabase =>
     val variable = Variable[Any => Any](symbol.name.toString)
   }
   
+  case class ClassConstructor(
+    val owner: IR.TopLevel.Clasz[_],
+    val symbol: IR.MtdSymbol,
+    val params: List[IR.Variable[_]]
+  ) {
+    assert(symbol.name.toString == "<init>")
+    val constructor = Variable[Any => Any](s"init_${owner.name}")
+  }
+
   case class ClassGetter(
     val owner: IR.TopLevel.Clasz[_],
     val symbol: IR.MtdSymbol,
     val index: Int,
     val typ: IR.TypeRep
   ) {
-    val getter = Variable[Any => Any](symbol.name.toString())
+    val getter = Variable[Any => Any](symbol.name.toString)
   }
 
   case class ClassSetter(
@@ -82,15 +91,26 @@ trait QueryLifter { db: StagedDatabase =>
       code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
     case code"${MethodApplication(app)}: $ty" if knownFieldGetters.contains(app.symbol) =>
       val g = knownFieldGetters(app.symbol)
-      assert(app.args.size == 1) // we will handle methods with parameters later
+      assert(app.args.size == 1)
       val thisArg = app.args.head.head
       code{$(g.getter)($(thisArg)).asInstanceOf[ty.Typ]}
     case code"${MethodApplication(app)}: $ty" if knownFieldSetters.contains(app.symbol) =>
       val s = knownFieldSetters(app.symbol)
-      assert(app.args.size == 2) // we will handle methods with parameters later
+      assert(app.args.size == 2)
       val thisArg = app.args.head.head
       val newValue = app.args.tail.head.head
       code{$(s.setter)($(thisArg), $(newValue)).asInstanceOf[ty.Typ]}
+    case code"${MethodApplication(app)}: $ty" if knownConstructors.contains(app.symbol) =>
+      val c = knownConstructors(app.symbol)
+      assert(app.args.size == 2)
+      val args = app.args(1)
+      (args.length match {  // How to give arguments nicely?
+        case 1 => code{$(c.constructor)($(args(0)))}
+        case 2 => code{$(c.constructor)($(args(0)), $(args(1)))}
+        case 3 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)))}
+        case 4 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)))}
+        case _ => liftingError(s"do not know how to lift constructor: ${c.symbol.name}")
+      }).asInstanceOf[Code[ty.Typ, C]]
   }
   
   /** Internal representation of database queries. */

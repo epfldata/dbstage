@@ -23,13 +23,17 @@ trait DatabaseCompiler { self: StagedDatabase =>
           }
           val previous = if (acc.nonEmpty) s", $acc" else ""
 
-          s"  ${f.name}: ${A.rep}$init$previous"
+      s"type ${cls.name} = CStruct${cls.fields.size}${
+        cls.fields.map(f => s"C${f.A.rep}").mkString("[", ", ", "]")
+      }"
       }
-      s"case class ${cls.name}${
-        if (cls.tparams.isEmpty) "" else cls.tparams.map(_.name).mkString("[", ", ", "]")
-      } (" +
-        body +
-      ")"
+    val constructors = knownConstructors.map { case (_, constructor) =>
+      s"def ${constructor.constructor.toCode.showScala}(params: Tuple${constructor.params.length}[${constructor.params.map(p => p.Typ.rep).mkString(", ")}])" +
+        s": ${constructor.owner.C.rep} = {\n" +
+        s"val ${constructor.owner.self.toCode.showScala}: ${constructor.owner.C.rep} = alloc[${constructor.owner.C.rep}]\n" +
+        (for ( i <- 0 until constructor.params.length) yield s"${constructor.owner.self.toCode.showScala}._${i+1} = params._${i+1}").mkString("\n") +
+        s"\n${constructor.owner.self.toCode.showScala}" +
+        "\n}"
     }
     val methods = knownMethods.map { case (_, mtd) =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
@@ -54,8 +58,11 @@ trait DatabaseCompiler { self: StagedDatabase =>
     
     val program = s"""
     import scala.collection.mutable
+    import scala.scalanative.unsafe._
+
     object $dbName {
       ${dataClasses.mkString("\n")}
+      ${constructors.mkString("\n")}
       ${methods.mkString("\n")}
       ${fieldGetters.mkString("\n")}
       ${fieldSetters.mkString("\n")}

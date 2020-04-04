@@ -36,6 +36,7 @@ class StagedDatabase(implicit name: Name)
   protected val knownClasses = mutable.Set.empty[Clasz[_]]
   protected val knownMethods = mutable.Map.empty[IR.MtdSymbol, ClassMethod]
   protected val knownQueries = mutable.Set.empty[Query[_]]
+  protected val knownConstructors = mutable.Map.empty[IR.MtdSymbol, ClassConstructor]
   protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
   
@@ -54,6 +55,8 @@ class StagedDatabase(implicit name: Name)
     }
     val variable = adaptVariable(Variable[Table[T]])
     tablesMapping += variable.toCode.rep -> this
+
+    // Getters and setters
     cls.fields.foreach { field =>
       val ind = cls.fields.indexOf(field) + 1
     
@@ -72,6 +75,10 @@ class StagedDatabase(implicit name: Name)
       }
     }
     
+    // Constructor
+    knownConstructors += cls.constructor.symbol ->
+      ClassConstructor(cls, cls.constructor.symbol, cls.constructor.vparamss.head)
+
     // Helpers for the generated code:
     val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]])
     def getSize: Code[Int, Ctx] =

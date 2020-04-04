@@ -34,9 +34,9 @@ object MyDatabase extends StagedDatabase {
     $(personsTable).view.map(p => {p.age = p.age + 10; p}).size
   })
 
-  val insert = query[Person=>TableView[Person]](code{
-    p: Person => $(personsTable).insert(p)
-  })
+  // val insert = query[Person=>TableView[Person]](code{
+  //   p: Person => $(personsTable).insert(p)
+  // })
 }
 
 
