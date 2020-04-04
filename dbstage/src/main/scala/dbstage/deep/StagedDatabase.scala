@@ -44,7 +44,7 @@ class StagedDatabase(implicit name: Name)
   protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]] // Do we still need this? view and insert use them, but insert will change and view will probably be removed
   def getTable[T](cde: Code[Table[T], _]): Option[TableRep[T]] =
     tablesMapping.get(cde.rep).asInstanceOf[Option[TableRep[T]]]
-  
+
   def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
     val tableRep = new TableRep(cls)
 
@@ -53,13 +53,11 @@ class StagedDatabase(implicit name: Name)
       knownMethods += mtd.symbol ->
         ClassMethod(cls, mtd.symbol, mtd.tparams, mtd.vparamss, mtd.body)
     }
-    val variable = adaptVariable(Variable[Table[T0]])
-    tablesMapping += variable.toCode.rep -> tableRep
 
     // Getters and setters
     cls.fields.foreach { field =>
       val ind = cls.fields.indexOf(field) + 1
-    
+
       // Getter
       val body = s"${cls.self.toCode.showScala}._${ind}"
       knownFieldGetters += field.get ->
@@ -74,7 +72,7 @@ class StagedDatabase(implicit name: Name)
           ClassSetter(cls, setter, ind)
       }
     }
-    
+
     // Constructor
     knownConstructors += cls.constructor.symbol ->
       ClassConstructor(cls, cls.constructor.symbol, cls.constructor.vparamss.head)
@@ -85,10 +83,12 @@ class StagedDatabase(implicit name: Name)
     type T = T0
     val T = codeTypeOf[T]
 
+    // Should remove these mappings, they are duplicate with knownClasses
     val variable = adaptVariable(Variable[Table[T0]])
+    tablesMapping += variable.toCode.rep -> this
 
     // Helpers for the generated code:
-    val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]])
+    val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]](s"${cls.name}_data"))
     def getSize: Code[Int, Ctx] =
       code{ $(variableInGeneratedCode).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
     def getAt: Code[Int => T, Ctx] =
