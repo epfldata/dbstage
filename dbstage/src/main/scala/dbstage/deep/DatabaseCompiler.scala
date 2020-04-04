@@ -13,13 +13,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
   def compile: String = {
     
     // Temporary representation of classes; will change/be configurable
-    val dataClasses = knownClasses.map { cls =>
-      val body = cls.fields.foldRight("") {
-        case (f, acc) =>
-          import f.A
-          val init = f.init match {
-            case Some(value) => s" = ${value.showScala}"
-            case None => ""
+    val dataClasses = knownClasses.values.map( tableRep => tableRep.cls )
+    val classes = dataClasses.map { cls =>
           }
           val previous = if (acc.nonEmpty) s", $acc" else ""
 
@@ -61,7 +56,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     import scala.scalanative.unsafe._
 
     object $dbName {
-      ${dataClasses.mkString("\n")}
+      ${classes.mkString("\n")}
       ${constructors.mkString("\n")}
       ${methods.mkString("\n")}
       ${fieldGetters.mkString("\n")}

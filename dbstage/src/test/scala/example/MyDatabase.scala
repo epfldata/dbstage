@@ -3,7 +3,7 @@ package example
 import dbstage.deep._
 import IR.Predef._
 import IR.Quasicodes._
-import dbstage.lang.TableView
+import dbstage.lang.TableView._
 
 
 // For now, we will define the database in a programmatic way as follows.
@@ -17,21 +17,19 @@ import dbstage.lang.TableView
 object MyDatabase extends StagedDatabase {
   
   val personCls = Person.reflect(IR)
-  
-  // Example table:
-  val personsTable = new TableRep[Person](personCls)
+  register(personCls)
   
   // Example query:
   val allMinors = query[Int](code{
-    $(personsTable).view.filter(_.isMinor).size
+    all[Person].filter(_.isMinor).size
   })
   
   val allOld = query[Int](code{
-    $(personsTable).view.map(p => new Person(p.name, p.age+100)).size
+    all[Person].map(p => new Person(p.name, p.age+100)).size
   })
 
   val allOld2 = query[Int](code{
-    $(personsTable).view.map(p => {p.age = p.age + 10; p}).size
+    all[Person].map(p => {p.age = p.age + 10; p}).size
   })
 
   // val insert = query[Person=>TableView[Person]](code{

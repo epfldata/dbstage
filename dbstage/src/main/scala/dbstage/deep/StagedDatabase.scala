@@ -11,6 +11,7 @@ import IR.Predef._
 import IR.Quasicodes._
 import IR.TopLevel._
 import java.lang.reflect.Method
+import squid.utils.meta.RuntimeUniverseHelpers.sru.Symbol
 
 /** This class deals with representing staged databases and their queries,
  * and can compile them to lower level code. */
@@ -33,28 +34,27 @@ class StagedDatabase(implicit name: Name)
   def adaptVariable[T](v: Variable[T]): Variable[T] { type Ctx = db.Ctx } =
     v.asInstanceOf[Variable[T]{ type Ctx = db.Ctx }]
   
-  protected val knownClasses = mutable.Set.empty[Clasz[_]]
+  protected val knownClasses = mutable.Map.empty[Symbol, TableRep[_]]
   protected val knownMethods = mutable.Map.empty[IR.MtdSymbol, ClassMethod]
   protected val knownQueries = mutable.Set.empty[Query[_]]
   protected val knownConstructors = mutable.Map.empty[IR.MtdSymbol, ClassConstructor]
   protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
   
-  protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]]
+  protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]] // Do we still need this? view and insert use them, but insert will change and view will probably be removed
   def getTable[T](cde: Code[Table[T], _]): Option[TableRep[T]] =
     tablesMapping.get(cde.rep).asInstanceOf[Option[TableRep[T]]]
   
-  /** The representation of a table that lives in this staged database. */
-  protected class TableRep[T0: CodeType](cls: Clasz[T0])(implicit name: Name) {
-    type T = T0
-    val T = codeTypeOf[T]
-    knownClasses += cls
+  def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
+    val tableRep = new TableRep(cls)
+
+    knownClasses += cls.C.rep.tpe.typeSymbol -> tableRep
     cls.methods.foreach { mtd =>
       knownMethods += mtd.symbol ->
         ClassMethod(cls, mtd.symbol, mtd.tparams, mtd.vparamss, mtd.body)
     }
-    val variable = adaptVariable(Variable[Table[T]])
-    tablesMapping += variable.toCode.rep -> this
+    val variable = adaptVariable(Variable[Table[T0]])
+    tablesMapping += variable.toCode.rep -> tableRep
 
     // Getters and setters
     cls.fields.foreach { field =>
@@ -78,6 +78,14 @@ class StagedDatabase(implicit name: Name)
     // Constructor
     knownConstructors += cls.constructor.symbol ->
       ClassConstructor(cls, cls.constructor.symbol, cls.constructor.vparamss.head)
+  }
+  
+  /** The representation of a table that lives in this staged database. */
+  protected class TableRep[T0: CodeType](val cls: Clasz[T0])(implicit name: Name) {
+    type T = T0
+    val T = codeTypeOf[T]
+
+    val variable = adaptVariable(Variable[Table[T0]])
 
     // Helpers for the generated code:
     val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]])

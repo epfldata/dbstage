@@ -9,6 +9,11 @@ class Table[T] {
   def view: TableView[T] = new TableScan(this)
   def insert(t: T): TableView[T] = new Insert(this, t)
 }
+
+object TableView {
+  def all[T]: TableView[T] = ???
+}
+
 abstract class TableView[T] { view =>
   protected def iterator: Iterator[T]
   def size: Int

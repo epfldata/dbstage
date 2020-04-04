@@ -70,6 +70,9 @@ trait QueryLifter { db: StagedDatabase =>
               .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
             View(tbl)
           //case code"""{val ${x} = ${s}; ${x}.${f}}""" => code"$s.$f"
+          case code"TableView.all[$ty]" =>
+            val tbl = knownClasses.getOrElse(ty.rep.tpe.typeSymbol, liftingError(s"cannot lift table reference: $ty")).asInstanceOf[TableRep[ty.Typ]]
+            View(tbl)
           case code"($t0: $tx) => ($tableCode: Table[$ty]).insert($t1)" => // Write this better
             // Doesn't work, just has a reference
             val tbl = getTable(tableCode)
