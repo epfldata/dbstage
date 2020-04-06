@@ -9,6 +9,16 @@ import IR.Predef._
 trait DatabaseCompiler { self: StagedDatabase =>
   
   // TODO use better code-stringification facilities (LP will add them later)
+
+  def createParamTuple(params: List[IR.Variable[_]]): (String, List[String]) = {
+    if (params.length > 1) {
+      (s"params: Tuple${params.length}[${params.map(p => p.Typ.rep).mkString(", ")}]", params.zipWithIndex.map(p => s"params._${p._2+1}"))
+    } else if (params.length == 1) {
+      (s"param: ${params.head.Typ.rep}", List("param"))
+    } else {
+      throw new IllegalArgumentException
+    }
+  }
   
   def compile: String = {
     
@@ -35,10 +45,11 @@ trait DatabaseCompiler { self: StagedDatabase =>
       }"
     }
     val constructors = knownConstructors.map { case (_, constructor) =>
-      s"def ${constructor.constructor.toCode.showScala}(params: Tuple${constructor.params.length}[${constructor.params.map(p => p.Typ.rep).mkString(", ")}])" +
+      val (paramTypes, params) = createParamTuple(constructor.params)
+      s"def ${constructor.constructor.toCode.showScala}(${paramTypes})" +
         s": ${constructor.owner.C.rep} = {\n" +
         s"val ${constructor.owner.self.toCode.showScala}: ${constructor.owner.C.rep} = alloc[${constructor.owner.C.rep}]\n" +
-        (for ( i <- 0 until constructor.params.length) yield s"${constructor.owner.self.toCode.showScala}._${i+1} = params._${i+1}").mkString("\n") +
+        (for ( i <- 0 until constructor.params.length) yield s"${constructor.owner.self.toCode.showScala}._${i+1} = ${params(i)}").mkString("\n") +
         s"\n${constructor.owner.self.toCode.showScala}" +
         "\n}"
     }
