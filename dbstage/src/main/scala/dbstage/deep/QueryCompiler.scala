@@ -8,6 +8,8 @@ import IR.Quasicodes._
 /** This class turns queries into query plans
  * and compiles query plans into low-level code. */
 trait QueryCompiler { self: StagedDatabase =>
+
+  def compilingError(msg: String): Nothing = throw new Exception("compiling error: " + msg)
   
   // For now, this is a very naive approach to query and database compilation!
   
@@ -30,6 +32,7 @@ trait QueryCompiler { self: StagedDatabase =>
       case View(tbl) => Scan(tbl)
       case Filter(view, pred) => Selection(planIteration(view), pred)
       case Map(view, f) => QueryMap(planIteration(view), f)
+      case _ => compilingError(s"Encountered unexpected QueryRep ${rep} when planning iteration")
     }
     res.asInstanceOf[IterationPlan[T, Ctx]]
   }
@@ -48,7 +51,7 @@ trait QueryCompiler { self: StagedDatabase =>
         res
       }
     }
-  
+
   case class Insertion[Row, C]
     (src: TableRep[Row], el: Code[Row, C])
     extends QueryPlan[Unit, C] {
