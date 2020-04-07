@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView}
+import dbstage.lang.{Table, TableView, Str}
 
 import IR.Predef._
 
@@ -27,22 +27,29 @@ trait DatabaseCompiler { self: StagedDatabase =>
     val classes = dataClasses.map { cls =>
       cls.fields.foreach( field => {
         val knownDataType = dataClasses.exists(c => c.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
-        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double]
+        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double] ||
+                                 field.A =:= codeTypeOf[Str]
 
         if (field.A.=:=(codeTypeOf[String])) {
-          // Special error
           throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type String, please use Str")
-        }
-
-        if(!(knownPrimitiveType || knownPrimitiveType)) {
-          // Error
+        } else if(!(knownPrimitiveType || knownDataType)) {
           throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
-        } 
+        }
       })
 
       s"type ${cls.name} = CStruct${cls.fields.size}${
-        cls.fields.map(f => s"C${f.A.rep}").mkString("[", ", ", "]")
+        cls.fields.map(f => s"${f.A.rep}").mkString("[", ", ", "]")
       }"
+    }
+    val cstringConstructor = {
+      s"def ${strConstructor.constructor.toCode.showScala}(str: String): ${strConstructor.owner.C.rep} = " +
+      "toCString(str)"
+    }
+    val cstringMethods = strMethods.map { case (_, mtd) => 
+      val (paramTypes, params) = createParamTuple(mtd.owner.self :: mtd.params)
+      s"def ${mtd.variable.toCode.showScala}(${paramTypes})" +
+        s": ${mtd.typ} = ${mtd.symbol.name}" +
+        s"(${params.mkString(",")})"
     }
     val constructors = knownConstructors.map { case (_, constructor) =>
       val (paramTypes, params) = createParamTuple(constructor.params)
@@ -77,20 +84,24 @@ trait DatabaseCompiler { self: StagedDatabase =>
     val program = s"""
     import scala.collection.mutable
     import scala.scalanative.unsafe._
+    import lib.string._
+    import lib.str._
 
     object $dbName {
-      ${classes.mkString("\n")}
-      ${constructors.mkString("\n")}
-      ${methods.mkString("\n")}
-      ${fieldGetters.mkString("\n")}
-      ${fieldSetters.mkString("\n")}
-      ${tables.mkString("\n")}
+      ${cstringConstructor}\n
+      ${cstringMethods.mkString("\n")}\n
+      ${classes.mkString("\n")}\n
+      ${constructors.mkString("\n")}\n
+      ${methods.mkString("\n")}\n
+      ${fieldGetters.mkString("\n")}\n
+      ${fieldSetters.mkString("\n")}\n
+      ${tables.mkString("\n")}\n
       ${queries.mkString("\n")}
     }
     """.replaceAll("@", "_")
+    .replaceAll("dbstage\\.lang\\.Str", "CString")
 
     val regex = "\\.apply(?:\\[[^\\n\\r]+\\])?(\\([^\\n\\r]+\\))"
-
     val matches = regex.r.findAllMatchIn(program)
     matches.foreach(m => println(s"Replacing ${m.source.subSequence(m.start, m.end)} with ${m.group(1)}"))
 

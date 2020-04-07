@@ -1,11 +1,12 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView}
+import dbstage.lang.{Table, TableView, Str}
 
 import scala.language.implicitConversions
 import scala.language.existentials
 
 import scala.collection.mutable
+import scala.collection.immutable
 import sourcecode.Name
 import IR.Predef._
 import IR.Quasicodes._
@@ -40,6 +41,13 @@ class StagedDatabase(implicit name: Name)
   protected val knownConstructors = mutable.Map.empty[IR.MtdSymbol, ClassConstructor]
   protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
+
+  private val strCls = Str.reflect(IR)
+  protected val strConstructor: StrConstructor = StrConstructor(strCls, strCls.constructor.symbol)
+  protected val strMethods: immutable.Map[IR.MtdSymbol, StrMethod] = strCls.methods.map(mtd =>
+    mtd.symbol ->
+      StrMethod(strCls, mtd.symbol, mtd.vparamss.headOption.getOrElse(Nil), mtd.A.rep)
+  ).toMap
   
   protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]] // Do we still need this? view and insert use them, but insert will change and view will probably be removed
   def getTable[T](cde: Code[Table[T], _]): Option[TableRep[T]] =
@@ -88,7 +96,7 @@ class StagedDatabase(implicit name: Name)
     tablesMapping += variable.toCode.rep -> this
 
     // Helpers for the generated code:
-    val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]](s"${cls.name}_data"))
+    val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]](s"${cls.name}_table"))
     def getSize: Code[Int, Ctx] =
       code{ $(variableInGeneratedCode).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
     def getAt: Code[Int => T, Ctx] =
