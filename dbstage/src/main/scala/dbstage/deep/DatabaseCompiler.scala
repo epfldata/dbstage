@@ -22,6 +22,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
   
   def compile: String = {
     val implicitZoneParam: String = "(implicit zone: Zone)"
+    val keyType: String = "Long"
     
     // Temporary representation of classes; will change/be configurable
     val dataClasses = knownClasses.values.map( tableRep => tableRep.cls )
@@ -38,9 +39,11 @@ trait DatabaseCompiler { self: StagedDatabase =>
         }
       })
 
-      s"type ${cls.name} = CStruct${cls.fields.size}${
+      s"type ${cls.name}Key = ${keyType}\n" +
+      s"type ${cls.name}Data = CStruct${cls.fields.size}${
         cls.fields.map(f => s"${f.A.rep}").mkString("[", ", ", "]")
-      }"
+      }\n" +
+      s"type ${cls.name} = Ptr[${cls.name}Data]"
     }
     val cstringConstructor = {
       s"def ${strConstructor.constructor.toCode.showScala}(str: String)${implicitZoneParam}: ${strConstructor.owner.C.rep} = " +
@@ -56,7 +59,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       val (paramTypes, params) = createParamTuple(constructor.params)
       s"def ${constructor.constructor.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
-        s"val ${constructor.owner.self.toCode.showScala}: ${constructor.owner.C.rep} = alloc[${constructor.owner.C.rep}]\n" +
+        s"val ${constructor.owner.self.toCode.showScala}: ${constructor.owner.C.rep} = alloc[${constructor.owner.C.rep}Data]\n" +
         (for ( i <- 0 until constructor.params.length) yield s"${constructor.owner.self.toCode.showScala}._${i+1} = ${params(i)}").mkString("\n") +
         s"\n${constructor.owner.self.toCode.showScala}" +
         "\n}"
