@@ -21,6 +21,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
   }
   
   def compile: String = {
+    val implicitZoneParam: String = "(implicit zone: Zone)"
     
     // Temporary representation of classes; will change/be configurable
     val dataClasses = knownClasses.values.map( tableRep => tableRep.cls )
@@ -42,18 +43,18 @@ trait DatabaseCompiler { self: StagedDatabase =>
       }"
     }
     val cstringConstructor = {
-      s"def ${strConstructor.constructor.toCode.showScala}(str: String): ${strConstructor.owner.C.rep} = " +
+      s"def ${strConstructor.constructor.toCode.showScala}(str: String)${implicitZoneParam}: ${strConstructor.owner.C.rep} = " +
       "toCString(str)"
     }
     val cstringMethods = strMethods.map { case (_, mtd) => 
       val (paramTypes, params) = createParamTuple(mtd.owner.self :: mtd.params)
-      s"def ${mtd.variable.toCode.showScala}(${paramTypes})" +
+      s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${mtd.typ} = ${mtd.symbol.name}" +
         s"(${params.mkString(",")})"
     }
     val constructors = knownConstructors.map { case (_, constructor) =>
       val (paramTypes, params) = createParamTuple(constructor.params)
-      s"def ${constructor.constructor.toCode.showScala}(${paramTypes})" +
+      s"def ${constructor.constructor.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
         s"val ${constructor.owner.self.toCode.showScala}: ${constructor.owner.C.rep} = alloc[${constructor.owner.C.rep}]\n" +
         (for ( i <- 0 until constructor.params.length) yield s"${constructor.owner.self.toCode.showScala}._${i+1} = ${params(i)}").mkString("\n") +
@@ -61,16 +62,16 @@ trait DatabaseCompiler { self: StagedDatabase =>
         "\n}"
     }
     val methods = knownMethods.map { case (_, mtd) =>
-      s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep}): " +
+      s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep})${implicitZoneParam}: " +
         s"${mtd.body.Typ.rep} = ${mtd.body.showScala}"
     }
     val fieldGetters = knownFieldGetters.map { case (_, getter) =>
-      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep}): " +
+      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: " +
         s"${getter.typ} = ${getter.owner.self.toCode.showScala}._${getter.index}"
     }
     val fieldSetters = knownFieldSetters.map { case (_, setter) =>
-      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.field.name}: ${setter.field.A.rep}): " +
-        s"Unit = ${setter.owner.self.toCode.showScala}._${setter.index} = ${setter.field.name}"
+      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.field.name}: ${setter.field.A.rep})" +
+        s"${implicitZoneParam}: Unit = ${setter.owner.self.toCode.showScala}._${setter.index} = ${setter.field.name}"
     }
     // For now, use an mutable.ArrayBuffer; in the future it will use LMDB
     val tables = tablesMapping.map { case (_, tbl) =>
@@ -78,7 +79,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
     val queries = knownQueries.map { q =>
       val rep = q.rep
-      s"def ${q.name} = " + planQuery(rep).getCode.showScala
+      s"def ${q.name} = Zone { implicit zone => \n" + planQuery(rep).getCode.showScala + "\n}"
     }
     
     val program = s"""
