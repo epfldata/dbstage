@@ -119,7 +119,7 @@ trait QueryLifter { db: StagedDatabase =>
       assert(app.args.size == 2)
       assert(app.args(1).size == 1)
       val str = app.args(1)(0)
-      code{$(strConstructor.constructor)($(str)).asInstanceOf[ty.Typ]}
+      code{$(strConstructor.constructor)($(str))}.asInstanceOf[Code[ty.Typ, C]]
     case code"${MethodApplication(app)}: $ty" if knownMethods.contains(app.symbol) =>
       val m = knownMethods(app.symbol)
       assert(app.args.size == 1) // we will handle methods with parameters later
@@ -135,7 +135,7 @@ trait QueryLifter { db: StagedDatabase =>
       assert(app.args.size == 2)
       val thisArg = app.args.head.head
       val newValue = app.args.tail.head.head
-      code{$(s.setter)($(thisArg), $(newValue)).asInstanceOf[ty.Typ]}
+      code{$(s.setter)($(thisArg), $(newValue))}.asInstanceOf[Code[ty.Typ, C]]
     case code"${MethodApplication(app)}: $ty" if knownConstructors.contains(app.symbol) =>
       val c = knownConstructors(app.symbol)
       assert(app.args.size == 2)
