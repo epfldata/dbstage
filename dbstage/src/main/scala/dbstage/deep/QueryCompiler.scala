@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView}
+import dbstage.lang.TableView
 
 import IR.Predef._
 import IR.Quasicodes._

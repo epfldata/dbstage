@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView, Str}
+import dbstage.lang.{TableView, Str}
 
 import IR.Predef._
 
@@ -25,10 +25,11 @@ trait DatabaseCompiler { self: StagedDatabase =>
     val keyType: String = "Long"
     
     // Temporary representation of classes; will change/be configurable
-    val dataClasses = knownClasses.values.map( tableRep => tableRep.cls )
-    val classes = dataClasses.map { cls =>
+    val classes = knownClasses.values.map { tableRep =>
+      val cls = tableRep.cls
+
       cls.fields.foreach( field => {
-        val knownDataType = dataClasses.exists(c => c.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double] ||
                                  field.A =:= codeTypeOf[Str]
 

@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView}
+import dbstage.lang.TableView
 
 import squid.ir._
 import squid.lang._

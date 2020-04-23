@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView}
+import dbstage.lang.TableView
 
 import IR.Predef._
 import IR.Quasicodes._
@@ -82,20 +82,14 @@ trait QueryLifter { db: StagedDatabase =>
         Map(liftQuery(view), adaptCode(f))
       case _ =>
         queryCode match {
-          case code"($tableCode: Table[$ty]).view" =>
-            val tbl = getTable(tableCode)
-              .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
-            View(tbl)
-          //case code"""{val ${x} = ${s}; ${x}.${f}}""" => code"$s.$f"
           case code"TableView.all[$ty]" =>
             val tbl = knownClasses.getOrElse(ty.rep.tpe.typeSymbol, liftingError(s"cannot lift table reference: $ty")).asInstanceOf[TableRep[ty.Typ]]
             View(tbl)
-          case code"($t0: $tx) => ($tableCode: Table[$ty]).insert($t1)" => // Write this better
-            // Doesn't work, just has a reference
-            val tbl = getTable(tableCode)
-              .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
-            println(queryCode.showScala)
-            Insert[ty.Typ, C](tbl, t1.asInstanceOf[IR.Code[ty.Typ, C]]) // Erasing t0 ctx?
+          // case code"($tableCode: Table[$ty]).insert($t1)" =>
+          //   // Doesn't work for some reason because of IR
+          //   val tbl = getTable(tableCode)
+          //     .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
+          //   Insert[ty.Typ, C](tbl, t1)
           case _ =>
             liftingError(s"do not know how to lift query: ${queryCode.showScala}")
         }

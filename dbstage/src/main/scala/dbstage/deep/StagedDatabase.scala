@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{Table, TableView, Str}
+import dbstage.lang.{TableView, Str, LMDBTable}
 
 import scala.language.implicitConversions
 import scala.language.existentials
@@ -91,9 +91,8 @@ class StagedDatabase(implicit name: Name)
     type T = T0
     val T = codeTypeOf[T]
 
-    // Should remove these mappings, they are duplicate with knownClasses
-    val variable = adaptVariable(Variable[Table[T0]])
-    tablesMapping += variable.toCode.rep -> this
+    // Helpers for the generated code:
+    val variable = adaptVariable(Variable[LMDBTable[T]](s"${cls.name}_table"))
 
     // Helpers for the generated code:
     val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]](s"${cls.name}_table"))
@@ -115,7 +114,7 @@ class StagedDatabase(implicit name: Name)
   
   /** This is needed in order to let users insert table references
    * with syntax `... $(myDB.someTableRep) ...` */
-  implicit def toCode[T](tbl: TableRep[T]): Code[Table[T], Ctx] =
+  implicit def toCode[T](tbl: TableRep[T]): Code[LMDBTable[T], Ctx] =
     tbl.variable.toCode
   
 }
