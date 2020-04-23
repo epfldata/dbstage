@@ -21,6 +21,18 @@ class StagedDatabase(implicit name: Name)
      with DatabaseCompiler
      with QueryCompiler
 { db =>
+
+  case class TableGetter(
+    val owner: IR.TopLevel.Clasz[_]
+  ) {
+    val getter = Variable[(Any, Any) => Any](s"get_${owner.name}")
+  }
+
+  case class TablePutter(
+    val owner: IR.TopLevel.Clasz[_]
+  ) {
+    val putter = Variable[(Any, Any) => Unit](s"put_${owner.name}")
+  }
   
   val dbName = name.value
   
@@ -36,6 +48,8 @@ class StagedDatabase(implicit name: Name)
     v.asInstanceOf[Variable[T]{ type Ctx = db.Ctx }]
   
   protected val knownClasses = mutable.Map.empty[Symbol, TableRep[_]]
+  protected val knownTableGetters = mutable.Map.empty[Symbol, TableGetter]
+  protected val knownTablePutters = mutable.Map.empty[Symbol, TablePutter]
   protected val knownMethods = mutable.Map.empty[IR.MtdSymbol, ClassMethod]
   protected val knownQueries = mutable.Set.empty[Query[_]]
   protected val knownConstructors = mutable.Map.empty[IR.MtdSymbol, ClassConstructor]
@@ -48,15 +62,14 @@ class StagedDatabase(implicit name: Name)
     mtd.symbol ->
       StrMethod(strCls, mtd.symbol, mtd.vparamss.headOption.getOrElse(Nil), mtd.A.rep)
   ).toMap
-  
-  protected val tablesMapping = mutable.Map.empty[IR.Rep, TableRep[_]] // Do we still need this? view and insert use them, but insert will change and view will probably be removed
-  def getTable[T](cde: Code[Table[T], _]): Option[TableRep[T]] =
-    tablesMapping.get(cde.rep).asInstanceOf[Option[TableRep[T]]]
 
   def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
+    // Table
+    knownTableGetters += cls.C.rep.tpe.typeSymbol -> TableGetter(cls)
+    knownTablePutters += cls.C.rep.tpe.typeSymbol -> TablePutter(cls)
     val tableRep = new TableRep(cls)
-
     knownClasses += cls.C.rep.tpe.typeSymbol -> tableRep
+
     cls.methods.foreach { mtd =>
       knownMethods += mtd.symbol ->
         ClassMethod(cls, mtd.symbol, mtd.tparams, mtd.vparamss, mtd.body)
@@ -94,14 +107,16 @@ class StagedDatabase(implicit name: Name)
     // Helpers for the generated code:
     val variable = adaptVariable(Variable[LMDBTable[T]](s"${cls.name}_table"))
 
-    // Helpers for the generated code:
-    val variableInGeneratedCode = adaptVariable(Variable[mutable.ArrayBuffer[T]](s"${cls.name}_table"))
+    // Getters and putters LMDB
+    val getter = knownTableGetters(cls.C.rep.tpe.typeSymbol).getter
+    val putter = knownTablePutters(cls.C.rep.tpe.typeSymbol).putter
+
     def getSize: Code[Int, Ctx] =
-      code{ $(variableInGeneratedCode).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
+      code{ $(variable).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
     def getAt: Code[Int => T, Ctx] =
-      code{ i: Int => $(variableInGeneratedCode)(i) }.unsafe_asClosedCode // FIXME scope
+      code{ i: Int => $(getter)($(variable), i) }.asInstanceOf[Code[Int => T, Ctx]].unsafe_asClosedCode // FIXME scope
     def append: Code[T => Unit, Ctx] =
-      code{ t: T => $(variableInGeneratedCode).append(t) }.unsafe_asClosedCode // FIXME scope
+      code{ t: T => $(putter)($(variable), t) }.unsafe_asClosedCode // FIXME scope
   }
   
   /** The representation of a query expressed in this staged database. */
