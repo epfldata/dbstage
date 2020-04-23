@@ -22,7 +22,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
   
   def compile: String = {
     val implicitZoneParam: String = "(implicit zone: Zone)"
-    val keyType: String = "Long"
+    val keyType: String = "Long" // TODO: Put key type somewhere else and use it everywhere (getAt, ...)
     
     // Temporary representation of classes; will change/be configurable
     val classes = knownClasses.values.map { tableRep =>
@@ -44,18 +44,69 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"type ${cls.name}Data = CStruct${cls.fields.size}${
         cls.fields.map(f => s"${f.A.rep}").mkString("[", ", ", "]")
       }\n" +
-      s"type ${cls.name} = Ptr[${cls.name}Data]"
+      s"type ${cls.name} = Ptr[${cls.name}Data]\n" +
+      s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}](init_environment("${cls.name}"))\n"""
     }
+
+    val tableGetters = knownTableGetters.map { case (_, tblGetter) =>
+      s"def ${tblGetter.getter.toCode.showScala}(table: LMDBTable[${tblGetter.owner.C.rep}], key: ${keyType})${implicitZoneParam}: ${tblGetter.owner.C.rep} = {\n" +
+      s"table.get(key)\n" +
+      "}"
+    }
+
+    val tablePutters = knownTablePutters.map { case (_, tblPutter) =>
+      val sizeName = "size"
+      val paramNames = "fields"
+      val valueName = "value"
+
+      val computeSizes = tblPutter.owner.fields.zipWithIndex.map { case (field, i) => {
+        val index = i+1
+        if (field.A =:= codeTypeOf[Str]) {
+          s"val ${sizeName}${index} = strlen(${paramNames}._${index})"
+        } else {
+          // TODO: Permit to have other class data (Job, ...) types, how?
+          s"val ${sizeName}${index} = sizeof[${field.A.rep}]"
+        }
+      }}
+      val computeSize = s"val size = ${tblPutter.owner.fields.zipWithIndex.map(f => s"size${f._2+1}").mkString("+")}"
+
+      val fillInValue = tblPutter.owner.fields.zipWithIndex.map { case (field, i) => {
+        val index = i+1
+
+        s"val ${valueName}${index} = value${index-1} + size${index-1}\n" +
+        (if (field.A =:= codeTypeOf[Str]) {
+          s"strcpy(${valueName}${index}, ${paramNames}._${index})"
+        } else if (field.A =:= codeTypeOf[Int]) {
+          s"intcpy(${valueName}${index}, ${paramNames}._${index}, ${sizeName}${index})"
+        } else {
+          throw new IllegalArgumentException(s"Class ${tblPutter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+        })
+      }}
+
+      s"def ${tblPutter.putter.toCode.showScala}(table: LMDBTable[${tblPutter.owner.C.rep}], ${paramNames}: ${tblPutter.owner.C.rep})${implicitZoneParam}: Unit = {\n" +
+      s"val key = table.size\n" +
+      s"val size0 = 0l\n" +
+      s"${computeSizes.mkString("\n")}\n" +
+      s"${computeSize}\n" +
+      s"val value0 = alloc[Byte](${sizeName})\n" +
+      s"${fillInValue.mkString("\n")}\n" +
+      s"val ${valueName} = ${valueName}0\n" +
+      s"table.put(key, ${sizeName}, ${valueName})\n" +
+      "}"
+    }
+
     val cstringConstructor = {
       s"def ${strConstructor.constructor.toCode.showScala}(str: String)${implicitZoneParam}: ${strConstructor.owner.C.rep} = " +
       "toCString(str)"
     }
+
     val cstringMethods = strMethods.map { case (_, mtd) => 
       val (paramTypes, params) = createParamTuple(mtd.owner.self :: mtd.params)
       s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${mtd.typ} = ${mtd.symbol.name}" +
         s"(${params.mkString(",")})"
     }
+
     val constructors = knownConstructors.map { case (_, constructor) =>
       val (paramTypes, params) = createParamTuple(constructor.params)
       s"def ${constructor.constructor.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
@@ -65,22 +116,22 @@ trait DatabaseCompiler { self: StagedDatabase =>
         s"\n${constructor.owner.self.toCode.showScala}" +
         "\n}"
     }
+
     val methods = knownMethods.map { case (_, mtd) =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep})${implicitZoneParam}: " +
         s"${mtd.body.Typ.rep} = ${mtd.body.showScala}"
     }
+
     val fieldGetters = knownFieldGetters.map { case (_, getter) =>
       s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: " +
         s"${getter.typ} = ${getter.owner.self.toCode.showScala}._${getter.index}"
     }
+
     val fieldSetters = knownFieldSetters.map { case (_, setter) =>
       s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.field.name}: ${setter.field.A.rep})" +
         s"${implicitZoneParam}: Unit = ${setter.owner.self.toCode.showScala}._${setter.index} = ${setter.field.name}"
     }
-    // For now, use an mutable.ArrayBuffer; in the future it will use LMDB
-    val tables = tablesMapping.map { case (_, tbl) =>
-      s"val ${tbl.variableInGeneratedCode.toCode.showScala} = mutable.ArrayBuffer.empty[${tbl.T.rep}]"
-    }
+
     val queries = knownQueries.map { q =>
       val rep = q.rep
       s"def ${q.name} = Zone { implicit zone => \n" + planQuery(rep).getCode.showScala + "\n}"
@@ -91,16 +142,19 @@ trait DatabaseCompiler { self: StagedDatabase =>
     import scala.scalanative.unsafe._
     import lib.string._
     import lib.str._
+    import lib.LMDBTable
+    import lib.LMDBTable._
 
     object $dbName {
+      ${classes.mkString("\n")}\n
+      ${tableGetters.mkString("\n")}\n
+      ${tablePutters.mkString("\n")}\n
       ${cstringConstructor}\n
       ${cstringMethods.mkString("\n")}\n
-      ${classes.mkString("\n")}\n
       ${constructors.mkString("\n")}\n
       ${methods.mkString("\n")}\n
       ${fieldGetters.mkString("\n")}\n
       ${fieldSetters.mkString("\n")}\n
-      ${tables.mkString("\n")}\n
       ${queries.mkString("\n")}
     }
     """.replaceAll("@", "_")
