@@ -49,8 +49,35 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val tableGetters = knownTableGetters.map { case (_, tblGetter) =>
+      val sizeName = "size"
+      val paramNames = "fields"
+      val ptrName = "ptr"
+      val valueName = "value"
+
+      val computeSizes = tblGetter.owner.fields.zipWithIndex.map { case (field, i) => {
+        val index = i+1
+        s"val ${sizeName}${index} = sizeof[${field.A.rep}].toInt"
+      }}
+      val computeSize = s"val size = ${tblGetter.owner.fields.zipWithIndex.map(f => s"size${f._2+1}").mkString("+")}"
+
+      val computeValues = tblGetter.owner.fields.zipWithIndex.map { case (field, i) => {
+        val index = i+1
+
+        s"val ${ptrName}${index} = ${ptrName}${index-1} + ${sizeName}${index-1}\n" +
+        (if (field.A =:= codeTypeOf[Int]) {
+          s"val ${valueName}${index} = intget(${ptrName}${index}, ${sizeName}${index})"
+        } else {
+          throw new IllegalArgumentException(s"Class ${tblGetter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+        })
+      }}
+
       s"def ${tblGetter.getter.toCode.showScala}(table: LMDBTable[${tblGetter.owner.C.rep}], key: ${keyType})${implicitZoneParam}: ${tblGetter.owner.C.rep} = {\n" +
-      s"table.get(key)\n" +
+      s"val ${ptrName}0 = table.get(key)\n" +
+      s"val ${sizeName}0 = 0l\n" +
+      s"${computeSizes.mkString("\n")}\n" +
+      s"${computeSize}\n" +
+      s"${computeValues.mkString("\n")}\n" +
+      s"${knownConstructors(tblGetter.owner.constructor.symbol).constructor.toCode.showScala}(${tblGetter.owner.fields.zipWithIndex.map(f => s"${valueName}${f._2+1}").mkString(",")})\n" +
       "}"
     }
 
