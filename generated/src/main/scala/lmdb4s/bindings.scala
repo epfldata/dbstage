@@ -1,4 +1,4 @@
-package com.github.lmdb4s
+package lmdb4s
  
 import scala.scalanative.unsafe._
 import scala.scalanative.unsigned._
