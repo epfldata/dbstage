@@ -24,22 +24,30 @@ object MyDatabase extends StagedDatabase {
   val allMinors = query[Int](code{
     all[Person].filter(_.isMinor).size
   })
-  
+
   val allOld = query[Int](code{
-    all[Person].map(p => new Person(new Str("Test"), p.age+100)).size
+    all[Person].map(p => new Person(p.salary, p.age+100)).size
   })
+  
+  // val allOld = query[Int](code{
+  //   all[Person].map(p => new Person(new Str("Test"), p.age+100)).size
+  // })
 
-  val sizes = query[Int](code{
-    all[Person].map(p => new Person(p.name, p.name.strlen.toInt)).size
-  })
+  // val sizes = query[Int](code{
+  //   all[Person].map(p => new Person(p.name, p.name.strlen.toInt)).size
+  // })
 
-  val charAtQuery = query[Int](code{
-    all[Person].map(p => new Person(new Str(p.name.charAt(2).toString), p.age)).size
-  })
+  // val charAtQuery = query[Int](code{
+  //   all[Person].map(p => new Person(new Str(p.name.charAt(2).toString), p.age)).size
+  // })
 
   val allOld2 = query[Int](code{
     all[Person].map(p => {p.age = p.age + 10; p}).size
   })
+
+  // val insert2 = query[TableView[Person]](code{
+  //   $(personsTable).insert(new Person("Lucien", 20)) // Issue IR, why?
+  // })
 
   // val insert = query[Person=>TableView[Person]](code{
   //   p: Person => $(personsTable).insert(p)
@@ -51,7 +59,7 @@ import squid.quasi.{lift, dbg_lift}
 
 // Why not case class?
 @lift
-case class Person(var name: Str, var age: Int) {
+case class Person(var salary: Int, var age: Int) {
   def isMinor = age < 18
 }
 
