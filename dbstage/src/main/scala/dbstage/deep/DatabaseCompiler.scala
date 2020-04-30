@@ -67,35 +67,34 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val tableGetters = knownTableGetters.map { case (_, tblGetter) =>
-      val sizeName = "size"
-      val paramNames = "fields"
       val ptrName = "ptr"
       val valueName = "value"
 
-      val computeSizes = tblGetter.owner.fields.zipWithIndex.map { case (field, i) => {
-        val index = i+1
-        s"val ${sizeName}${index} = sizeof[${field.A.rep}].toInt"
-      }}
-      val computeSize = s"val size = ${tblGetter.owner.fields.zipWithIndex.map(f => s"size${f._2+1}").mkString("+")}"
-
       val computeValues = tblGetter.owner.fields.zipWithIndex.map { case (field, i) => {
         val index = i+1
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
 
-        s"val ${ptrName}${index} = ${ptrName}${index-1} + ${sizeName}${index-1}\n" +
         (if (field.A =:= codeTypeOf[Int]) {
-          s"val ${valueName}${index} = intget(${ptrName}${index}, ${sizeName}${index})"
+          s"val ${valueName}${index} = intget(${ptrName}${index}, size${field.A.rep})\n" +
+          s"val ${ptrName}${index+1} = ${ptrName}${index} + size${field.A.rep}"
+        } else if (knownDataType) {
+          s"val ${valueName}${index} = longget(${ptrName}${index}, size${keyType})\n" +
+          s"val ${ptrName}${index+1} = ${ptrName}${index} + size${keyType}"
+        } else if (field.A =:= codeTypeOf[String]) {
+          s"val ${valueName}${index} = ${ptrName}${index}\n" +
+          s"val ${ptrName}${index+1} = ${ptrName}${index} + strlen(${valueName}${index})"
         } else {
           throw new IllegalArgumentException(s"Class ${tblGetter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
         })
       }}
 
+      val args = tblGetter.owner.fields.zipWithIndex.map(f => s"${valueName}${f._2+1}")
+      val tupleArgs = if(args.length == 1) s"${args(0)}" else s"(${args.mkString(",")})"
+
       s"def ${tblGetter.getter.toCode.showScala}(table: LMDBTable[${tblGetter.owner.C.rep}], key: ${keyType})${implicitZoneParam}: ${tblGetter.owner.C.rep} = {\n" +
-      s"val ${ptrName}0 = table.get(key)\n" +
-      s"val ${sizeName}0 = 0l\n" +
-      s"${computeSizes.mkString("\n")}\n" +
-      s"${computeSize}\n" +
+      s"val ${ptrName}1 = table.get(key)\n" +
       s"${computeValues.mkString("\n")}\n" +
-      s"${knownConstructors(tblGetter.owner.constructor.symbol).constructor.toCode.showScala}(${tblGetter.owner.fields.zipWithIndex.map(f => s"${valueName}${f._2+1}").mkString(",")})\n" +
+      s"${knownConstructors(tblGetter.owner.constructor.symbol).constructor.toCode.showScala}(key, ${tupleArgs})\n" +
       "}"
     }
 
