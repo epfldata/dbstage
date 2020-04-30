@@ -56,12 +56,7 @@ class StagedDatabase(implicit name: Name)
   protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
 
-  private val strCls = Str.reflect(IR)
-  protected val strConstructor: StrConstructor = StrConstructor(strCls, strCls.constructor.symbol)
-  protected val strMethods: immutable.Map[IR.MtdSymbol, StrMethod] = strCls.methods.map(mtd =>
-    mtd.symbol ->
-      StrMethod(strCls, mtd.symbol, mtd.vparamss.headOption.getOrElse(Nil), mtd.A.rep)
-  ).toMap
+  register(Str.reflect(IR))
 
   def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
     // Table
@@ -72,7 +67,7 @@ class StagedDatabase(implicit name: Name)
 
     cls.methods.foreach { mtd =>
       knownMethods += mtd.symbol ->
-        ClassMethod(cls, mtd.symbol, mtd.tparams, mtd.vparamss, mtd.body)
+        ClassMethod(cls, mtd.symbol, mtd.tparams, mtd.vparamss, mtd.body, mtd.A.rep)
     }
 
     // Getters and setters

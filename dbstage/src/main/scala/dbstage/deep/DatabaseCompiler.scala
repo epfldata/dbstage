@@ -23,7 +23,9 @@ trait DatabaseCompiler { self: StagedDatabase =>
   def compile: String = {
     val implicitZoneParam: String = "(implicit zone: Zone)"
     val keyType: String = "Long" // TODO: Put key type somewhere else and use it everywhere (getAt, ...)
-    
+
+    val strSymbol = codeTypeOf[Str].rep.tpe.typeSymbol
+
     // Temporary representation of classes; will change/be configurable
     val classes = knownClasses.values.map { tableRep =>
       val cls = tableRep.cls
@@ -144,9 +146,16 @@ trait DatabaseCompiler { self: StagedDatabase =>
         "\n}"
     }
 
-    val methods = knownMethods.map { case (_, mtd) =>
+    val methods = knownMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol != strSymbol).map { case (_, mtd) =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep})${implicitZoneParam}: " +
         s"${mtd.body.Typ.rep} = ${mtd.body.showScala}"
+    }
+
+    val stringMethods = knownMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol == strSymbol).map { case (_, mtd) => 
+      val (paramTypes, params) = createParamTuple(mtd.owner.self :: mtd.vparamss.headOption.getOrElse(Nil))
+      s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
+        s": ${mtd.typ} = ${mtd.symbol.name}" +
+        s"(${params.mkString(",")})"
     }
 
     val fieldGetters = knownFieldGetters.map { case (_, getter) =>
@@ -174,18 +183,18 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     object $dbName {
       ${classes.mkString("\n")}\n
+      ${strClass}\n
       ${tableGetters.mkString("\n")}\n
       ${tablePutters.mkString("\n")}\n
-      ${cstringConstructor}\n
-      ${cstringMethods.mkString("\n")}\n
       ${constructors.mkString("\n")}\n
       ${methods.mkString("\n")}\n
+      ${stringMethods.mkString("\n")}\n
       ${fieldGetters.mkString("\n")}\n
       ${fieldSetters.mkString("\n")}\n
       ${queries.mkString("\n")}
     }
     """.replaceAll("@", "_")
-    .replaceAll("dbstage\\.lang\\.Str", "CString")
+    .replaceAll("dbstage\\.lang\\.Str", "Str")
 
     val regex = "\\.apply(?:\\[[^\\n\\r]+\\])?(\\([^\\n\\r]+\\))"
     val matches = regex.r.findAllMatchIn(program)

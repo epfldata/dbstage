@@ -9,31 +9,15 @@ import IR.MethodApplication
 /** This class lifts Squid representations into mixed staged-database
  * representations that are more amenable for query compilation. */
 trait QueryLifter { db: StagedDatabase =>
-
-  case class StrConstructor(
-    val owner: IR.TopLevel.Clasz[_],
-    val symbol: IR.MtdSymbol
-  ) {
-    assert(symbol.name.toString == "<init>")
-    val constructor = Variable[Any => Any](s"init_${owner.name}")
-  }
-
-  case class StrMethod(
-    val owner: IR.TopLevel.Clasz[_],
-    val symbol: IR.MtdSymbol,
-    val params: List[IR.Variable[_]],
-    val typ: IR.TypeRep
-  ) {
-    val variable = Variable[Any => Any](symbol.name.toString)
-  }
-  
+    
   /** Represents a method defined in one of the database's data classes. */
   case class ClassMethod(
     val owner: IR.TopLevel.Clasz[_],
     val symbol: IR.MtdSymbol,
     val tparams: List[IR.TypParam],
     val vparamss: List[List[Variable[_]]],
-    val body_0: OpenCode[_]
+    val body_0: OpenCode[_],
+    val typ: IR.TypeRep
   ) {
     // A variable that refers to the method's implementation in the generated code.
     val variable = Variable[Any => Any](symbol.name.toString)
@@ -100,25 +84,15 @@ trait QueryLifter { db: StagedDatabase =>
   /** Rewrites all calls to methods defined in known data classes of the database
    * into calls to a new function that will be code-generated later. */
   def adaptCode[T, C](cde: Code[T, C]): Code[T, C] = cde rewrite {
-    case code"${MethodApplication(app)}: $ty" if strMethods.contains(app.symbol) =>
-      val m = strMethods(app.symbol)
+    case code"${MethodApplication(app)}: $ty" if knownMethods.contains(app.symbol) =>
+      val m = knownMethods(app.symbol)
       val thisArg = app.args.head.head
       val args = if (app.args.size == 1) Nil else app.args(1)
       (args.length match {  // How to give arguments nicely?
-        case 0 => code{$(m.variable)($(thisArg))}
-        case 1 => code{$(m.variable)($(thisArg), $(args(0)))}
-        case _ => liftingError(s"do not know how to lift Str method: ${m.symbol.name}")
-      }).asInstanceOf[Code[ty.Typ, C]]
-    case code"${MethodApplication(app)}: $ty" if app.symbol == strConstructor.symbol =>
-      assert(app.args.size == 2)
-      assert(app.args(1).size == 1)
-      val str = app.args(1)(0)
-      code{$(strConstructor.constructor)($(str))}.asInstanceOf[Code[ty.Typ, C]]
-    case code"${MethodApplication(app)}: $ty" if knownMethods.contains(app.symbol) =>
-      val m = knownMethods(app.symbol)
-      assert(app.args.size == 1) // we will handle methods with parameters later
-      val thisArg = app.args.head.head
-      code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
+        case 0 => code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
+        case 1 => code{$(m.variable)($(thisArg), $(args(0))).asInstanceOf[ty.Typ]}
+        case _ => liftingError(s"do not know how to lift method: ${m.symbol.name}")
+      })
     case code"${MethodApplication(app)}: $ty" if knownFieldGetters.contains(app.symbol) =>
       val g = knownFieldGetters(app.symbol)
       assert(app.args.size == 1)
