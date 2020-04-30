@@ -140,26 +140,69 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val cstringConstructor = {
-      s"def ${strConstructor.constructor.toCode.showScala}(str: String)${implicitZoneParam}: ${strConstructor.owner.C.rep} = " +
-      "toCString(str)"
-    }
+    val constructors = knownConstructors.flatMap { case (_, constructor) =>
+      val dataTypeField = constructor.owner.fields.exists(field => knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol))
+      val (paramTypes, _) = createParamTuple(constructor.params)
+      val typesKey = constructor.params.map(p => {
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == p.Typ.rep.tpe.typeSymbol)
+        if (knownDataType) {
+          keyType
+        } else {
+          s"${p.Typ.rep}"
+        }
+      })
+      val paramTypesKey = if (typesKey.length == 1) {
+        s"param: ${typesKey(0)}"
+      } else {
+        s"params: Tuple${typesKey.length}[${typesKey.mkString(", ")}]"
+      }
 
-    val cstringMethods = strMethods.map { case (_, mtd) => 
-      val (paramTypes, params) = createParamTuple(mtd.owner.self :: mtd.params)
-      s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
-        s": ${mtd.typ} = ${mtd.symbol.name}" +
-        s"(${params.mkString(",")})"
-    }
+      val (keyConstructor, valueConstructor) = constructor.owner.fields.zipWithIndex.map { case (field, i) => {
+        val index = i+1
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
+        val param = if(constructor.params.length == 1) {
+          "param"
+        } else {
+          s"params._${index}"
+        }
+        
+        if (knownDataType) {
+          (s"${param}, null", s"${param}.key, ${param}")
+        } else {
+          (s"${param}", s"${param}")
+        }
+      }}.unzip
 
-    val constructors = knownConstructors.map { case (_, constructor) =>
-      val (paramTypes, params) = createParamTuple(constructor.params)
-      s"def ${constructor.constructor.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
+      val table = knownClasses(constructor.owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
+      val put = knownClasses(constructor.owner.C.rep.tpe.typeSymbol).putter.toCode.showScala
+
+      val valueConstructors = List(s"def ${constructor.constructor.toCode.showScala}(key: ${keyType}, ${paramTypes})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
-        s"val ${constructor.owner.self.toCode.showScala}: ${constructor.owner.C.rep} = alloc[${constructor.owner.C.rep}Data]\n" +
-        (for ( i <- 0 until constructor.params.length) yield s"${constructor.owner.self.toCode.showScala}._${i+1} = ${params(i)}").mkString("\n") +
-        s"\n${constructor.owner.self.toCode.showScala}" +
-        "\n}"
+        s"val new_val = new ${constructor.owner.name}(key, ${valueConstructor.mkString(",")})\n" +
+        s"new_val\n" +
+        "}",
+        s"def ${constructor.constructor.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
+        s": ${constructor.owner.C.rep} = {\n" +
+        s"val new_val = new ${constructor.owner.name}(${table}.size, ${valueConstructor.mkString(",")})\n" +
+        s"${put}(${table}, new_val)\n" +
+        s"new_val\n" +
+        "}")
+
+      if (dataTypeField) {
+        List(s"def ${constructor.constructor.toCode.showScala}(key: ${keyType}, ${paramTypesKey})${implicitZoneParam}" +
+        s": ${constructor.owner.C.rep} = {\n" +
+        s"val new_val = new ${constructor.owner.name}(key, ${keyConstructor.mkString(",")})\n" +
+        s"new_val\n" +
+        "}",
+        s"def ${constructor.constructor.toCode.showScala}(${paramTypesKey})${implicitZoneParam}" +
+        s": ${constructor.owner.C.rep} = {\n" +
+        s"val new_val = new ${constructor.owner.name}(${table}.size, ${keyConstructor.mkString(",")})\n" +
+        s"${put}(${table}, new_val)\n" +
+        s"new_val\n" +
+        "}") ++ valueConstructors
+      } else {
+        valueConstructors
+      }
     }
 
     val methods = knownMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol != strSymbol).map { case (_, mtd) =>
