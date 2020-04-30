@@ -26,6 +26,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val strSymbol = codeTypeOf[Str].rep.tpe.typeSymbol
 
+    val sizes = List("Int", keyType, "Double").map(typ => s"val size${typ} = sizeof[${typ}].toInt")
+    
     // Temporary representation of classes; will change/be configurable
     val classes = knownClasses.filter(p => p._1 != strSymbol).values.map { tableRep =>
       val cls = tableRep.cls
@@ -174,12 +176,12 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val fieldGetters = knownFieldGetters.map { case (_, getter) =>
       s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: " +
-        s"${getter.typ} = ${getter.owner.self.toCode.showScala}._${getter.index}"
+        s"${getter.typ} = ${getter.owner.self.toCode.showScala}.${getter.name}"
     }
 
     val fieldSetters = knownFieldSetters.map { case (_, setter) =>
-      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.field.name}: ${setter.field.A.rep})" +
-        s"${implicitZoneParam}: Unit = ${setter.owner.self.toCode.showScala}._${setter.index} = ${setter.field.name}"
+      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.name}: ${setter.field.A.rep})" +
+        s"${implicitZoneParam}: Unit = ${setter.owner.self.toCode.showScala}.${setter.name} = ${setter.name}"
     }
 
     val queries = knownQueries.map { q =>
@@ -196,6 +198,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     import lib.LMDBTable._
 
     object $dbName {
+      ${sizes.mkString("\n")}\n
       ${classes.mkString("\n")}\n
       ${strClass}\n
       ${tableGetters.mkString("\n")}\n

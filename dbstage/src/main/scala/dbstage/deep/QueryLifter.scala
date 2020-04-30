@@ -9,7 +9,7 @@ import IR.MethodApplication
 /** This class lifts Squid representations into mixed staged-database
  * representations that are more amenable for query compilation. */
 trait QueryLifter { db: StagedDatabase =>
-    
+
   /** Represents a method defined in one of the database's data classes. */
   case class ClassMethod(
     val owner: IR.TopLevel.Clasz[_],
@@ -38,6 +38,7 @@ trait QueryLifter { db: StagedDatabase =>
     val owner: IR.TopLevel.Clasz[_],
     val symbol: IR.MtdSymbol,
     val index: Int,
+    val name: String,
     val typ: IR.TypeRep
   ) {
     val getter = Variable[Any => Any](symbol.name.toString)
@@ -46,7 +47,8 @@ trait QueryLifter { db: StagedDatabase =>
   case class ClassSetter(
     val owner: IR.TopLevel.Clasz[_],
     val symbol: IR.MtdSymbol,
-    val index: Int
+    val index: Int,
+    val name: String
   ) {
     val field = owner.fields(index-1)
     val setter = Variable[(Any, Any) => Unit](symbol.name.toString)

@@ -77,7 +77,7 @@ class StagedDatabase(implicit name: Name)
       // Getter
       val body = s"${cls.self.toCode.showScala}._${ind}"
       knownFieldGetters += field.get ->
-        ClassGetter(cls, field.symbol, ind, field.A.rep)
+        ClassGetter(cls, field.symbol, ind, field.name, field.A.rep)
         
       // Setter
       val setterOpt = field.set
@@ -85,7 +85,7 @@ class StagedDatabase(implicit name: Name)
         val setter = setterOpt.get
 
         knownFieldSetters += setter ->
-          ClassSetter(cls, setter, ind)
+          ClassSetter(cls, setter, ind, field.name)
       }
     }
 
