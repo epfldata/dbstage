@@ -27,27 +27,41 @@ trait DatabaseCompiler { self: StagedDatabase =>
     val strSymbol = codeTypeOf[Str].rep.tpe.typeSymbol
 
     // Temporary representation of classes; will change/be configurable
-    val classes = knownClasses.values.map { tableRep =>
+    val classes = knownClasses.filter(p => p._1 != strSymbol).values.map { tableRep =>
       val cls = tableRep.cls
 
-      cls.fields.foreach( field => {
+      val fields = cls.fields.map( field => {
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
-        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double] ||
-                                 field.A =:= codeTypeOf[Str]
+        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double]
 
-        if (field.A.=:=(codeTypeOf[String])) {
+        // Add String back?
+        if (field.A =:= codeTypeOf[String]) {
           throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type String, please use Str")
-        } else if(!(knownPrimitiveType || knownDataType)) {
+        }
+
+        if (knownDataType) {
+          s"var ${field.name.replaceAll("\\s+", "")}Id: ${keyType}, var ${field.name}: ${field.A.rep} = null"
+        } else if (knownPrimitiveType) {
+          s"var ${field.name}: ${field.A.rep}"
+        } else {
           throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
         }
       })
 
-      s"type ${cls.name}Key = ${keyType}\n" +
-      s"type ${cls.name}Data = CStruct${cls.fields.size}${
-        cls.fields.map(f => s"${f.A.rep}").mkString("[", ", ", "]")
-      }\n" +
-      s"type ${cls.name} = Ptr[${cls.name}Data]\n" +
-      s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}](init_environment("${cls.name}"))\n"""
+      s"class ${cls.name}(val key: ${keyType}, ${fields.mkString(",")})\n" +
+      s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}]("${cls.name}")\n"""
+    }
+
+    val strClass = {
+      val tableRep = knownClasses(strSymbol)
+      val cls = tableRep.cls
+
+      assert(cls.fields.length == 1)
+      val field = cls.fields(0)
+      assert(field.A =:= codeTypeOf[String])
+
+      s"class ${cls.name}(val key: ${keyType}, var ${field.name}: CString)\n" +
+      s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}]("${cls.name}")\n"""
     }
 
     val tableGetters = knownTableGetters.map { case (_, tblGetter) =>
