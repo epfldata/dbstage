@@ -15,7 +15,7 @@ object LMDBTable {
     val env_ = !envPtr
 
     // Set maximum number of databases
-    println("Max num dbs " + mdb_env_set_maxdbs(env_, 2))
+    println("Max num dbs " + mdb_env_set_maxdbs(env_, 3))
 
     // Open env
     println("env open " + mdb_env_open(env_, path, 0, 664))
@@ -54,12 +54,11 @@ object LMDBTable {
     lmdb_key
   }
 
-  def intcpy(value: Ptr[Byte], field: Long, siz: Long): Unit = {
-    val size = siz.toInt
-    val bytes = BigInt(field).toByteArray.reverse.padTo(size, 0.toByte).reverse
+  def intcpy(ptr: Ptr[Byte], value: Int, size: Int): Unit = {
+    val bytes = BigInt(value).toByteArray.reverse.padTo(size, 0.toByte).reverse
 
     for ( i <- 0 until size ) {
-      !(value + i) = bytes(i)
+      !(ptr + i) = bytes(i)
     }
   }
 
@@ -70,6 +69,23 @@ object LMDBTable {
       bytes(i) = !(ptr + i)
     }
     return BigInt(bytes).toInt
+  }
+
+  def longcpy(ptr: Ptr[Byte], value: Long, size: Int): Unit = {
+    val bytes = BigInt(value).toByteArray.reverse.padTo(size, 0.toByte).reverse
+
+    for ( i <- 0 until size ) {
+      !(ptr + i) = bytes(i)
+    }
+  }
+
+  def longget(ptr: Ptr[Byte], size: Int): Long = {
+    val bytes = new Array[Byte](size)
+
+    for ( i <- 0 until size ) {
+      bytes(i) = !(ptr + i)
+    }
+    return BigInt(bytes).toLong
   }
 }
 
