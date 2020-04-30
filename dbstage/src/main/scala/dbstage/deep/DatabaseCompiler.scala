@@ -3,6 +3,7 @@ package dbstage.deep
 import dbstage.lang.{TableView, Str}
 
 import IR.Predef._
+import IR.Quasicodes._
 
 /** This class creates the String representation of the compiled
  * low-level database implementation. */
@@ -108,6 +109,11 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
+    // https://github.com/epfldata/squid/pull/62
+    code[Unit]{
+        
+    }    
+
     val tablePutters = knownTablePutters.map { case (_, tblPutter) =>
       val paramNames = "new_value"
       val valueName = "value"
@@ -126,10 +132,10 @@ trait DatabaseCompiler { self: StagedDatabase =>
           s"strcpy(${valueName}${index}, ${paramNames}.${field.name})"
           // String only in Str and last field -> no need to compute size
         } else if (field.A =:= codeTypeOf[Int]) {
-          s"intcpy(${valueName}${index}, ${paramNames}._${index}, size${field.A.rep})\n" +
+          s"intcpy(${valueName}${index}, ${paramNames}.${field.name}, size${field.A.rep})\n" +
           s"val ${valueName}${index+1} = ${valueName}${index} + size${field.A.rep}"
         } else if (knownDataType) {
-          s"longcpy(${valueName}${index}, ${paramNames}._${index}, size${keyType})\n" +
+          s"longcpy(${valueName}${index}, ${paramNames}.${field.name.replaceAll("\\s+", "")}Id, size${keyType})\n" +
           s"val ${valueName}${index+1} = ${valueName}${index} + size${keyType}"
         } else {
           throw new IllegalArgumentException(s"Class ${tblPutter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
@@ -223,13 +229,33 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val fieldGetters = knownFieldGetters.map { case (_, getter) =>
-      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: " +
-        s"${getter.typ} = ${getter.owner.self.toCode.showScala}.${getter.name}"
+      val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == getter.typ.tpe.typeSymbol)
+
+      val optionalGet = if (knownDataType) {
+        val table = knownClasses(getter.typ.tpe.typeSymbol).variable.toCode.showScala
+        val get = knownClasses(getter.typ.tpe.typeSymbol).getter.toCode.showScala
+
+        s"if (${getter.owner.self.toCode.showScala}.${getter.name} == null) {\n" +
+        s"${getter.owner.self.toCode.showScala}.${getter.name} = ${get}(${table}, ${getter.owner.self.toCode.showScala}.${getter.name.replaceAll("\\s+", "")}Id)\n}\n"
+      } else ""
+
+      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: ${getter.typ} = {\n" +
+      s"${optionalGet}" +  
+      s"${getter.owner.self.toCode.showScala}.${getter.name}\n" +
+      "}"
     }
 
     val fieldSetters = knownFieldSetters.map { case (_, setter) =>
-      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.name}: ${setter.field.A.rep})" +
-        s"${implicitZoneParam}: Unit = ${setter.owner.self.toCode.showScala}.${setter.name} = ${setter.name}"
+      val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == setter.field.A.rep.tpe.typeSymbol)
+
+      val optionalIdSet = if (knownDataType) {
+        s"${setter.owner.self.toCode.showScala}.${setter.name.replaceAll("\\s+", "")}Id = ${setter.name}.key\n"
+      } else ""
+      
+      s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.name}: ${setter.field.A.rep})${implicitZoneParam}: Unit = {\n" +
+      s"${optionalIdSet}" +
+      s"${setter.owner.self.toCode.showScala}.${setter.name} = ${setter.name}\n" +
+      "}"
     }
 
     val queries = knownQueries.map { q =>

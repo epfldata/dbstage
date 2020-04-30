@@ -19,6 +19,8 @@ object MyDatabase extends StagedDatabase {
   
   val personCls = Person.reflect(IR)
   register(personCls)
+  val jobCls = Job.reflect(IR)
+  register(jobCls)
   
   // Example query:
   val allMinors = query[Int](code{
@@ -26,20 +28,20 @@ object MyDatabase extends StagedDatabase {
   })
 
   val allOld = query[Int](code{
-    all[Person].map(p => new Person(p.salary, p.age+100)).size
+    all[Person].map(p => new Person(p.salary, p.name, p.age+100, p.job)).size
   })
   
-  // val allOld = query[Int](code{
-  //   all[Person].map(p => new Person(new Str("Test"), p.age+100)).size
-  // })
+  val allOld3 = query[Int](code{
+    all[Person].map(p => new Person(0, new Str("Test"), p.age+100, p.job)).size
+  })
 
-  // val sizes = query[Int](code{
-  //   all[Person].map(p => new Person(p.name, p.name.strlen.toInt)).size
-  // })
+  val sizes = query[Int](code{
+    all[Person].map(p => new Person(p.salary, p.name, p.name.strlen.toInt, p.job)).size
+  })
 
-  // val charAtQuery = query[Int](code{
-  //   all[Person].map(p => new Person(new Str(p.name.charAt(2).toString), p.age)).size
-  // })
+  val charAtQuery = query[Int](code{
+    all[Person].map(p => new Person(p.salary, new Str(p.name.charAt(2).toString), p.age, p.job)).size
+  })
 
   val allOld2 = query[Int](code{
     all[Person].map(p => {p.age = p.age + 10; p}).size
@@ -59,7 +61,11 @@ import squid.quasi.{lift, dbg_lift}
 
 // Why not case class?
 @lift
-case class Person(var salary: Int, var age: Int) {
+class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {
   def isMinor = age < 18
+}
+
+@lift
+class Job(var size: Int, var enterprise: Str) {
 }
 
