@@ -50,7 +50,17 @@ trait DatabaseCompiler { self: StagedDatabase =>
         }
       })
 
+      val typesKey = cls.fields.map(field => {
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
+        if (knownDataType) {
+          s"size${keyType}"
+        } else {
+          s"size${field.A.rep}"
+        }
+      })
+
       s"class ${cls.name}(val key: ${keyType}, ${fields.mkString(",")})\n" +
+      s"val size${cls.name} = ${typesKey.mkString("+")}\n" +
       s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}]("${cls.name}")\n"""
     }
 
