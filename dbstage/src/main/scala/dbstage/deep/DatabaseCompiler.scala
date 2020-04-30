@@ -91,8 +91,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
           s"val ${valueName}${index} = longget(${ptrName}${index}, size${keyType})\n" +
           s"val ${ptrName}${index+1} = ${ptrName}${index} + size${keyType}"
         } else if (field.A =:= codeTypeOf[String]) {
-          s"val ${valueName}${index} = ${ptrName}${index}\n" +
-          s"val ${ptrName}${index+1} = ${ptrName}${index} + strlen(${valueName}${index})"
+          s"val ${valueName}${index} = ${ptrName}${index}"
+          // String only in Str and last field -> no need to compute size
         } else {
           throw new IllegalArgumentException(s"Class ${tblGetter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
         })
@@ -109,29 +109,28 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val tablePutters = knownTablePutters.map { case (_, tblPutter) =>
-      val sizeName = "size"
-      val paramNames = "fields"
+      val paramNames = "new_value"
       val valueName = "value"
 
-      val computeSizes = tblPutter.owner.fields.zipWithIndex.map { case (field, i) => {
-        val index = i+1
-        if (field.A =:= codeTypeOf[Str]) {
-          s"val ${sizeName}${index} = strlen(${paramNames}._${index})"
-        } else {
-          // TODO: Permit to have other class data (Job, ...) types, how?
-          s"val ${sizeName}${index} = sizeof[${field.A.rep}]"
-        }
-      }}
-      val computeSize = s"val size = ${tblPutter.owner.fields.zipWithIndex.map(f => s"size${f._2+1}").mkString("+")}"
+      val size = if(tblPutter.owner.C =:= codeTypeOf[Str]) {
+        s"strlen(${paramNames}.string)"
+      } else {
+        s"size${tblPutter.owner.name}"
+      }
 
       val fillInValue = tblPutter.owner.fields.zipWithIndex.map { case (field, i) => {
         val index = i+1
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
 
-        s"val ${valueName}${index} = value${index-1} + size${index-1}\n" +
-        (if (field.A =:= codeTypeOf[Str]) {
-          s"strcpy(${valueName}${index}, ${paramNames}._${index})"
+        (if (field.A =:= codeTypeOf[String]) {
+          s"strcpy(${valueName}${index}, ${paramNames}.${field.name})"
+          // String only in Str and last field -> no need to compute size
         } else if (field.A =:= codeTypeOf[Int]) {
-          s"intcpy(${valueName}${index}, ${paramNames}._${index}, ${sizeName}${index})"
+          s"intcpy(${valueName}${index}, ${paramNames}._${index}, size${field.A.rep})\n" +
+          s"val ${valueName}${index+1} = ${valueName}${index} + size${field.A.rep}"
+        } else if (knownDataType) {
+          s"longcpy(${valueName}${index}, ${paramNames}._${index}, size${keyType})\n" +
+          s"val ${valueName}${index+1} = ${valueName}${index} + size${keyType}"
         } else {
           throw new IllegalArgumentException(s"Class ${tblPutter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
         })
@@ -139,13 +138,10 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
       s"def ${tblPutter.putter.toCode.showScala}(table: LMDBTable[${tblPutter.owner.C.rep}], ${paramNames}: ${tblPutter.owner.C.rep})${implicitZoneParam}: Unit = {\n" +
       s"val key = table.size\n" +
-      s"val size0 = 0l\n" +
-      s"${computeSizes.mkString("\n")}\n" +
-      s"${computeSize}\n" +
-      s"val value0 = alloc[Byte](${sizeName})\n" +
+      s"val size = ${size}\n" +
+      s"val value1 = alloc[Byte](size)\n" +
       s"${fillInValue.mkString("\n")}\n" +
-      s"val ${valueName} = ${valueName}0\n" +
-      s"table.put(key, ${sizeName}, ${valueName})\n" +
+      s"table.put(key, size, value1)\n" +
       "}"
     }
 
