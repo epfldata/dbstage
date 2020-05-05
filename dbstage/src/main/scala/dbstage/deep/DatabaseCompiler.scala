@@ -77,13 +77,50 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}]("${cls.name}")\n"""
     }
 
-    val tableGetters = knownTableGetters.map { case (_, tblGetter) =>
+    val cString = {
+      s"def ${toCString.toCode.showScala}(string: String)${implicitZoneParam}: CString = {\n" +
+      s"toCString(string)\n}"
+    }
+
+    val tableGetters = knownClasses.map { case (_, tableRep) =>
+      val owner = tableRep.cls
+      val table = tableRep.variable.toCode.showScala
+      val fromPtrByte = tableRep.fromPtrByte.toCode.showScala
+
+      s"def ${tableRep.getter.toCode.showScala}(key: ${keyType})${implicitZoneParam}: ${owner.C.rep} = {\n" +
+      s"val value = ${table}.get(key)\n" +
+      s"${fromPtrByte}(key, value)\n" +
+      "}"
+    }
+
+    // https://github.com/epfldata/squid/pull/62
+    code[Unit]{
+        
+    }    
+
+    val tablePutters = knownClasses.map { case (_, tableRep) =>
+      val owner = tableRep.cls
+      val table = tableRep.variable.toCode.showScala
+      val toPtrByte = tableRep.toPtrByte.toCode.showScala
+
+      s"def ${tableRep.putter.toCode.showScala}(data_el: ${owner.C.rep})${implicitZoneParam}: Unit = {\n" +
+      s"val (key, size, value) = ${toPtrByte}(data_el)\n" +
+      s"${table}.put(key, size, value)\n" +
+      "}"
+    }
+
+    val fromPtrByte = knownClasses.map { case (_, tableRep ) =>
+      val owner = tableRep.cls
+      val table = knownClasses(owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
+      var constructor = knownConstructors(owner.constructor.symbol).constructor.toCode.showScala
       val ptrName = "ptr"
       val valueName = "value"
+      var dataTypeField = false
 
-      val computeValues = tblGetter.owner.fields.zipWithIndex.map { case (field, i) => {
+      val computeValues = owner.fields.zipWithIndex.map { case (field, i) => {
         val index = i+1
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
+        dataTypeField = dataTypeField || knownDataType
 
         (if (field.A =:= codeTypeOf[Int]) {
           s"val ${valueName}${index} = intget(${ptrName}${index}, size${field.A.rep})\n" +
@@ -95,36 +132,33 @@ trait DatabaseCompiler { self: StagedDatabase =>
           s"val ${valueName}${index} = ${ptrName}${index}"
           // String only in Str and last field -> no need to compute size
         } else {
-          throw new IllegalArgumentException(s"Class ${tblGetter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+          throw new IllegalArgumentException(s"Class ${owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
         })
       }}
 
-      val args = tblGetter.owner.fields.zipWithIndex.map(f => s"${valueName}${f._2+1}")
+      if (dataTypeField) constructor += "_key"
+      val args = owner.fields.zipWithIndex.map(f => s"${valueName}${f._2+1}")
       val tupleArgs = if(args.length == 1) s"${args(0)}" else s"(${args.mkString(",")})"
 
-      s"def ${tblGetter.getter.toCode.showScala}(table: LMDBTable[${tblGetter.owner.C.rep}], key: ${keyType})${implicitZoneParam}: ${tblGetter.owner.C.rep} = {\n" +
-      s"val ${ptrName}1 = table.get(key)\n" +
+      s"def ${tableRep.fromPtrByte.toCode.showScala}(key: ${keyType}, ${ptrName}1: Ptr[Byte])${implicitZoneParam}: ${owner.C.rep} = {\n" +
       s"${computeValues.mkString("\n")}\n" +
-      s"${knownConstructors(tblGetter.owner.constructor.symbol).constructor.toCode.showScala}(key, ${tupleArgs})\n" +
+      s"${constructor}(key, ${tupleArgs})\n" +
       "}"
     }
 
-    // https://github.com/epfldata/squid/pull/62
-    code[Unit]{
-        
-    }    
-
-    val tablePutters = knownTablePutters.map { case (_, tblPutter) =>
+    val toPtrByte = knownClasses.map { case (_, tableRep) => 
+      val owner = tableRep.cls
+      val table = knownClasses(owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
       val paramNames = "new_value"
       val valueName = "value"
 
-      val size = if(tblPutter.owner.C =:= codeTypeOf[Str]) {
-        s"strlen(${paramNames}.string)"
+      val size = if(owner.C =:= codeTypeOf[Str]) {
+        s"strlen(${paramNames}.string).toInt"
       } else {
-        s"size${tblPutter.owner.name}"
+        s"size${owner.name}"
       }
 
-      val fillInValue = tblPutter.owner.fields.zipWithIndex.map { case (field, i) => {
+      val fillInValue = owner.fields.zipWithIndex.map { case (field, i) => {
         val index = i+1
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
 
@@ -138,22 +172,22 @@ trait DatabaseCompiler { self: StagedDatabase =>
           s"longcpy(${valueName}${index}, ${paramNames}.${field.name.replaceAll("\\s+", "")}Id, size${keyType})\n" +
           s"val ${valueName}${index+1} = ${valueName}${index} + size${keyType}"
         } else {
-          throw new IllegalArgumentException(s"Class ${tblPutter.owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+          throw new IllegalArgumentException(s"Class ${owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
         })
       }}
 
-      s"def ${tblPutter.putter.toCode.showScala}(table: LMDBTable[${tblPutter.owner.C.rep}], ${paramNames}: ${tblPutter.owner.C.rep})${implicitZoneParam}: Unit = {\n" +
-      s"val key = table.size\n" +
+      s"def ${tableRep.toPtrByte.toCode.showScala}(${paramNames}: ${owner.C.rep})${implicitZoneParam}: (Long, Int, Ptr[Byte]) = {\n" +
+      s"val key = ${paramNames}.key\n" +
       s"val size = ${size}\n" +
       s"val value1 = alloc[Byte](size)\n" +
       s"${fillInValue.mkString("\n")}\n" +
-      s"table.put(key, size, value1)\n" +
+      s"(key, size, value1)\n" +
       "}"
     }
 
     val constructors = knownConstructors.flatMap { case (_, constructor) =>
       val dataTypeField = constructor.owner.fields.exists(field => knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol))
-      val (paramTypes, _) = createParamTuple(constructor.params)
+      val paramTypes = createParamTuple(constructor.params)._1.replaceAll("String", "CString")
       val typesKey = constructor.params.map(p => {
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == p.Typ.rep.tpe.typeSymbol)
         if (knownDataType) {
@@ -195,20 +229,20 @@ trait DatabaseCompiler { self: StagedDatabase =>
         s"def ${constructor.constructor.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
         s"val new_val = new ${constructor.owner.name}(${table}.size, ${valueConstructor.mkString(",")})\n" +
-        s"${put}(${table}, new_val)\n" +
+        s"${put}(new_val)\n" +
         s"new_val\n" +
         "}")
 
       if (dataTypeField) {
-        List(s"def ${constructor.constructor.toCode.showScala}(key: ${keyType}, ${paramTypesKey})${implicitZoneParam}" +
+        List(s"def ${constructor.constructor.toCode.showScala}_key(key: ${keyType}, ${paramTypesKey})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
         s"val new_val = new ${constructor.owner.name}(key, ${keyConstructor.mkString(",")})\n" +
         s"new_val\n" +
         "}",
-        s"def ${constructor.constructor.toCode.showScala}(${paramTypesKey})${implicitZoneParam}" +
+        s"def ${constructor.constructor.toCode.showScala}_key(${paramTypesKey})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
         s"val new_val = new ${constructor.owner.name}(${table}.size, ${keyConstructor.mkString(",")})\n" +
-        s"${put}(${table}, new_val)\n" +
+        s"${put}(new_val)\n" +
         s"new_val\n" +
         "}") ++ valueConstructors
       } else {
@@ -222,7 +256,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val stringMethods = knownMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol == strSymbol).map { case (_, mtd) => 
-      val (paramTypes, params) = createParamTuple(mtd.owner.self :: mtd.vparamss.headOption.getOrElse(Nil))
+      val (paramTypes, params_) = createParamTuple(mtd.owner.self :: mtd.vparamss.headOption.getOrElse(Nil))
+      val params = params_.head + ".string" :: params_.tail
       s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${mtd.typ} = ${mtd.symbol.name}" +
         s"(${params.mkString(",")})"
@@ -230,16 +265,16 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val fieldGetters = knownFieldGetters.map { case (_, getter) =>
       val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == getter.typ.tpe.typeSymbol)
+      val returnType = if (getter.typ =:= codeTypeOf[String].rep) "CString" else getter.typ.toString
 
       val optionalGet = if (knownDataType) {
-        val table = knownClasses(getter.typ.tpe.typeSymbol).variable.toCode.showScala
         val get = knownClasses(getter.typ.tpe.typeSymbol).getter.toCode.showScala
 
         s"if (${getter.owner.self.toCode.showScala}.${getter.name} == null) {\n" +
-        s"${getter.owner.self.toCode.showScala}.${getter.name} = ${get}(${table}, ${getter.owner.self.toCode.showScala}.${getter.name.replaceAll("\\s+", "")}Id)\n}\n"
+        s"${getter.owner.self.toCode.showScala}.${getter.name} = ${get}(${getter.owner.self.toCode.showScala}.${getter.name.replaceAll("\\s+", "")}Id)\n}\n"
       } else ""
 
-      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: ${getter.typ} = {\n" +
+      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: ${returnType} = {\n" +
       s"${optionalGet}" +  
       s"${getter.owner.self.toCode.showScala}.${getter.name}\n" +
       "}"
@@ -275,8 +310,11 @@ trait DatabaseCompiler { self: StagedDatabase =>
       ${sizes.mkString("\n")}\n
       ${classes.mkString("\n")}\n
       ${strClass}\n
+      ${cString}\n
       ${tableGetters.mkString("\n")}\n
       ${tablePutters.mkString("\n")}\n
+      ${fromPtrByte.mkString("\n")}\n
+      ${toPtrByte.mkString("\n")}\n
       ${constructors.mkString("\n")}\n
       ${methods.mkString("\n")}\n
       ${stringMethods.mkString("\n")}\n
@@ -286,6 +324,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
     """.replaceAll("@", "_")
     .replaceAll("dbstage\\.lang\\.Str", "Str")
+    .replaceAll("dbstage\\.lang\\.Ptr", "Ptr")
 
     val regex = "\\.apply(?:\\[[^\\n\\r]+\\])?(\\([^\\n\\r]+\\))"
     val matches = regex.r.findAllMatchIn(program)

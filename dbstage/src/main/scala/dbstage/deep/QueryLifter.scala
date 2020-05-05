@@ -109,7 +109,15 @@ trait QueryLifter { db: StagedDatabase =>
     case code"${MethodApplication(app)}: $ty" if knownConstructors.contains(app.symbol) =>
       val c = knownConstructors(app.symbol)
       assert(app.args.size == 2)
-      val args = app.args(1)
+      
+      val args = app.args(1).map(arg => {
+        if (arg.Typ.rep.tpe.typeSymbol == codeTypeOf[String].rep.tpe.typeSymbol) {
+          code{ $(toCString)($(arg.asInstanceOf[Code[String, _]])) }
+        } else {
+          arg
+        }
+      })
+
       (args.length match {  // How to give arguments nicely?
         case 1 => code{$(c.constructor)($(args(0)))}
         case 2 => code{$(c.constructor)($(args(0)), $(args(1)))}

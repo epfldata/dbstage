@@ -66,6 +66,6 @@ class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {
 }
 
 @lift
-class Job(var size: Int, var enterprise: Str) {
+class Job(var size: Int, var entreprise: Str) {
 }
 

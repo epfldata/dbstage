@@ -43,6 +43,7 @@ class StagedDatabase(implicit name: Name)
   protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
 
+  protected val toCString = Variable[String => CString]("toCString")
   register(Str.reflect(IR))
 
   def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
