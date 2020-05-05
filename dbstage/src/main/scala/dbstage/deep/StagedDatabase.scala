@@ -1,6 +1,7 @@
 package dbstage.deep
 
-import dbstage.lang.{TableView, Str, LMDBTable}
+import dbstage.lang.{TableView, Str, LMDBTable, Ptr}
+import dbstage.lang.LMDBTable._
 
 import scala.language.implicitConversions
 import scala.language.existentials
@@ -21,18 +22,6 @@ class StagedDatabase(implicit name: Name)
      with DatabaseCompiler
      with QueryCompiler
 { db =>
-
-  case class TableGetter(
-    val owner: IR.TopLevel.Clasz[_]
-  ) {
-    val getter = Variable[(Any, Any) => Any](s"get_${owner.name}")
-  }
-
-  case class TablePutter(
-    val owner: IR.TopLevel.Clasz[_]
-  ) {
-    val putter = Variable[(Any, Any) => Unit](s"put_${owner.name}")
-  }
   
   val dbName = name.value
   
@@ -48,8 +37,6 @@ class StagedDatabase(implicit name: Name)
     v.asInstanceOf[Variable[T]{ type Ctx = db.Ctx }]
   
   protected val knownClasses = mutable.Map.empty[Symbol, TableRep[_]]
-  protected val knownTableGetters = mutable.Map.empty[Symbol, TableGetter]
-  protected val knownTablePutters = mutable.Map.empty[Symbol, TablePutter]
   protected val knownMethods = mutable.Map.empty[IR.MtdSymbol, ClassMethod]
   protected val knownQueries = mutable.Set.empty[Query[_]]
   protected val knownConstructors = mutable.Map.empty[IR.MtdSymbol, ClassConstructor]
@@ -60,10 +47,7 @@ class StagedDatabase(implicit name: Name)
 
   def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
     // Table
-    knownTableGetters += cls.C.rep.tpe.typeSymbol -> TableGetter(cls)
-    knownTablePutters += cls.C.rep.tpe.typeSymbol -> TablePutter(cls)
-    val tableRep = new TableRep(cls)
-    knownClasses += cls.C.rep.tpe.typeSymbol -> tableRep
+    knownClasses += cls.C.rep.tpe.typeSymbol -> new TableRep(cls)
 
     cls.methods.foreach { mtd =>
       knownMethods += mtd.symbol ->
@@ -103,15 +87,19 @@ class StagedDatabase(implicit name: Name)
     val variable = adaptVariable(Variable[LMDBTable[T]](s"${cls.name}_table"))
 
     // Getters and putters LMDB
-    val getter = knownTableGetters(cls.C.rep.tpe.typeSymbol).getter
-    val putter = knownTablePutters(cls.C.rep.tpe.typeSymbol).putter
+    val toPtrByte = Variable[T => (Long, Int, Ptr[Byte])](s"toPtrByte_${cls.name}") // Key, size, value
+    val fromPtrByte = Variable[(Long, Ptr[Byte]) => T](s"fromPtrByte_${cls.name}") // Key, value
+    val getter = Variable[Long => T](s"get_${cls.name}")
+    val putter = Variable[T => Unit](s"put_${cls.name}")
 
+    def getCursor: Code[Cursor, Ctx] =
+      code{ $(variable).cursor }.unsafe_asClosedCode
+    def getFirst: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 
+      code{ cursor: Cursor => $(variable).first(cursor) }.unsafe_asClosedCode
+    def getNext: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 
+      code{ cursor: Cursor => $(variable).next(cursor) }.unsafe_asClosedCode
     def getSize: Code[Int, Ctx] =
       code{ $(variable).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
-    def getAt: Code[Int => T, Ctx] =
-      code{ i: Int => $(getter)($(variable), i) }.asInstanceOf[Code[Int => T, Ctx]].unsafe_asClosedCode // FIXME scope
-    def append: Code[T => Unit, Ctx] =
-      code{ t: T => $(putter)($(variable), t) }.unsafe_asClosedCode // FIXME scope
   }
   
   /** The representation of a query expressed in this staged database. */

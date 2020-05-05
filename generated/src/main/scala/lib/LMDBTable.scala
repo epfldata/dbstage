@@ -94,6 +94,43 @@ case class LMDBTable[T](_name: String) {
 
   val name = toCString(_name)(zone)
 
+  var txnn: Ptr[Byte] = null // Work around for now, later the txn and dbi will be created and given by the query
+  var dbii: UInt = null
+
+  def cursor()(implicit z: Zone): Ptr[Byte] = {
+    val cursorPtr = alloc[Ptr[Byte]]
+    txnn = init_transaction(env)
+    dbii = init_dbi(txnn, name)
+    mdb_cursor_open(txnn, dbii, cursorPtr)
+    !cursorPtr
+  }
+
+  private def cursor_get(cursor: Ptr[Byte], op: Int)(implicit z: Zone): (Long, Ptr[Byte]) = {
+    val key = alloc[KVType]
+    val value = alloc[KVType]
+    val code = mdb_cursor_get(cursor, key, value, op)
+
+    if (code == 0) {
+      println(s"Mdb cursor ${op}: ${code}")
+      (longget(key._2, key._1.toInt), value._2)
+    } else {
+      println(s"Mdb cursor ${op}: ${code}")
+      // Free
+      mdb_txn_commit(txnn)
+      mdb_dbi_close(env, dbii)
+      (0, null)
+    }
+  }
+
+  def first(cursor: Ptr[Byte])(implicit z: Zone): (Long, Ptr[Byte]) = {
+    println("First")
+    cursor_get(cursor, MDB_FIRST)
+  }
+
+  def next(cursor: Ptr[Byte])(implicit z: Zone): (Long, Ptr[Byte]) = {
+    cursor_get(cursor, MDB_NEXT)
+  }
+
   def size(implicit z: Zone): Long = {
     val txn = init_transaction(env)
     val dbi = init_dbi(txn, name)

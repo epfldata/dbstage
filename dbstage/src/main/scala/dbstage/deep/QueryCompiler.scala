@@ -56,7 +56,7 @@ trait QueryCompiler { self: StagedDatabase =>
     (src: TableRep[Row], el: Code[Row, C])
     extends QueryPlan[Unit, C] {
       def getCode: Code[Unit, C] = code{
-        $(src.append)($(el))
+        //$(src.append)($(el))
       }.unsafe_asClosedCode
     }
   
@@ -77,9 +77,9 @@ trait QueryCompiler { self: StagedDatabase =>
     extends IterationPlan[Row, C]
   {
     def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] = code{
-      val size = $(src.getSize)
-      var i = 0
-      while(i < size && {val next = $(src.getAt)(i); $(step)(next)}){ i += 1 }
+      val cursor = $(src.getCursor)
+      var get = $(src.getFirst)(cursor)
+      while(get._2 != null && {$(step)($(src.fromPtrByte)(get._1, get._2))}){ get = $(src.getNext)(cursor) }
     }.unsafe_asClosedCode // FIXME scope
   }
   
