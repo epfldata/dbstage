@@ -42,7 +42,7 @@ object bindings { // TODO: rename Library (to be similar to JNR)
   def mdb_cursor_close(cursor: Ptr[Byte]): Unit = extern
   def mdb_cursor_count(cursor: Ptr[Byte], countp: Ptr[Long]): Int = extern
   def mdb_cursor_del(cursor: Ptr[Byte], flags: Int): Int = extern
-  def mdb_cursor_get(cursor: Ptr[Byte], k: Ptr[Byte], v: Ptr[Byte], cursorOp: Int): Int = extern
+  def mdb_cursor_get(cursor: Ptr[Byte], key: KVPtr, data: KVPtr, op: Int): Int = extern
   def mdb_cursor_open(txn: Ptr[Byte], dbi: UInt, cursorPtr: Ptr[Ptr[Byte]]): Int = extern
   def mdb_cursor_put(cursor: Ptr[Byte], key: KVPtr, data: KVPtr, flags: Int): Int = extern
   def mdb_cursor_renew(txn: Ptr[Byte], cursor: Ptr[Byte]): Int = extern
