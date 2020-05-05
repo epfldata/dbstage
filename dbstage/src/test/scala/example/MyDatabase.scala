@@ -47,19 +47,17 @@ object MyDatabase extends StagedDatabase {
     all[Person].map(p => {p.age = p.age + 10; p}).size
   })
 
-  // val insert2 = query[TableView[Person]](code{
-  //   $(personsTable).insert(new Person("Lucien", 20)) // Issue IR, why?
-  // })
-
-  // val insert = query[Person=>TableView[Person]](code{
-  //   p: Person => $(personsTable).insert(p)
-  // })
+  val insertions = query[Unit](code{
+    val epfl = new Job(10000, new Str("EPFL"))
+    val lucien = new Person(1000, new Str("Lucien"), 21, epfl)
+    val john = new Person(100, new Str("John"), 16, epfl)
+    val size = all[Person].map(p => new Person(p.salary, new Str(p.name.charAt(2).toString), p.age, p.job)).size // Why doesn't this compile into something?
+  })
 }
 
 
 import squid.quasi.{lift, dbg_lift}
 
-// Why not case class?
 @lift
 class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {
   def isMinor = age < 18

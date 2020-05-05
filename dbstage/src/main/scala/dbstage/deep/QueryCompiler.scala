@@ -23,6 +23,9 @@ trait QueryCompiler { self: StagedDatabase =>
       case i: Insert[_, C @unchecked] =>
         import i.{Row}
         Insertion[Row, Ctx](i.tbl, i.el)
+      case c: CodeQueryRep[_, _] =>
+        import c.{Res}
+        CodeQuery[Res, Ctx](c.code)
       case _ => ??? // unsupported for now
     }
     res.asInstanceOf[QueryPlan[T, Ctx]]
@@ -97,6 +100,10 @@ trait QueryCompiler { self: StagedDatabase =>
   {
     def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] =
       src.push[C0](code{ row: Row => $(step)($(f)(row))})
+  }
+
+  case class CodeQuery[Res: CodeType, C >: Ctx](code: Code[Res, C]) extends QueryPlan[Res, C] {
+    def getCode: Code[Res, C] = code
   }
   
 }

@@ -76,8 +76,9 @@ trait QueryLifter { db: StagedDatabase =>
           //   val tbl = getTable(tableCode)
           //     .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
           //   Insert[ty.Typ, C](tbl, t1)
-          case _ =>
-            liftingError(s"do not know how to lift query: ${queryCode.showScala}")
+          case _ => CodeQueryRep(adaptCode(queryCode))
+          // case _ =>
+          //   liftingError(s"do not know how to lift query: ${queryCode.showScala}")
         }
     }
     res.asInstanceOf[QueryRep[T, C]] // required due to limitation of scalac
@@ -109,7 +110,7 @@ trait QueryLifter { db: StagedDatabase =>
     case code"${MethodApplication(app)}: $ty" if knownConstructors.contains(app.symbol) =>
       val c = knownConstructors(app.symbol)
       assert(app.args.size == 2)
-      
+
       val args = app.args(1).map(arg => {
         if (arg.Typ.rep.tpe.typeSymbol == codeTypeOf[String].rep.tpe.typeSymbol) {
           code{ $(toCString)($(arg.asInstanceOf[Code[String, _]])) }
@@ -148,7 +149,9 @@ trait QueryLifter { db: StagedDatabase =>
       type Row = T
       implicit val Row = codeTypeOf[Row]
     }
-  
+
+  case class CodeQueryRep[T: CodeType, C](code: Code[T, C]) extends QueryRep[T, C]
+    
   case class Insert[T: CodeType, C]
     (tbl: TableRep[T], el: Code[T, C]) extends QueryRep[TableView[T], C] {
       type Row = T
