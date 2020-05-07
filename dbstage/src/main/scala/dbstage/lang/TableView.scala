@@ -25,4 +25,8 @@ abstract class TableView[T] { view =>
   def map(f: T => T): TableView[T] = new Map(f)
 
   class Map(f: T => T) extends TableView[T]
+
+  def join[R](other: TableView[R]): TableView[(T, R)] = new Join(other)
+
+  class Join[R](other: TableView[R]) extends TableView[(T, R)]
 }

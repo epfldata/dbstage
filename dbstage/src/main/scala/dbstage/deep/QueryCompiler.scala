@@ -35,6 +35,7 @@ trait QueryCompiler { self: StagedDatabase =>
       case View(tbl) => Scan(tbl)
       case Filter(view, pred) => Selection(planIteration(view), pred)
       case Map(view, f) => QueryMap(planIteration(view), f)
+      case Join(view1, view2) => QueryJoin(planIteration(view1), planIteration(view2))
       case _ => compilingError(s"Encountered unexpected QueryRep ${rep} when planning iteration")
     }
     res.asInstanceOf[IterationPlan[T, Ctx]]
@@ -104,6 +105,30 @@ trait QueryCompiler { self: StagedDatabase =>
 
   case class CodeQuery[Res: CodeType, C >: Ctx](code: Code[Res, C]) extends QueryPlan[Res, C] {
     def getCode: Code[Res, C] = code
+  }
+
+  case class QueryJoin[Row1: CodeType, Row2: CodeType, C >: Ctx]
+    (it1: IterationPlan[Row1, C], it2: IterationPlan[Row2, C])
+    extends IterationPlan[(Row1, Row2), C]
+  {
+    // Why this error?
+        // type mismatch;
+        //   found   : row1.type (with underlying type Row1)
+        //   required: AnyRef
+        // Note that Row1 is unbounded, which means AnyRef is not a known parent.
+        // Such types can participate in value classes, but instances
+        // cannot appear in singleton types or in reference comparisons.bloop
+    // def push[C0 <: C](step: Code[((Row1, Row2)) => Boolean, C0]): Code[Unit, C0] = {
+    //   it1.push[C0](code{ row1: Row1 =>
+    //     it2.push[row1.type with C0](code{ row2: Row2 => {
+    //       $(step)((row1, row2))
+    //     }});
+    //     true
+    //   })
+    // }
+    def push[C0 <: C](step: Code[((Row1, Row2)) => Boolean, C0]): Code[Unit, C0] = {
+      it1.push[C0](code{ row1: Row1 => true})
+    }
   }
   
 }

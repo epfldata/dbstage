@@ -72,18 +72,12 @@ trait QueryLifter { db: StagedDatabase =>
         Size(liftQuery(view))
       case code"($view: TableView[$ty]).map($f)" =>
         Map(liftQuery(view), adaptCode(f))
-      case _ =>
-        queryCode match {
-          case code"TableView.all[$ty]" =>
-            val tbl = knownClasses.getOrElse(ty.rep.tpe.typeSymbol, liftingError(s"cannot lift table reference: $ty")).asInstanceOf[TableRep[ty.Typ]]
-            View(tbl)
-          // case code"($tableCode: Table[$ty]).insert($t1)" =>
-          //   // Doesn't work for some reason because of IR
-          //   val tbl = getTable(tableCode)
-          //     .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
-          //   Insert[ty.Typ, C](tbl, t1)
-          case _ => CodeQueryRep(adaptCodeValBindings(queryCode))
-        }
+      case code"TableView.all[$ty]" =>
+        val tbl = knownClasses.getOrElse(ty.rep.tpe.typeSymbol, liftingError(s"cannot lift table reference: $ty")).asInstanceOf[TableRep[ty.Typ]]
+        View(tbl)
+      case code"($view: TableView[$ty]).join($other: TableView[$tother])" =>
+        Join(liftQuery(view), liftQuery(other))
+      case _ => CodeQueryRep(adaptCodeValBindings(queryCode))
     }
     res.asInstanceOf[QueryRep[T, C]] // required due to limitation of scalac
   }
@@ -181,5 +175,8 @@ trait QueryLifter { db: StagedDatabase =>
       type Row = T
       implicit val Row = codeTypeOf[Row]
     }
-  
+
+  case class Join[T: CodeType, R: CodeType, C]
+    (q1: QueryRep[TableView[T], C], q2: QueryRep[TableView[R], C])
+    extends QueryRep[TableView[(T, R)], C]
 }

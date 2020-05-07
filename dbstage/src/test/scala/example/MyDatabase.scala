@@ -47,11 +47,8 @@ object MyDatabase extends StagedDatabase {
     all[Person].map(p => {p.age = p.age + 10; p}).size
   })
 
-  val insertions = query[Unit](code{
-    val epfl = new Job(10000, new Str("EPFL"))
-    val lucien = new Person(1000, new Str("Lucien"), 21, epfl)
-    val john = new Person(100, new Str("John"), 16, epfl)
-    val size = all[Person].map(p => new Person(p.salary, new Str(p.name.charAt(2).toString), p.age, p.job)).size // Why doesn't this compile into something?
+  val joinQuery = query[Int](code{
+    all[Person].join(all[Person]).size
   })
 }
 
@@ -64,6 +61,6 @@ class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {
 }
 
 @lift
-class Job(var size: Int, var entreprise: Str) {
+class Job(var size: Int, var enterprise: Str) {
 }
 

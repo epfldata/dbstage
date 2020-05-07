@@ -20,5 +20,5 @@ object IR extends SimpleANF
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("filter")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("size")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("map")
-  
+  transparencyPropagatingMtds += methodSymbol[TableView[_]]("join")
 }
