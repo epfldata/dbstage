@@ -53,6 +53,12 @@ trait QueryLifter { db: StagedDatabase =>
     val field = owner.fields(index-1)
     val setter = Variable[(Any, Any) => Unit](symbol.name.toString)
   }
+
+  case class ClassDeleter(
+    val owner: IR.TopLevel.Clasz[_]
+  ) {
+    val deleter = Variable[Any => Unit](s"delete_${owner.name}")
+  }
   
   def liftingError(msg: String): Nothing = throw new Exception("lifting error: " + msg)
   
@@ -76,17 +82,35 @@ trait QueryLifter { db: StagedDatabase =>
           //   val tbl = getTable(tableCode)
           //     .getOrElse(liftingError(s"cannot lift table reference: $tableCode"))
           //   Insert[ty.Typ, C](tbl, t1)
-          case _ => CodeQueryRep(adaptCode(queryCode))
-          // case _ =>
-          //   liftingError(s"do not know how to lift query: ${queryCode.showScala}")
+          case _ => CodeQueryRep(adaptCodeValBindings(queryCode))
         }
     }
     res.asInstanceOf[QueryRep[T, C]] // required due to limitation of scalac
+  }
+
+  def adaptCodeValBindings[T, C](cde: Code[T, C]): Code[T, C] = cde match {
+    // Why this error?
+        // type mismatch;
+        // found   : ty
+        //   (which expands to)  ty.Typ @squid.quasi.Extracted
+        // required: dbstage.deep.IR.Variable[?]bloop
+    
+    // case code"val $x: $xt = $v; $rest: $ty" =>
+    //   val code = adaptCode(v)
+    //   val codeRest = $(adaptCodeValBindings(rest))
+    //   code{val x = $(code); codeRest}
+    case _ => liftingError(s"Unsupported code inside Insertion query: ${cde.showScala}")
   }
   
   /** Rewrites all calls to methods defined in known data classes of the database
    * into calls to a new function that will be code-generated later. */
   def adaptCode[T, C](cde: Code[T, C]): Code[T, C] = cde rewrite {
+    // Why this error?
+        // Cross-quotation reference was never captured. Perhaps you intended to use a cross-stage-persistent reference, which needs the @squid.lib.persist annotation.bloop
+    
+    // case code"TableView.delete[$ty]($el)" if knownDeleters.contains(ty.rep.tpe.typeSymbol) =>
+    //   val deleter = knownDeleters(ty.rep.tpe.typeSymbol)
+    //   code{$(deleter.deleter)(el)}
     case code"${MethodApplication(app)}: $ty" if knownMethods.contains(app.symbol) =>
       val m = knownMethods(app.symbol)
       val thisArg = app.args.head.head

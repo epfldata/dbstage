@@ -4,6 +4,7 @@ import scala.collection.mutable
 
 object TableView {
   def all[T]: TableView[T] = ???
+  def delete[T](el: T): Unit = ???
 }
 
 abstract class TableView[T] { view =>

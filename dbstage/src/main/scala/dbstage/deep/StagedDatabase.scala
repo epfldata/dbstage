@@ -42,6 +42,7 @@ class StagedDatabase(implicit name: Name)
   protected val knownConstructors = mutable.Map.empty[IR.MtdSymbol, ClassConstructor]
   protected val knownFieldGetters = mutable.Map.empty[IR.MtdSymbol, ClassGetter]
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
+  protected val knownDeleters = mutable.Map.empty[Symbol, ClassDeleter]
 
   protected val toCString = Variable[String => CString]("toCString")
   register(Str.reflect(IR))
