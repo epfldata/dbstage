@@ -22,9 +22,9 @@ abstract class TableView[T] { view =>
     protected def iterator: Iterator[T] = view.iterator.ad
   }*/
   
-  def map(f: T => T): TableView[T] = new Map(f)
+  def map[R](f: T => R): TableView[R] = new Map(f)
 
-  class Map(f: T => T) extends TableView[T]
+  class Map[R](f: T => R) extends TableView[R]
 
   def join[R](other: TableView[R]): TableView[(T, R)] = new Join(other)
 

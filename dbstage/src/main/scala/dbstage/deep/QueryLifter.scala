@@ -70,7 +70,7 @@ trait QueryLifter { db: StagedDatabase =>
         Filter[ty.Typ, C](liftQuery(tbl), adaptCode(pred))
       case code"($view: TableView[$ty]).size" =>
         Size(liftQuery(view))
-      case code"($view: TableView[$ty]).map($f)" =>
+      case code"($view: TableView[$ty]).map[$tres]($f)" =>
         Map(liftQuery(view), adaptCode(f))
       case code"TableView.all[$ty]" =>
         val tbl = knownClasses.getOrElse(ty.rep.tpe.typeSymbol, liftingError(s"cannot lift table reference: $ty")).asInstanceOf[TableRep[ty.Typ]]
@@ -158,9 +158,9 @@ trait QueryLifter { db: StagedDatabase =>
     (q: QueryRep[TableView[T], C], pred: Code[T => Boolean, C])
     extends QueryRep[TableView[T], C]
 
-  case class Map[T: CodeType, C]
-    (q: QueryRep[TableView[T], C], f: Code[T => T, C])
-    extends QueryRep[TableView[T], C]
+  case class Map[T: CodeType, R: CodeType, C]
+    (q: QueryRep[TableView[T], C], f: Code[T => R, C])
+    extends QueryRep[TableView[R], C]
 
   case class Size[T: CodeType, C](q: QueryRep[TableView[T], C])
     extends QueryRep[Int, C] {

@@ -50,6 +50,11 @@ object MyDatabase extends StagedDatabase {
   val joinQuery = query[Int](code{
     all[Person].join(all[Person]).size
   })
+
+  val mapQuery = query[Int](code{
+    all[Person].map(p => p.job).map(job => job.size).map(size => size+100).size
+  })
+
 }
 
 

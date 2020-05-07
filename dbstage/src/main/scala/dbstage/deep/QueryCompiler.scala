@@ -95,11 +95,11 @@ trait QueryCompiler { self: StagedDatabase =>
       src.push[C0](code{ row: Row => if ($(pred)(row)) $(step)(row) else true })
   }
 
-  case class QueryMap[Row: CodeType, C >: Ctx]
-    (src: IterationPlan[Row, C], f: Code[Row => Row, C])
-    extends IterationPlan[Row, C]
+  case class QueryMap[Row: CodeType, RowRes: CodeType, C >: Ctx]
+    (src: IterationPlan[Row, C], f: Code[Row => RowRes, C])
+    extends IterationPlan[RowRes, C]
   {
-    def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] =
+    def push[C0 <: C](step: Code[RowRes => Boolean, C0]): Code[Unit, C0] =
       src.push[C0](code{ row: Row => $(step)($(f)(row))})
   }
 
