@@ -12,6 +12,8 @@ object IR extends SimpleANF
   with Definitions
   with BlockHelpers
   with StandardEffects
+  with OnlineOptimizer
+  with CurryEncoding.ApplicationNormalizer
 {
   
   // These are used to allow the ANF representation not to let-bind them,
