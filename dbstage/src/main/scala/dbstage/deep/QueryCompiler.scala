@@ -17,9 +17,8 @@ trait QueryCompiler { self: StagedDatabase =>
   def planQuery[T, C >: Ctx](rep: QueryRep[T, C]): QueryPlan[T, Ctx] = {
     val res: QueryPlan[_, Ctx] = rep match {
       case s: Size[_, C @unchecked] => // the erasure warning on C is spurious!
-        import s.{Res, Row} // to get the right implicit type representations in scope
-        Aggregate[Row, Int, Ctx](planIteration(s.q),
-          code{ 0 }, code{ (_: Row, acc: Int) => acc + 1 })
+        import s.Row // to get the right implicit type representations in scope
+        QuerySize[Row, Ctx](planIteration(s.q))
       case i: Insert[_, C @unchecked] =>
         import i.{Row}
         Insertion[Row, Ctx](i.tbl, i.el)
@@ -52,6 +51,16 @@ trait QueryCompiler { self: StagedDatabase =>
       def getCode: Code[Res, C] = code{
         var res = $(init)
         $(src.foreach(code{ row: Row => res = $(acc)(row, res) }))
+        res
+      }
+    }
+
+  case class QuerySize[Row: CodeType, C]
+    (src: IterationPlan[Row, C])
+    extends QueryPlan[Int, C] {
+      def getCode: Code[Int, C] = code{
+        var res = 0
+        $(src.foreach(code{ row: Row => res = res+1 }))
         res
       }
     }
