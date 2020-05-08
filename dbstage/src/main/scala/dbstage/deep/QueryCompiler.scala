@@ -118,12 +118,12 @@ trait QueryCompiler { self: StagedDatabase =>
         // Such types can participate in value classes, but instances
         // cannot appear in singleton types or in reference comparisons.bloop
     // def push[C0 <: C](step: Code[((Row1, Row2)) => Boolean, C0]): Code[Unit, C0] = {
-    //   it1.push[C0](code{ row1: Row1 =>
-    //     it2.push[row1.type with C0](code{ row2: Row2 => {
+    //   it1.push[C0](code{ row1: Row1 => {
+    //     $(it2.push[row1.type with C0](code{ row2: Row2 => {
     //       $(step)((row1, row2))
-    //     }});
+    //     }}))
     //     true
-    //   })
+    //   }})
     // }
     def push[C0 <: C](step: Code[((Row1, Row2)) => Boolean, C0]): Code[Unit, C0] = {
       it1.push[C0](code{ row1: Row1 => true})
