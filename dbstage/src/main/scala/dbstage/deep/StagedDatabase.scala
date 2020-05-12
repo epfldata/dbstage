@@ -96,8 +96,20 @@ class StagedDatabase(implicit name: Name)
     val getter = Variable[Long => T](s"get_${cls.name}")
     val putter = Variable[T => Unit](s"put_${cls.name}")
 
-    def getCursor: Code[Cursor, Ctx] =
-      code{ $(variable).cursor }.unsafe_asClosedCode
+    def getTxn: Code[Txn, Ctx] =
+      code{ $(variable).txn }.unsafe_asClosedCode
+    def getDbi: Code[Txn => Dbi, Ctx] =
+      code{ txn: Txn => $(variable).dbi(txn) }.unsafe_asClosedCode
+    def getCursor: Code[(Txn, Dbi) => Cursor, Ctx] =
+      code{ (txn: Txn, dbi: Dbi) => $(variable).cursor(txn, dbi) }.unsafe_asClosedCode
+
+    def commitTxn: Code[Txn => Unit, Ctx] =
+      code{ txn: Txn => $(variable).commitTxn(txn) }.unsafe_asClosedCode
+    def closeDbi: Code[Dbi => Unit, Ctx] =
+      code{ dbi: Dbi => $(variable).closeDbi(dbi) }.unsafe_asClosedCode
+    def closeCursor: Code[Cursor => Unit, Ctx] =
+      code{ cursor: Cursor => $(variable).closeCursor(cursor) }.unsafe_asClosedCode
+
     def getFirst: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 
       code{ cursor: Cursor => $(variable).first(cursor) }.unsafe_asClosedCode
     def getNext: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 

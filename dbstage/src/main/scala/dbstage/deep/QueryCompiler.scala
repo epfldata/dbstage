@@ -80,9 +80,16 @@ trait QueryCompiler { self: StagedDatabase =>
     extends IterationPlan[Row, C]
   {
     def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] = code{
-      val cursor = $(src.getCursor)
+      val txn = $(src.getTxn)
+      val dbi = $(src.getDbi)(txn)
+      val cursor = $(src.getCursor)(txn, dbi)
+
       var get = $(src.getFirst)(cursor)
       while(get._2 != null && {$(step)($(src.fromPtrByte)(get._1, get._2))}){ get = $(src.getNext)(cursor) }
+
+      $(src.closeCursor)(cursor)
+      $(src.closeDbi)(dbi)
+      $(src.commitTxn)(txn)
     }.unsafe_asClosedCode // FIXME scope
   }
   
