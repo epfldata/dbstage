@@ -325,6 +325,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     """.replaceAll("@", "_")
     .replaceAll("dbstage\\.lang\\.Str", "Str")
     .replaceAll("dbstage\\.lang\\.Ptr", "Ptr")
+    .replaceAll("dbstage\\.lang\\.LMDBTable", "LMDBTable")
 
     val regex = "\\.apply(?:\\[[^\\n\\r]+\\])?(\\([^\\n\\r]+\\))"
     val matches = regex.r.findAllMatchIn(program)

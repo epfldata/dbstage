@@ -7,6 +7,9 @@ object LMDBTable {
   type CString = Ptr[Byte]
   type Txn = Ptr[Byte]
   type Dbi = Int // UInt
+
+  def txnBegin(): Unit = ???
+  def txnCommit(): Unit = ???
 }
 
 class LMDBTable[T] {
@@ -14,13 +17,11 @@ class LMDBTable[T] {
 
   def size(): Int = ???
 
-  def txn(): Txn = ???
-  def dbi(txn: Txn): Dbi = ???
-  def cursor(txn: Txn, dbi: Dbi): Cursor = ???
+  def dbiOpen(): Unit = ???
+  def cursorOpen(): Cursor = ???
 
-  def commitTxn(txn: Txn): Unit = ???
-  def closeDbi(dbi: Dbi): Unit = ???
-  def closeCursor(cursor: Cursor): Unit = ???
+  def dbiClose(): Unit = ???
+  def cursorClose(cursor: Cursor): Unit = ???
   
   def first(cursor: Cursor): (Long, Ptr[Byte]) = ???
   def next(cursor: Cursor): (Long, Ptr[Byte]) = ???

@@ -44,14 +44,20 @@ class StagedDatabase(implicit name: Name)
   protected val knownFieldSetters = mutable.Map.empty[IR.MtdSymbol, ClassSetter]
   protected val knownDeleters = mutable.Map.empty[Symbol, ClassDeleter]
 
+  protected var openDbis = code{}
+  protected var closeDbis = code{}
+
   protected val toCString = Variable[String => CString]("toCString")
   register(Str.reflect(IR))
 
   def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
     // Table
-    knownClasses += cls.C.rep.tpe.typeSymbol -> new TableRep(cls)
-
+    val tableRep = new TableRep(cls)
+    knownClasses += cls.C.rep.tpe.typeSymbol -> tableRep
     knownDeleters += cls.C.rep.tpe.typeSymbol -> new ClassDeleter(cls)
+
+    openDbis = code{$(openDbis); $(tableRep.getDbi)}.unsafe_asClosedCode
+    closeDbis = code{$(closeDbis); $(tableRep.closeDbi)}.unsafe_asClosedCode
 
     cls.methods.foreach { mtd =>
       knownMethods += mtd.symbol ->
@@ -96,19 +102,15 @@ class StagedDatabase(implicit name: Name)
     val getter = Variable[Long => T](s"get_${cls.name}")
     val putter = Variable[T => Unit](s"put_${cls.name}")
 
-    def getTxn: Code[Txn, Ctx] =
-      code{ $(variable).txn }.unsafe_asClosedCode
-    def getDbi: Code[Txn => Dbi, Ctx] =
-      code{ txn: Txn => $(variable).dbi(txn) }.unsafe_asClosedCode
-    def getCursor: Code[(Txn, Dbi) => Cursor, Ctx] =
-      code{ (txn: Txn, dbi: Dbi) => $(variable).cursor(txn, dbi) }.unsafe_asClosedCode
+    def getDbi: Code[Unit, Ctx] =
+      code{ $(variable).dbiOpen() }.unsafe_asClosedCode
+    def getCursor: Code[Cursor, Ctx] =
+      code{ $(variable).cursorOpen() }.unsafe_asClosedCode
 
-    def commitTxn: Code[Txn => Unit, Ctx] =
-      code{ txn: Txn => $(variable).commitTxn(txn) }.unsafe_asClosedCode
-    def closeDbi: Code[Dbi => Unit, Ctx] =
-      code{ dbi: Dbi => $(variable).closeDbi(dbi) }.unsafe_asClosedCode
+    def closeDbi: Code[Unit, Ctx] =
+      code{ $(variable).dbiClose() }.unsafe_asClosedCode
     def closeCursor: Code[Cursor => Unit, Ctx] =
-      code{ cursor: Cursor => $(variable).closeCursor(cursor) }.unsafe_asClosedCode
+      code{ cursor: Cursor => $(variable).cursorClose(cursor) }.unsafe_asClosedCode
 
     def getFirst: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 
       code{ cursor: Cursor => $(variable).first(cursor) }.unsafe_asClosedCode

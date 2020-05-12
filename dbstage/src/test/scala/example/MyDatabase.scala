@@ -55,10 +55,27 @@ object MyDatabase extends StagedDatabase {
     all[Person].map(p => p.job).map(job => job.size).map(size => size+100).size
   })
 
+  val insertions = query[Unit](code{
+    val epfl = new Job(10000, new Str("EPFL"))
+    val lucien = new Person(1000, new Str("Lucien"), 21, epfl)
+    val john = new Person(100, new Str("John"), 16, epfl)
+  })
+
+  val sizePersonQuery = query[Int](code{
+    all[Person].size
+  })
+
+  val sizeJobQuery = query[Int](code{
+    all[Job].size
+  })
+
+  val sizeStrQuery = query[Int](code{
+    all[Str].size
+  })
 }
 
 
-import squid.quasi.{lift, dbg_lift}
+import squid.quasi.lift
 
 @lift
 class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {

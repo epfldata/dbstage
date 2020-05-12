@@ -22,6 +22,18 @@ object LMDBTable {
 
     env_
   }
+  var txn: Ptr[Byte] = null
+
+  def txnBegin()(implicit z: Zone): Unit = if (txn == null) {
+    val txPtr = alloc[Ptr[Byte]]
+    println("Txn begin " + mdb_txn_begin(env, null, 0, txPtr))
+    txn = !txPtr
+  }
+
+  def txnCommit()(implicit z: Zone): Unit = {
+    println("Txn commit " + mdb_txn_commit(txn))
+    txn = null
+  }
   
   def free(): Unit = {
     mdb_env_close(env)
@@ -55,7 +67,7 @@ object LMDBTable {
     for ( i <- 0 until size ) {
       bytes(i) = !(ptr + i)
     }
-    return BigInt(bytes).toInt
+    BigInt(bytes).toInt
   }
 
   def longcpy(ptr: Ptr[Byte], value: Long, size: Int): Unit = {
@@ -79,37 +91,27 @@ object LMDBTable {
 case class LMDBTable[T](_name: String) {
   import LMDBTable._
 
-  val name = toCString(_name)(zone)
+  val name: CString = toCString(_name)(zone)
+  var dbi: UInt = null
 
-  def txn()(implicit z: Zone): Ptr[Byte] = {
-    val txPtr = alloc[Ptr[Byte]]
-    println("Txn begin " + mdb_txn_begin(env, null, 0, txPtr))
-    return !txPtr
-  }
-
-  def dbi(txn: Ptr[Byte])(implicit z: Zone): UInt = {
-    println("Dbi")
-    Console.flush()
+  def dbiOpen()(implicit z: Zone): Unit = {
     val dbiPtr = alloc[UInt]
     println("Dbi open " + mdb_dbi_open(txn, name, MDB_CREATE, dbiPtr))
-    return !dbiPtr
+    dbi = !dbiPtr
   }
 
-  def cursor(txn: Ptr[Byte], dbi: UInt)(implicit z: Zone): Ptr[Byte] = {
+  def dbiClose(): Unit = {
+    mdb_dbi_close(env, dbi)
+    dbi = null
+  }
+
+  def cursorOpen()(implicit z: Zone): Ptr[Byte] = {
     val cursorPtr = alloc[Ptr[Byte]]
     mdb_cursor_open(txn, dbi, cursorPtr)
     !cursorPtr
   }
 
-  def commitTxn(txn: Ptr[Byte]): Unit = {
-    mdb_txn_commit(txn)
-  }
-
-  def closeDbi(dbi: UInt): Unit = {
-    mdb_dbi_close(env, dbi)
-  }
-
-  def closeCursor(cursor: Ptr[Byte]): Unit = {
+  def cursorClose(cursor: Ptr[Byte]): Unit = {
     mdb_cursor_close(cursor)
   }
 
@@ -137,52 +139,30 @@ case class LMDBTable[T](_name: String) {
   }
 
   def size(implicit z: Zone): Long = {
-    println("Size")
-    val txnn = txn()
-    val dbii = dbi(txnn)
-
     // Get size
     val stat = alloc[struct_lmdb_stat]
-    println("Stats " + mdb_stat(txnn, dbii, stat))
-
-    // Free
-    mdb_txn_commit(txnn)
-    mdb_dbi_close(env, dbii)
+    println("Stats " + mdb_stat(txn, dbi, stat))
 
     // Return
     stat._6
   }
 
   def get(key: Long)(implicit z: Zone): Ptr[Byte] = {
-    val txnn = txn()
-    val dbii = dbi(txnn)
-
     // Get value
     val lmdb_key = get_lmdb_key(key)
     val dataGet = alloc[KVType]
-    println("Get " + mdb_get(txnn, dbii, lmdb_key, dataGet))
-
-    // Free
-    mdb_txn_commit(txnn)
-    mdb_dbi_close(env, dbii)
+    println("Get " + mdb_get(txn, dbi, lmdb_key, dataGet))
 
     // Return
     dataGet._2
   }
 
   def put(key: Long, valueSize: Long, value: Ptr[Byte])(implicit z: Zone): Unit = {
-    val txnn = txn()
-    val dbii = dbi(txnn)
-
     // Put
     val lmdb_key = get_lmdb_key(key)
     val dataPut = alloc[KVType]
     dataPut._1 = valueSize
     dataPut._2 = value
-    println("Put " + mdb_put(txnn, dbii, lmdb_key, dataPut, 0))
-
-    // Free
-    mdb_txn_commit(txnn)
-    mdb_dbi_close(env, dbii)
+    println("Put " + mdb_put(txn, dbi, lmdb_key, dataPut, 0))
   }
 }
