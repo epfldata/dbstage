@@ -83,7 +83,7 @@ trait QueryLifter { db: StagedDatabase =>
   }
 
   def adaptCodeValBindings[T: CodeType, C](cde: Code[T, C]): Code[T, C] = cde match {
-    case code"val $x: $xt = $v; $rest: T" =>
+    case code"val $x: $xt = $v; $rest: T" if knownClasses.contains(xt.rep.tpe.typeSymbol) =>
       val code = adaptCode(v)
       val codeRest = adaptCodeValBindings(rest)
       code"val $x = $code; $codeRest"

@@ -51,6 +51,8 @@ class StagedDatabase(implicit name: Name)
     // Table
     knownClasses += cls.C.rep.tpe.typeSymbol -> new TableRep(cls)
 
+    knownDeleters += cls.C.rep.tpe.typeSymbol -> new ClassDeleter(cls)
+
     cls.methods.foreach { mtd =>
       knownMethods += mtd.symbol ->
         ClassMethod(cls, mtd.symbol, mtd.tparams, mtd.vparamss, mtd.body, mtd.A.rep)
