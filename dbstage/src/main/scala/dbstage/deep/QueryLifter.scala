@@ -77,7 +77,8 @@ trait QueryLifter { db: StagedDatabase =>
         View(tbl)
       case code"($view: TableView[$ty]).join($other: TableView[$tother])" =>
         Join(liftQuery(view), liftQuery(other))
-      case _ => CodeQueryRep(adaptCodeValBindings(queryCode))
+      case _ if codeTypeOf[T] =:= codeTypeOf[Unit] => CodeQueryRep(adaptCodeValBindings(queryCode))
+      case _ => liftingError(s"Unsupported code inside query: ${queryCode.showScala}")
     }
     res.asInstanceOf[QueryRep[T, C]] // required due to limitation of scalac
   }
@@ -162,12 +163,6 @@ trait QueryLifter { db: StagedDatabase =>
     }
 
   case class CodeQueryRep[T: CodeType, C](code: Code[T, C]) extends QueryRep[T, C]
-    
-  case class Insert[T: CodeType, C]
-    (tbl: TableRep[T], el: Code[T, C]) extends QueryRep[TableView[T], C] {
-      type Row = T
-      implicit val Row = codeTypeOf[Row]
-    }
 
   case class Join[T: CodeType, R: CodeType, C]
     (q1: QueryRep[TableView[T], C], q2: QueryRep[TableView[R], C])

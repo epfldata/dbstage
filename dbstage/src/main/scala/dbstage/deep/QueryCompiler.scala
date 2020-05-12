@@ -19,9 +19,6 @@ trait QueryCompiler { self: StagedDatabase =>
       case s: Size[_, C @unchecked] => // the erasure warning on C is spurious!
         import s.Row // to get the right implicit type representations in scope
         Aggregate[Row, Int, Ctx](planIteration(s.q), code{0}, code{ (row: Row, acc: Int) => acc+1})
-      case i: Insert[_, C @unchecked] =>
-        import i.{Row}
-        Insertion[Row, Ctx](i.tbl, i.el)
       case c: CodeQueryRep[_, _] =>
         import c.{Res}
         CodeQuery[Res, Ctx](c.code)
@@ -55,14 +52,6 @@ trait QueryCompiler { self: StagedDatabase =>
       }
     }
 
-  case class Insertion[Row, C]
-    (src: TableRep[Row], el: Code[Row, C])
-    extends QueryPlan[Unit, C] {
-      def getCode: Code[Unit, C] = code{
-        //$(src.append)($(el))
-      }.unsafe_asClosedCode
-    }
-  
   /** The plan for some iteration as part of a bigger query plan. */
   sealed abstract class IterationPlan[Row: CodeType, -C] {
     // def pull: Code[(() => T) => Unit, ] // TODO pull plans
