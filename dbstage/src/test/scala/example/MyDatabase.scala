@@ -77,6 +77,9 @@ object MyDatabase extends StagedDatabase {
     all[Person].aggregate[Int](0, (person, sum) => person.age + sum)
   })
 
+  val printAllAges = query[Unit](code{
+    all[Person].forEach(p => println(p.age))
+  })
 }
 
 

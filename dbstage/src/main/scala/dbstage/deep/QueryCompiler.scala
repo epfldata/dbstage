@@ -26,6 +26,9 @@ trait QueryCompiler { self: StagedDatabase =>
       case a: AggregateRep[_, _, C @unchecked] =>
         import a.{Row, Res}
         Aggregate[Row, Res, Ctx](planIteration(a.q), a.init, a.acc)
+      case f: ForEachRep[_, C @unchecked] =>
+        import f.Row
+        ForEach[Row, Ctx](planIteration(f.q), f.f)
       case _ => ??? // unsupported for now
     }
     res.asInstanceOf[QueryPlan[T, Ctx]]
@@ -53,6 +56,14 @@ trait QueryCompiler { self: StagedDatabase =>
         var res = $(init)
         $(src.foreach(code{ row: Row => res = $(acc)(row, res) }))
         res
+      }
+    }
+
+  case class ForEach[Row: CodeType, C]
+    (src: IterationPlan[Row, C], f: Code[Row => Unit, C])
+    extends QueryPlan[Unit, C] {
+      def getCode: Code[Unit, C] = code{
+        $(src.foreach(f))
       }
     }
 

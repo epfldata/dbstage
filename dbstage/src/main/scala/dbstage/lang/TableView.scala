@@ -10,6 +10,7 @@ object TableView {
 abstract class TableView[T] { view =>
   def size: Int = ???
   def aggregate[Res](init: Res, acc: (T, Res) => Res): Res = ???
+  def forEach(f: T => Unit): Unit = ???
 
   def filter(pred: T => Boolean): TableView[T] =
     new Filter(pred)

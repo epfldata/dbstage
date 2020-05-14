@@ -24,4 +24,5 @@ object IR extends SimpleANF
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("map")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("join")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("aggregate")
+  transparencyPropagatingMtds += methodSymbol[TableView[_]]("forEach")
 }
