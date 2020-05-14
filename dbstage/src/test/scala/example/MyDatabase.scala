@@ -72,6 +72,11 @@ object MyDatabase extends StagedDatabase {
   val sizeStrQuery = query[Int](code{
     all[Str].size
   })
+
+  val sumAges = query[Int](code{
+    all[Person].aggregate[Int](0, (person, sum) => person.age + sum)
+  })
+
 }
 
 

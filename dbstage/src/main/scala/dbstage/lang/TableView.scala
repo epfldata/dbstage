@@ -9,11 +9,12 @@ object TableView {
 
 abstract class TableView[T] { view =>
   def size: Int = ???
+  def aggregate[Res](init: Res, acc: (T, Res) => Res): Res = ???
 
   def filter(pred: T => Boolean): TableView[T] =
     new Filter(pred)
-  
   class Filter(pred: T => Boolean) extends TableView[T]
+
 /*
   def insert(el: T): TableView[T] =
     new Insert(el)
@@ -23,10 +24,8 @@ abstract class TableView[T] { view =>
   }*/
   
   def map[R](f: T => R): TableView[R] = new Map(f)
-
   class Map[R](f: T => R) extends TableView[R]
 
   def join[R](other: TableView[R]): TableView[(T, R)] = new Join(other)
-
   class Join[R](other: TableView[R]) extends TableView[(T, R)]
 }

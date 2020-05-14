@@ -77,6 +77,8 @@ trait QueryLifter { db: StagedDatabase =>
         View(tbl)
       case code"($view: TableView[$ty]).join($other: TableView[$tother])" =>
         Join(liftQuery(view), liftQuery(other))
+      case code"($view: TableView[$ty]).aggregate[$tres]($init, $acc)" =>
+        AggregateRep(liftQuery(view), adaptCode(init), adaptCode(acc))
       case _ if codeTypeOf[T] =:= codeTypeOf[Unit] => CodeQueryRep(adaptCodeValBindings(queryCode))
       case _ => liftingError(s"Unsupported code inside query: ${queryCode.showScala}")
     }
@@ -167,4 +169,12 @@ trait QueryLifter { db: StagedDatabase =>
   case class Join[T: CodeType, R: CodeType, C]
     (q1: QueryRep[TableView[T], C], q2: QueryRep[TableView[R], C])
     extends QueryRep[TableView[(T, R)], C]
+
+  case class AggregateRep[T: CodeType, Res: CodeType, C]
+    (q: QueryRep[TableView[T], C], init: Code[Res, C], acc: Code[(T, Res) => Res, C])
+    extends QueryRep[Res, C] {
+      type Row = T
+      implicit val Row = codeTypeOf[Row]
+    }
+
 }

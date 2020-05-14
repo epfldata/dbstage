@@ -23,6 +23,9 @@ trait QueryCompiler { self: StagedDatabase =>
       case c: CodeQueryRep[_, _] =>
         import c.{Res}
         CodeQuery[Res, Ctx](c.code)
+      case a: AggregateRep[_, _, C @unchecked] =>
+        import a.{Row, Res}
+        Aggregate[Row, Res, Ctx](planIteration(a.q), a.init, a.acc)
       case _ => ??? // unsupported for now
     }
     res.asInstanceOf[QueryPlan[T, Ctx]]
