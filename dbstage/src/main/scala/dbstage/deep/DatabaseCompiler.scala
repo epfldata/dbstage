@@ -297,7 +297,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       val rep = q.rep
       val cde = planQuery(rep).getCode
 
-      s"def ${q.name}: ${rep.Res.rep} = Zone { implicit zone => \n" +
+      s"def ${q.name}: ${rep.Res.rep.tpe} = Zone { implicit zone => \n" +
       code{
         LMDBTable.txnBegin()
         $(openDbis)
