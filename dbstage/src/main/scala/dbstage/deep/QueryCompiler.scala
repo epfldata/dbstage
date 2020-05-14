@@ -70,16 +70,12 @@ trait QueryCompiler { self: StagedDatabase =>
     extends IterationPlan[Row, C]
   {
     def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] = code{
-      LMDBTable.txnBegin()
-      $(openDbis)
       val cursor = $(src.getCursor)
 
       var get = $(src.getFirst)(cursor)
       while(get._2 != null && {$(step)($(src.fromPtrByte)(get._1, get._2))}){ get = $(src.getNext)(cursor) }
-
-      LMDBTable.txnCommit()
+      
       $(src.closeCursor)(cursor)
-      $(closeDbis)
     }.unsafe_asClosedCode // FIXME scope
   }
   
@@ -100,14 +96,7 @@ trait QueryCompiler { self: StagedDatabase =>
   }
 
   case class CodeQuery[Res: CodeType, C >: Ctx](cde: Code[Res, C]) extends QueryPlan[Res, C] {
-    def getCode: Code[Res, C] = code{
-      LMDBTable.txnBegin()
-      $(openDbis)
-      val res = $(cde)
-      LMDBTable.txnCommit()
-      $(closeDbis)
-      res
-    }
+    def getCode: Code[Res, C] = cde
   }
 
   case class QueryJoin[Row1: CodeType, Row2: CodeType, C >: Ctx]

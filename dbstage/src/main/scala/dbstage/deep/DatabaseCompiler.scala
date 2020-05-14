@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{TableView, Str}
+import dbstage.lang.{TableView, Str, LMDBTable}
 
 import IR.Predef._
 import IR.Quasicodes._
@@ -295,7 +295,18 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val queries = knownQueries.map { q =>
       val rep = q.rep
-      s"def ${q.name} = Zone { implicit zone => \n" + planQuery(rep).getCode.showScala + "\n}"
+      val cde = planQuery(rep).getCode
+
+      s"def ${q.name}: ${rep.Res.rep} = Zone { implicit zone => \n" +
+      code{
+        LMDBTable.txnBegin()
+        $(openDbis)
+        val res: rep.Res = $(cde.asInstanceOf[Code[rep.Res, Ctx]])
+        LMDBTable.txnCommit()
+        $(closeDbis)
+        res
+      }.showScala +
+      "\n}"
     }
     
     val program = s"""
