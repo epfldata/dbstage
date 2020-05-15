@@ -47,9 +47,45 @@ object MyDatabase extends StagedDatabase {
     all[Person].map(p => {p.age = p.age + 10; p}).size
   })
 
+  // Computes a join explicitly (maximum age difference between any two persons)
   val joinQuery = query[Int](code{
-    all[Person].join(all[Person]).size
+    all[Person].join(all[Person])
+    .map(p01 => math.abs(p01._1.age - p01._2.age))
+    .aggregate[Int](Int.MaxValue, _ max _)
   })
+
+  // TODO: support val bindings as a result of `map` & support `flatMap`:
+  /*
+  // Computes a join implicitly (maximum age difference between any two persons)
+  val nestedQuery = query[Int](code{
+    (for {
+      p0 <- all[Person]
+      p1 <- all[Person]
+    } yield math.abs(p0.age - p1.age))
+    // ^ this is the same as:
+    /*
+    all[Person].flatMap(p0 =>
+      all[Person].map(p1 =>
+        math.abs(p0.age - p1.age)
+      )
+    )
+    */
+    .aggregate[Int](Int.MaxValue, _ max _)
+  })
+  */
+
+  // TODO LATER: support the slightly more advanced:
+  /*
+  val nestedQuery2 = query[Int](code{
+    val allPersonPairs = for {
+      p0 <- all[Person]
+      p1 <- all[Person]
+    } yield (p0.age, p1.age)
+    allPersonPairs
+      .map((math.max _).tupled)
+      .aggregate[Int](Int.MaxValue, _ max _)
+  })
+  */
 
   val mapQuery = query[Int](code{
     all[Person].map(p => p.job).map(job => job.size).map(size => size+100).size
