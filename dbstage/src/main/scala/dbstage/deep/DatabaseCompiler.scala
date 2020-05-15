@@ -29,8 +29,10 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val sizes = List("Int", keyType, "Double").map(typ => s"val size${typ} = sizeof[${typ}].toInt")
     
+    val sortedClasses = knownClasses.toList.sortBy(_._1.name.toString)
+    
     // Temporary representation of classes; will change/be configurable
-    val classes = knownClasses.filter(p => p._1 != strSymbol).values.map { tableRep =>
+    val classes = sortedClasses.collect { case (sym, tableRep) if sym != strSymbol =>
       val cls = tableRep.cls
 
       val fields = cls.fields.map( field => {
@@ -82,7 +84,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"toCString(string)\n}"
     }
 
-    val tableGetters = knownClasses.map { case (_, tableRep) =>
+    val tableGetters = sortedClasses.map { case (_, tableRep) =>
       val owner = tableRep.cls
       val table = tableRep.variable.toCode.showScala
       val fromPtrByte = tableRep.fromPtrByte.toCode.showScala
@@ -98,7 +100,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
         
     }    
 
-    val tablePutters = knownClasses.map { case (_, tableRep) =>
+    val tablePutters = sortedClasses.map { case (_, tableRep) =>
       val owner = tableRep.cls
       val table = tableRep.variable.toCode.showScala
       val toPtrByte = tableRep.toPtrByte.toCode.showScala
@@ -109,7 +111,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val fromPtrByte = knownClasses.map { case (_, tableRep ) =>
+    val fromPtrByte = sortedClasses.map { case (_, tableRep ) =>
       val owner = tableRep.cls
       val table = knownClasses(owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
       var constructor = knownConstructors(owner.constructor.symbol).constructor.toCode.showScala
@@ -146,7 +148,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val toPtrByte = knownClasses.map { case (_, tableRep) => 
+    val toPtrByte = sortedClasses.map { case (_, tableRep) => 
       val owner = tableRep.cls
       val table = knownClasses(owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
       val paramNames = "new_value"
@@ -185,7 +187,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val constructors = knownConstructors.flatMap { case (_, constructor) =>
+    val constructors = knownConstructors.toList.sortBy(_._1.name.toString).flatMap { case (_, constructor) =>
       val dataTypeField = constructor.owner.fields.exists(field => knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol))
       val paramTypes = createParamTuple(constructor.params)._1.replaceAll("String", "CString")
       val typesKey = constructor.params.map(p => {
@@ -250,12 +252,14 @@ trait DatabaseCompiler { self: StagedDatabase =>
       }
     }
 
-    val methods = knownMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol != strSymbol).map { case (_, mtd) =>
+    val sortedMethods = knownMethods.toList.sortBy(_._1.name.toString)
+
+    val methods = sortedMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol != strSymbol).map { case (_, mtd) =>
       s"def ${mtd.variable.toCode.showScala}(${mtd.owner.self.toCode.showScala}: ${mtd.owner.C.rep})${implicitZoneParam}: " +
         s"${mtd.body.Typ.rep} = ${mtd.body.showScala}"
     }
 
-    val stringMethods = knownMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol == strSymbol).map { case (_, mtd) => 
+    val stringMethods = sortedMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol == strSymbol).map { case (_, mtd) => 
       val (paramTypes, params_) = createParamTuple(mtd.owner.self :: mtd.vparamss.headOption.getOrElse(Nil))
       val params = params_.head + ".string" :: params_.tail
       s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
@@ -263,7 +267,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
         s"(${params.mkString(",")})"
     }
 
-    val fieldGetters = knownFieldGetters.map { case (_, getter) =>
+    val fieldGetters = knownFieldGetters.toList.sortBy(_._1.name.toString).map { case (_, getter) =>
       val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == getter.typ.tpe.typeSymbol)
       val returnType = if (getter.typ =:= codeTypeOf[String].rep) "CString" else getter.typ.toString
 
@@ -280,7 +284,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val fieldSetters = knownFieldSetters.map { case (_, setter) =>
+    val fieldSetters = knownFieldSetters.toList.sortBy(_._1.name.toString).map { case (_, setter) =>
       val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == setter.field.A.rep.tpe.typeSymbol)
 
       val optionalIdSet = if (knownDataType) {
@@ -293,7 +297,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val queries = knownQueries.map { q =>
+    val queries = knownQueries.toList.sortBy(_.name).map { q =>
       val rep = q.rep
       val cde = planQuery(rep).getCode
 
