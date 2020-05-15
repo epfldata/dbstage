@@ -117,23 +117,13 @@ trait QueryCompiler { self: StagedDatabase =>
     (it1: IterationPlan[Row1, C], it2: IterationPlan[Row2, C])
     extends IterationPlan[(Row1, Row2), C]
   {
-    // Why this error?
-        // type mismatch;
-        //   found   : row1.type (with underlying type Row1)
-        //   required: AnyRef
-        // Note that Row1 is unbounded, which means AnyRef is not a known parent.
-        // Such types can participate in value classes, but instances
-        // cannot appear in singleton types or in reference comparisons.bloop
-    // def push[C0 <: C](step: Code[((Row1, Row2)) => Boolean, C0]): Code[Unit, C0] = {
-    //   it1.push[C0](code{ row1: Row1 => {
-    //     $(it2.push[row1.type with C0](code{ row2: Row2 => {
-    //       $(step)((row1, row2))
-    //     }}))
-    //     true
-    //   }})
-    // }
     def push[C0 <: C](step: Code[((Row1, Row2)) => Boolean, C0]): Code[Unit, C0] = {
-      it1.push[C0](code{ row1: Row1 => true})
+      it1.push[C0](code{ row1: Row1 => {
+        $(it2.push(code{ row2: Row2 => {
+          $(step)((row1, row2))
+        }}))
+        true
+      }})
     }
   }
   
