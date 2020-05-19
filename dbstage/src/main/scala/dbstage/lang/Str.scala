@@ -3,7 +3,7 @@ package dbstage.lang
 import squid.quasi.lift
 
 @lift
-class Str private(val string: String) {
+class Str private(val string: String) extends Record {
   private type Word = Long
   private type CSize = Word
   private type CChar = Byte

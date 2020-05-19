@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.{TableView, Str, LMDBTable, Ptr}
+import dbstage.lang.{Record, TableView, Str, LMDBTable, Ptr}
 import dbstage.lang.LMDBTable._
 
 import scala.language.implicitConversions
@@ -50,7 +50,7 @@ class StagedDatabase(implicit name: Name)
   protected val toCString = Variable[String => CString]("toCString")
   register(Str.reflect(IR))
 
-  def register[T0: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
+  def register[T0 <: Record: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
     // Table
     val tableRep = new TableRep(cls)
     knownClasses += cls.C.rep.tpe.typeSymbol -> tableRep
@@ -95,6 +95,22 @@ class StagedDatabase(implicit name: Name)
 
     // Helpers for the generated code:
     val variable = adaptVariable(Variable[LMDBTable[T]](s"${cls.name}_table"))
+
+    /** `logicalFields` represents the "real fields"",
+     * ignoring potential user-defined key fields, stored in `keyField`. */
+    lazy val (keyField, logicalFields) = {
+      val (kfs, lfs) = cls.fields.partition(_.name == "key ")
+      if (kfs.size > 1) throw new IllegalArgumentException("Several key fields")
+      val kfo = kfs.headOption
+      kfo.foreach { f =>
+        require(f.A =:= codeTypeOf[Long], s"Key field with wrong type: ${f.A}")
+        require(f.init.isEmpty, "Key field cannot have an initial value")
+      }
+      require(lfs.nonEmpty,
+        // [LP] ^ I put that here because the stringifier is bugged with empty fields
+        "A lifted class cannot have no data fields")
+      (kfo, lfs)
+    }
 
     // Getters and putters LMDB
     val toPtrByte = Variable[T => (Long, Int, Ptr[Byte])](s"toPtrByte_${cls.name}") // Key, size, value

@@ -1,6 +1,6 @@
 package dbstage.deep
 
-import dbstage.lang.TableView
+import dbstage.lang.{ Table, TableView }
 
 import IR.Predef._
 import IR.Quasicodes._
@@ -81,8 +81,12 @@ trait QueryLifter { db: StagedDatabase =>
         AggregateRep(liftQuery(view), adaptCode(init), adaptCode(acc))
       case code"($view: TableView[$ty]).forEach($f)" =>
         ForEachRep(liftQuery(view), adaptCode(f))
-      case _ if codeTypeOf[T] =:= codeTypeOf[Unit] => CodeQueryRep(adaptCodeValBindings(queryCode))
-      case _ => liftingError(s"Unsupported code inside query: ${queryCode.showScala}")
+
+      // [LP] FIXME lift val bindings!
+
+      case _ =>
+        // [LP] FIXME prevent occurrence of query DSL constructs in queryCode
+        CodeQueryRep(adaptCodeValBindings(queryCode))
     }
     res.asInstanceOf[QueryRep[T, C]] // required due to limitation of scalac
   }
@@ -92,15 +96,17 @@ trait QueryLifter { db: StagedDatabase =>
       val code = adaptCode(v)
       val codeRest = adaptCodeValBindings(rest)
       code"val $x = $code; $codeRest"
-    case code"()" => cde
-    case _ => liftingError(s"Unsupported code inside Insertion query: ${cde.showScala}")
+    case _ => adaptCode(cde)
+    // [LP] FIXME: there is no such thing as an "Insertion query":
+    // case code"()" => cde
+    // case _ => liftingError(s"Unsupported code inside Insertion query: ${cde.showScala}")
   }
   
   /** Rewrites all calls to methods defined in known data classes of the database
    * into calls to a new function that will be code-generated later. */
   def adaptCode[T, C](cde: Code[T, C]): Code[T, C] = cde rewrite {
     // Need to look at field getters and setters
-    case code"TableView.delete[$ty]($el)" if knownDeleters.contains(ty.rep.tpe.typeSymbol) =>
+    case code"Table.delete[$ty]($el)" if knownDeleters.contains(ty.rep.tpe.typeSymbol) =>
       val deleter = knownDeleters(ty.rep.tpe.typeSymbol)
       code{$(deleter.deleter)($(el))}
     case code"${MethodApplication(app)}: $ty" if knownMethods.contains(app.symbol) =>

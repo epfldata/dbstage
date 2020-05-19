@@ -35,7 +35,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     val classes = sortedClasses.collect { case (sym, tableRep) if sym != strSymbol =>
       val cls = tableRep.cls
 
-      val fields = cls.fields.map( field => {
+      val fields = tableRep.logicalFields.map { field =>
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double]
 
@@ -49,21 +49,22 @@ trait DatabaseCompiler { self: StagedDatabase =>
         } else if (knownPrimitiveType) {
           s"var ${field.name}: ${field.A.rep}"
         } else {
-          throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+          throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol.name}")
         }
-      })
+      }
 
-      val typesKey = cls.fields.map(field => {
+      val typesKey = tableRep.logicalFields.map { field =>
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         if (knownDataType) {
           s"size${keyType}"
         } else {
           s"size${field.A.rep}"
         }
-      })
+      }
 
-      s"class ${cls.name}(val key: ${keyType}, ${fields.mkString(",")})\n" +
-      s"val size${cls.name} = ${typesKey.mkString("+")}\n" +
+      val finalFields = s"val key: ${keyType}" :: fields
+      s"class ${cls.name}(${finalFields.mkString(", ")})\n" +
+      s"val size${cls.name} = 0${typesKey.map(" + " + _).mkString}\n" +
       s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}]("${cls.name}")\n"""
     }
 
@@ -111,7 +112,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
-    val fromPtrByte = sortedClasses.map { case (_, tableRep ) =>
+    val fromPtrByte = sortedClasses.map { case (_, tableRep) =>
       val owner = tableRep.cls
       val table = knownClasses(owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
       var constructor = knownConstructors(owner.constructor.symbol).constructor.toCode.showScala
@@ -119,7 +120,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       val valueName = "value"
       var dataTypeField = false
 
-      val computeValues = owner.fields.zipWithIndex.map { case (field, i) => {
+      val computeValues = tableRep.logicalFields.zipWithIndex.map { case (field, i) => {
         val index = i+1
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         dataTypeField = dataTypeField || knownDataType
@@ -134,12 +135,12 @@ trait DatabaseCompiler { self: StagedDatabase =>
           s"val ${valueName}${index} = ${ptrName}${index}"
           // String only in Str and last field -> no need to compute size
         } else {
-          throw new IllegalArgumentException(s"Class ${owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+          throw new IllegalArgumentException(s"Class ${owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol.name}")
         })
       }}
 
       if (dataTypeField) constructor += "_key"
-      val args = owner.fields.zipWithIndex.map(f => s"${valueName}${f._2+1}")
+      val args = tableRep.logicalFields.zipWithIndex.map(f => s"${valueName}${f._2+1}")
       val tupleArgs = if(args.length == 1) s"${args(0)}" else s"(${args.mkString(",")})"
 
       s"def ${tableRep.fromPtrByte.toCode.showScala}(key: ${keyType}, ${ptrName}1: Ptr[Byte])${implicitZoneParam}: ${owner.C.rep} = {\n" +
@@ -160,7 +161,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
         s"size${owner.name}"
       }
 
-      val fillInValue = owner.fields.zipWithIndex.map { case (field, i) => {
+      val fillInValue = tableRep.logicalFields.zipWithIndex.map { case (field, i) => {
         val index = i+1
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
 
@@ -174,7 +175,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
           s"longcpy(${valueName}${index}, ${paramNames}.${field.name.replaceAll("\\s+", "")}Id, size${keyType})\n" +
           s"val ${valueName}${index+1} = ${valueName}${index} + size${keyType}"
         } else {
-          throw new IllegalArgumentException(s"Class ${owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+          throw new IllegalArgumentException(s"Class ${owner.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol.name}")
         })
       }}
 
@@ -188,7 +189,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val constructors = knownConstructors.toList.sortBy(_._1.name.toString).flatMap { case (_, constructor) =>
-      val dataTypeField = constructor.owner.fields.exists(field => knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol))
+      val cls = knownClasses(constructor.owner.C.rep.tpe.typeSymbol)
+      val dataTypeField = cls.logicalFields.exists(field => knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol))
       val paramTypes = createParamTuple(constructor.params)._1.replaceAll("String", "CString")
       val typesKey = constructor.params.map(p => {
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == p.Typ.rep.tpe.typeSymbol)
@@ -204,7 +206,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
         s"params: Tuple${typesKey.length}[${typesKey.mkString(", ")}]"
       }
 
-      val (keyConstructor, valueConstructor) = constructor.owner.fields.zipWithIndex.map { case (field, i) => {
+      val (keyConstructor, valueConstructor) = cls.logicalFields.zipWithIndex.map { case (field, i) => {
         val index = i+1
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         val param = if(constructor.params.length == 1) {

@@ -3,8 +3,8 @@ package example
 import dbstage.deep._
 import IR.Predef._
 import IR.Quasicodes._
+import dbstage.lang._
 import dbstage.lang.TableView._
-import dbstage.lang.Str
 
 
 // For now, we will define the database in a programmatic way as follows.
@@ -21,6 +21,8 @@ object MyDatabase extends StagedDatabase {
   register(personCls)
   val jobCls = Job.reflect(IR)
   register(jobCls)
+  val citizenCls = Citizen.reflect(IR)
+  register(citizenCls)
   
   // Example query:
   val allMinors = query[Int](code{
@@ -97,6 +99,12 @@ object MyDatabase extends StagedDatabase {
     val john = new Person(100, "John", 16, epfl)
   })
 
+  val insertionAtKey = query[Citizen](code{
+    new Citizen("Bob", 42)
+    // Eventually, we'll also allow:
+    //  new Citizen("Bob", allocateNewKey())
+  })
+
   val sizePersonQuery = query[Int](code{
     all[Person].size
   })
@@ -122,11 +130,16 @@ object MyDatabase extends StagedDatabase {
 import squid.quasi.lift
 
 @lift
-class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {
+class Person(var salary: Int, var name: Str, var age: Int, var job: Job) extends Record {
   def isMinor = age < 18
 }
 
 @lift
-class Job(var size: Int, var enterprise: Str) {
+class Job(var size: Int, var enterprise: Str) extends Record {
 }
 
+@lift
+class Citizen(val name: Str, val key: Long) extends KeyedRecord {
+  // [LP] FIXME make this properly refer to the key field:
+  def showKey: String = key.toString
+}
