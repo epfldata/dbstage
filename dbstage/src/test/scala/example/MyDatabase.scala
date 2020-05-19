@@ -32,7 +32,7 @@ object MyDatabase extends StagedDatabase {
   })
   
   val allOld3 = query[Int](code{
-    all[Person].map(p => new Person(0, new Str("Test"), p.age+100, p.job)).size
+    all[Person].map(p => new Person(0, "Test", p.age+100, p.job)).size
   })
 
   val sizes = query[Int](code{
@@ -40,7 +40,7 @@ object MyDatabase extends StagedDatabase {
   })
 
   val charAtQuery = query[Int](code{
-    all[Person].map(p => new Person(p.salary, new Str(p.name.charAt(2).toString), p.age, p.job)).size
+    all[Person].map(p => new Person(p.salary, p.name.charAt(2).toString, p.age, p.job)).size
   })
 
   val allOld2 = query[Int](code{
@@ -92,9 +92,9 @@ object MyDatabase extends StagedDatabase {
   })
 
   val insertions = query[Unit](code{
-    val epfl = new Job(10000, new Str("EPFL"))
-    val lucien = new Person(1000, new Str("Lucien"), 21, epfl)
-    val john = new Person(100, new Str("John"), 16, epfl)
+    val epfl = new Job(10000, "EPFL")
+    val lucien = new Person(1000, "Lucien", 21, epfl)
+    val john = new Person(100, "John", 16, epfl)
   })
 
   val sizePersonQuery = query[Int](code{
