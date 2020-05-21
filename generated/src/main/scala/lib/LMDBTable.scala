@@ -15,7 +15,7 @@ object LMDBTable {
     val env_ = !envPtr
 
     // Set maximum number of databases
-    println("Max num dbs " + mdb_env_set_maxdbs(env_, 4))
+    println("Max num dbs " + mdb_env_set_maxdbs(env_, 5))
 
     // Open env
     println("env open " + mdb_env_open(env_, path, MDB_WRITEMAP, 664))
@@ -23,16 +23,24 @@ object LMDBTable {
     env_
   }
   var txn: Ptr[Byte] = null
+  var dbiSize: UInt = null
 
   def txnBegin()(implicit z: Zone): Unit = if (txn == null) {
     val txPtr = alloc[Ptr[Byte]]
     println("Txn begin " + mdb_txn_begin(env, null, 0, txPtr))
     txn = !txPtr
+
+    val dbiSizePtr = alloc[UInt]
+    println("Dbi size open: " + mdb_dbi_open(txn, toCString("sizes"), MDB_CREATE, dbiSizePtr))
+    dbiSize = !dbiSizePtr
   }
 
   def txnCommit()(implicit z: Zone): Unit = {
     println("Txn commit " + mdb_txn_commit(txn))
     txn = null
+
+    mdb_dbi_close(env, dbiSize)
+    dbiSize = null
   }
   
   def free(): Unit = {
@@ -90,11 +98,17 @@ object LMDBTable {
 
 case class LMDBTable[T](_name: String) {
   import LMDBTable._
+  import lib.string.strlen
 
   val name: CString = toCString(_name)(zone)
   var dbi: UInt = null
 
-  private val key_last_id = get_lmdb_key(-1)(zone)
+  private val key_last_id = {
+    val key_last_id_ptr = alloc(1)(tagof[KVType], zone)
+    key_last_id_ptr._1 = strlen(name) + 1l
+    key_last_id_ptr._2 = name
+    key_last_id_ptr
+  }
 
   def dbiOpen()(implicit z: Zone): Unit = {
     val dbiPtr = alloc[UInt]
@@ -167,7 +181,7 @@ case class LMDBTable[T](_name: String) {
 
   def getNextKey(implicit z: Zone): Long = {
     val dataGet = alloc[KVType]
-    val return_code = mdb_get(txn, dbi, key_last_id, dataGet)
+    val return_code = mdb_get(txn, dbiSize, key_last_id, dataGet)
 
     val new_last_id = if (return_code == 0) {
       // Found last_id
@@ -177,6 +191,8 @@ case class LMDBTable[T](_name: String) {
       // No last_id stored
       0l
     }
-    mdb_put(txn, dbi, key_last_id, get_lmdb_key(new_last_id), 0)
+    
+    mdb_put(txn, dbiSize, key_last_id, get_lmdb_key(new_last_id), 0)
+    new_last_id
   }
 }
