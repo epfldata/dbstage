@@ -18,7 +18,7 @@ object LMDBTable {
     println("Max num dbs " + mdb_env_set_maxdbs(env_, 3))
 
     // Open env
-    println("env open " + mdb_env_open(env_, path, 0, 664))
+    println("env open " + mdb_env_open(env_, path, MDB_WRITEMAP, 664))
 
     env_
   }
@@ -115,46 +115,43 @@ case class LMDBTable[T](_name: String) {
     mdb_cursor_close(cursor)
   }
 
-  def first(cursor: Ptr[Byte])(implicit z: Zone): (Long, Ptr[Byte]) = {
-    println("First")
+  def first(cursor: Ptr[Byte])(implicit z: Zone): T = {
     cursor_get(cursor, MDB_FIRST)
   }
 
-  def next(cursor: Ptr[Byte])(implicit z: Zone): (Long, Ptr[Byte]) = {
+  def next(cursor: Ptr[Byte])(implicit z: Zone): T = {
     cursor_get(cursor, MDB_NEXT)
   }
 
-  private def cursor_get(cursor: Ptr[Byte], op: Int)(implicit z: Zone): (Long, Ptr[Byte]) = {
+  private def cursor_get(cursor: Ptr[Byte], op: Int)(implicit z: Zone): T = {
     val key = alloc[KVType]
     val value = alloc[KVType]
     val code = mdb_cursor_get(cursor, key, value, op)
 
     if (code == 0) {
-      println(s"Mdb cursor ${op}: ${code}")
-      (longget(key._2, key._1.toInt), value._2)
+      value._2.asInstanceOf[T]
     } else {
-      println(s"Mdb cursor ${op}: ${code}")
-      (0, null)
+      null.asInstanceOf[T]
     }
   }
 
   def size(implicit z: Zone): Long = {
     // Get size
     val stat = alloc[struct_lmdb_stat]
-    println("Stats " + mdb_stat(txn, dbi, stat))
+    mdb_stat(txn, dbi, stat)
 
     // Return
     stat._6
   }
 
-  def get(key: Long)(implicit z: Zone): Ptr[Byte] = {
+  def get(key: Long)(implicit z: Zone): T = {
     // Get value
     val lmdb_key = get_lmdb_key(key)
     val dataGet = alloc[KVType]
-    println("Get " + mdb_get(txn, dbi, lmdb_key, dataGet))
+    mdb_get(txn, dbi, lmdb_key, dataGet)
 
     // Return
-    dataGet._2
+    dataGet._2.asInstanceOf[T]
   }
 
   def put(key: Long, valueSize: Long, value: Ptr[Byte])(implicit z: Zone): Unit = {
@@ -163,6 +160,8 @@ case class LMDBTable[T](_name: String) {
     val dataPut = alloc[KVType]
     dataPut._1 = valueSize
     dataPut._2 = value
-    println("Put " + mdb_put(txn, dbi, lmdb_key, dataPut, 0))
+    mdb_put(txn, dbi, lmdb_key, dataPut, 0)
   }
+
+  def getNextKey(implicit z: Zone): Long = size
 }

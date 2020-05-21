@@ -87,7 +87,7 @@ trait QueryCompiler { self: StagedDatabase =>
       val cursor = $(src.getCursor)
 
       var get = $(src.getFirst)(cursor)
-      while(get._2 != null && {$(step)($(src.fromPtrByte)(get._1, get._2))}){ get = $(src.getNext)(cursor) }
+      while(get != null && {$(step)(get)}){ get = $(src.getNext)(cursor) }
       
       $(src.closeCursor)(cursor)
     }.unsafe_asClosedCode // FIXME scope

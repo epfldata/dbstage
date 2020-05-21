@@ -66,12 +66,9 @@ class StagedDatabase(implicit name: Name)
 
     // Getters and setters
     cls.fields.foreach { field =>
-      val ind = cls.fields.indexOf(field) + 1
-
       // Getter
-      val body = s"${cls.self.toCode.showScala}._${ind}"
       knownFieldGetters += field.get ->
-        ClassGetter(cls, field.symbol, ind, field.name, field.A.rep)
+        ClassGetter(cls, field.symbol, field.name, field.A.rep)
         
       // Setter
       val setterOpt = field.set
@@ -79,7 +76,7 @@ class StagedDatabase(implicit name: Name)
         val setter = setterOpt.get
 
         knownFieldSetters += setter ->
-          ClassSetter(cls, setter, ind, field.name)
+          ClassSetter(cls, field.symbol, field.name, field.A.rep)
       }
     }
 
@@ -97,8 +94,6 @@ class StagedDatabase(implicit name: Name)
     val variable = adaptVariable(Variable[LMDBTable[T]](s"${cls.name}_table"))
 
     // Getters and putters LMDB
-    val toPtrByte = Variable[T => (Long, Int, Ptr[Byte])](s"toPtrByte_${cls.name}") // Key, size, value
-    val fromPtrByte = Variable[(Long, Ptr[Byte]) => T](s"fromPtrByte_${cls.name}") // Key, value
     val getter = Variable[Long => T](s"get_${cls.name}")
     val putter = Variable[T => Unit](s"put_${cls.name}")
 
@@ -112,9 +107,9 @@ class StagedDatabase(implicit name: Name)
     def closeCursor: Code[Cursor => Unit, Ctx] =
       code{ cursor: Cursor => $(variable).cursorClose(cursor) }.unsafe_asClosedCode
 
-    def getFirst: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 
+    def getFirst: Code[Cursor => T, Ctx] = 
       code{ cursor: Cursor => $(variable).first(cursor) }.unsafe_asClosedCode
-    def getNext: Code[Cursor => (Long, Ptr[Byte]), Ctx] = 
+    def getNext: Code[Cursor => T, Ctx] = 
       code{ cursor: Cursor => $(variable).next(cursor) }.unsafe_asClosedCode
     def getSize: Code[Int, Ctx] =
       code{ $(variable).size }.unsafe_asClosedCode // FIXME scope // What does it mean?

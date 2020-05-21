@@ -23,6 +23,6 @@ class LMDBTable[T] {
   def dbiClose(): Unit = ???
   def cursorClose(cursor: Cursor): Unit = ???
   
-  def first(cursor: Cursor): (Long, Ptr[Byte]) = ???
-  def next(cursor: Cursor): (Long, Ptr[Byte]) = ???
+  def first(cursor: Cursor): T = ???
+  def next(cursor: Cursor): T = ???
 }

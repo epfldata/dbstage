@@ -10,824 +10,691 @@ object MyDatabase {
   val sizeLong = sizeof[Long].toInt
   val sizeDouble = sizeof[Double].toInt
 
-  class Job(
-      val key: Long,
-      var size: Int,
-      var enterpriseId: Long,
-      var enterprise: Str = null
-  )
-  val sizeJob = sizeInt + sizeLong
-  lazy val Job_table_39204160 = new LMDBTable[Job]("Job")
+  type JobData = CStruct4[Long, Int, Long, Str]
+  type Job = Ptr[JobData]
+  val sizeJob = sizeof[JobData]
+  lazy val Job_table_30a5862 = new LMDBTable[Job]("Job")
 
-  class Person(
-      val key: Long,
-      var salary: Int,
-      var nameId: Long,
-      var name: Str = null,
-      var age: Int,
-      var jobId: Long,
-      var job: Job = null
-  )
-  val sizePerson = sizeInt + sizeLong + sizeInt + sizeLong
-  lazy val Person_table_3a296cff = new LMDBTable[Person]("Person")
+  type PersonData = CStruct7[Long, Int, Long, Str, Int, Long, Job]
+  type Person = Ptr[PersonData]
+  val sizePerson = sizeof[PersonData]
+  lazy val Person_table_7ff1c63e = new LMDBTable[Person]("Person")
 
-  class Str(val key: Long, var string: CString)
-  lazy val Str_table_779777a9 = new LMDBTable[Str]("Str")
+  type StrData = CStruct2[Long, CString]
+  type Str = Ptr[StrData]
+  lazy val Str_table_13e8736f = new LMDBTable[CString]("Str")
 
-  def toCString_64f5464f(string: String)(implicit zone: Zone): CString = {
+  def toCString_2c81235d(string: String)(implicit zone: Zone): CString = {
     toCString(string)
   }
 
-  def get_Job_62bcf13a(key: Long)(implicit zone: Zone): Job = {
-    val value = Job_table_39204160.get(key)
-    fromPtrByte_Job_2edae177(key, value)
+  def get_Job_7d99b7e7(key: Long)(implicit zone: Zone): Job = {
+    Job_table_30a5862.get(key)
   }
-  def get_Person_5a21d3da(key: Long)(implicit zone: Zone): Person = {
-    val value = Person_table_3a296cff.get(key)
-    fromPtrByte_Person_2cb5041c(key, value)
-  }
-  def get_Str_26b950ca(key: Long)(implicit zone: Zone): Str = {
-    val value = Str_table_779777a9.get(key)
-    fromPtrByte_Str_230950b0(key, value)
+  def get_Person_ca84e5c(key: Long)(implicit zone: Zone): Person = {
+    Person_table_7ff1c63e.get(key)
   }
 
-  def put_Job_7375e3ff(data_el: Job)(implicit zone: Zone): Unit = {
-    val (key, size, value) = toPtrByte_Job_1fa6cfc1(data_el)
-    Job_table_39204160.put(key, size, value)
-  }
-  def put_Person_7a539857(data_el: Person)(implicit zone: Zone): Unit = {
-    val (key, size, value) = toPtrByte_Person_1011e779(data_el)
-    Person_table_3a296cff.put(key, size, value)
-  }
-  def put_Str_f94e39b(data_el: Str)(implicit zone: Zone): Unit = {
-    val (key, size, value) = toPtrByte_Str_5322881b(data_el)
-    Str_table_779777a9.put(key, size, value)
+  def get_Str_5c8b27ad(key: Long)(implicit zone: Zone): Str = {
+    val value = alloc[StrData]
+    val string = Str_table_13e8736f.get(key)
+    value._1 = key
+    value._2 = string
+    value
   }
 
-  def fromPtrByte_Job_2edae177(key: Long, ptr1: Ptr[Byte])(
-      implicit zone: Zone
-  ): Job = {
-    val value1 = intget(ptr1, sizeInt)
-    val ptr2 = ptr1 + sizeInt
-    val value2 = longget(ptr2, sizeLong)
-    val ptr3 = ptr2 + sizeLong
-    init_Job_7656444c_key(key, (value1, value2))
-  }
-  def fromPtrByte_Person_2cb5041c(key: Long, ptr1: Ptr[Byte])(
-      implicit zone: Zone
-  ): Person = {
-    val value1 = intget(ptr1, sizeInt)
-    val ptr2 = ptr1 + sizeInt
-    val value2 = longget(ptr2, sizeLong)
-    val ptr3 = ptr2 + sizeLong
-    val value3 = intget(ptr3, sizeInt)
-    val ptr4 = ptr3 + sizeInt
-    val value4 = longget(ptr4, sizeLong)
-    val ptr5 = ptr4 + sizeLong
-    init_Person_42e499eb_key(key, (value1, value2, value3, value4))
-  }
-  def fromPtrByte_Str_230950b0(key: Long, ptr1: Ptr[Byte])(
-      implicit zone: Zone
-  ): Str = {
-    val value1 = ptr1
-    init_Str_68fbb46a(key, value1)
-  }
+  def put_Job_2045e26(data_el: Job)(implicit zone: Zone): Unit = {
+    val ptr4 = data_el._4
+    data_el._4 = null
 
-  def toPtrByte_Job_1fa6cfc1(
-      new_value: Job
-  )(implicit zone: Zone): (Long, Int, Ptr[Byte]) = {
-    val key = new_value.key
-    val size = sizeJob
-    val value1 = alloc[Byte](size)
-    intcpy(value1, new_value.size, sizeInt)
-    val value2 = value1 + sizeInt
-    longcpy(value2, new_value.enterpriseId, sizeLong)
-    val value3 = value2 + sizeLong
-    (key, size, value1)
-  }
-  def toPtrByte_Person_1011e779(
-      new_value: Person
-  )(implicit zone: Zone): (Long, Int, Ptr[Byte]) = {
-    val key = new_value.key
-    val size = sizePerson
-    val value1 = alloc[Byte](size)
-    intcpy(value1, new_value.salary, sizeInt)
-    val value2 = value1 + sizeInt
-    longcpy(value2, new_value.nameId, sizeLong)
-    val value3 = value2 + sizeLong
-    intcpy(value3, new_value.age, sizeInt)
-    val value4 = value3 + sizeInt
-    longcpy(value4, new_value.jobId, sizeLong)
-    val value5 = value4 + sizeLong
-    (key, size, value1)
-  }
-  def toPtrByte_Str_5322881b(
-      new_value: Str
-  )(implicit zone: Zone): (Long, Int, Ptr[Byte]) = {
-    val key = new_value.key
-    val size = strlen(new_value.string).toInt
-    val value1 = alloc[Byte](size)
-    strcpy(value1, new_value.string)
-    (key, size, value1)
-  }
+    Job_table_30a5862.put(data_el._1, sizeJob, data_el.asInstanceOf[Ptr[Byte]])
+    data_el._4 = ptr4
 
-  def init_Job_7656444c_key(key: Long, params: Tuple2[Int, Long])(
-      implicit zone: Zone
-  ): Job = {
-    val new_val = new Job(key, params._1, params._2, null)
-    new_val
   }
-  def init_Job_7656444c_key(
-      params: Tuple2[Int, Long]
-  )(implicit zone: Zone): Job = {
-    val new_val = new Job(Job_table_39204160.size, params._1, params._2, null)
-    put_Job_7375e3ff(new_val)
-    new_val
-  }
-  def init_Job_7656444c(key: Long, params: Tuple2[Int, Str])(
-      implicit zone: Zone
-  ): Job = {
-    val new_val = new Job(key, params._1, params._2.key, params._2)
-    new_val
-  }
-  def init_Job_7656444c(params: Tuple2[Int, Str])(implicit zone: Zone): Job = {
-    val new_val =
-      new Job(Job_table_39204160.size, params._1, params._2.key, params._2)
-    put_Job_7375e3ff(new_val)
-    new_val
-  }
-  def init_Person_42e499eb_key(key: Long, params: Tuple4[Int, Long, Int, Long])(
-      implicit zone: Zone
-  ): Person = {
-    val new_val =
-      new Person(key, params._1, params._2, null, params._3, params._4, null)
-    new_val
-  }
-  def init_Person_42e499eb_key(
-      params: Tuple4[Int, Long, Int, Long]
-  )(implicit zone: Zone): Person = {
-    val new_val = new Person(
-      Person_table_3a296cff.size,
-      params._1,
-      params._2,
-      null,
-      params._3,
-      params._4,
-      null
+  def put_Person_5006a2f0(data_el: Person)(implicit zone: Zone): Unit = {
+    val ptr4 = data_el._4
+    data_el._4 = null
+    val ptr7 = data_el._7
+    data_el._7 = null
+
+    Person_table_7ff1c63e.put(
+      data_el._1,
+      sizePerson,
+      data_el.asInstanceOf[Ptr[Byte]]
     )
-    put_Person_7a539857(new_val)
-    new_val
+    data_el._4 = ptr4
+    data_el._7 = ptr7
+
   }
-  def init_Person_42e499eb(key: Long, params: Tuple4[Int, Str, Int, Job])(
-      implicit zone: Zone
-  ): Person = {
-    val new_val = new Person(
-      key,
-      params._1,
-      params._2.key,
-      params._2,
-      params._3,
-      params._4.key,
-      params._4
-    )
-    new_val
+
+  def put_Str_7a5b66e(str: Str)(implicit zone: Zone): Unit = {
+    Str_table_13e8736f.put(str._1, strlen(str._2) + 1, str._2)
   }
-  def init_Person_42e499eb(
+
+  def init_Job_12bf7507(params: Tuple2[Int, Str])(implicit zone: Zone): Job = {
+    val key = Job_table_30a5862.getNextKey
+    val new_val = alloc[JobData]
+    new_val._1 = key
+    new_val._2 = params._1
+    new_val._3 = params._2._1
+    new_val._4 = params._2
+    put_Job_2045e26(new_val)
+    get_Job_7d99b7e7(key)
+  }
+  def init_Person_724f4ff0(
       params: Tuple4[Int, Str, Int, Job]
   )(implicit zone: Zone): Person = {
-    val new_val = new Person(
-      Person_table_3a296cff.size,
-      params._1,
-      params._2.key,
-      params._2,
-      params._3,
-      params._4.key,
-      params._4
-    )
-    put_Person_7a539857(new_val)
-    new_val
+    val key = Person_table_7ff1c63e.getNextKey
+    val new_val = alloc[PersonData]
+    new_val._1 = key
+    new_val._2 = params._1
+    new_val._3 = params._2._1
+    new_val._4 = params._2
+    new_val._5 = params._3
+    new_val._6 = params._4._1
+    new_val._7 = params._4
+    put_Person_5006a2f0(new_val)
+    get_Person_ca84e5c(key)
   }
-  def init_Str_68fbb46a(key: Long, param: CString)(implicit zone: Zone): Str = {
-    val new_val = new Str(key, param)
-    new_val
-  }
-  def init_Str_68fbb46a(param: CString)(implicit zone: Zone): Str = {
-    val new_val = new Str(Str_table_779777a9.size, param)
-    put_Str_f94e39b(new_val)
-    new_val
+  def init_Str_3c96b2e1(param: CString)(implicit zone: Zone): Str = {
+    val key = Str_table_13e8736f.getNextKey
+    val new_val = alloc[StrData]
+    new_val._1 = key
+    new_val._2 = param
+    put_Str_7a5b66e(new_val)
+    get_Str_5c8b27ad(key)
   }
 
-  def isMinor_221c96fe(this_7a456025: Person)(implicit zone: Zone): Boolean = {
-    val x_0 = age_17e864b4(this_7a456025);
+  def isMinor_6cc684ed(this_2c547893: Person)(implicit zone: Zone): Boolean = {
+    val x_0 = get_age_4dd7278e(this_2c547893);
     x_0.<(18)
   }
 
-  def charAt_6d050d72(params: Tuple2[Str, Long])(implicit zone: Zone): Byte =
-    charAt(params._1.string, params._2)
-  def strlen_69ec280e(param: Str)(implicit zone: Zone): Long =
-    strlen(param.string)
+  def charAt_449f8a52(params: Tuple2[Str, Long])(implicit zone: Zone): Byte =
+    charAt(params._1._2, params._2)
+  def strlen_1dce79aa(param: Str)(implicit zone: Zone): Long = strlen(param._2)
 
-  def age_17e864b4(this_7a456025: Person)(implicit zone: Zone): Int = {
-    this_7a456025.age
+  def get_age_4dd7278e(this_2c547893: Person)(implicit zone: Zone): Int = {
+    this_2c547893._5
   }
-  def enterprise_29b6d7c4(this_63ad2855: Job)(implicit zone: Zone): Str = {
-    if (this_63ad2855.enterprise == null) {
-      this_63ad2855.enterprise = get_Str_26b950ca(this_63ad2855.enterpriseId)
+  def get_enterprise_65dc9d00(this_17b79f41: Job)(implicit zone: Zone): Str = {
+    if (this_17b79f41._4 == null) {
+      this_17b79f41._4 = get_Str_5c8b27ad(this_17b79f41._3)
     }
-    this_63ad2855.enterprise
+    this_17b79f41._4
   }
-  def job_9fcd2c4(this_7a456025: Person)(implicit zone: Zone): Job = {
-    if (this_7a456025.job == null) {
-      this_7a456025.job = get_Job_62bcf13a(this_7a456025.jobId)
+  def get_job_cde223a(this_2c547893: Person)(implicit zone: Zone): Job = {
+    if (this_2c547893._7 == null) {
+      this_2c547893._7 = get_Job_7d99b7e7(this_2c547893._6)
     }
-    this_7a456025.job
+    this_2c547893._7
   }
-  def name_2329b4bb(this_7a456025: Person)(implicit zone: Zone): Str = {
-    if (this_7a456025.name == null) {
-      this_7a456025.name = get_Str_26b950ca(this_7a456025.nameId)
+  def get_name_26cfb4c9(this_2c547893: Person)(implicit zone: Zone): Str = {
+    if (this_2c547893._4 == null) {
+      this_2c547893._4 = get_Str_5c8b27ad(this_2c547893._3)
     }
-    this_7a456025.name
+    this_2c547893._4
   }
-  def salary_13b628c9(this_7a456025: Person)(implicit zone: Zone): Int = {
-    this_7a456025.salary
+  def get_salary_da97ac6(this_2c547893: Person)(implicit zone: Zone): Int = {
+    this_2c547893._2
   }
-  def size_c21d58c(this_63ad2855: Job)(implicit zone: Zone): Int = {
-    this_63ad2855.size
+  def get_size_c9cc2ee(this_17b79f41: Job)(implicit zone: Zone): Int = {
+    this_17b79f41._2
   }
-  def string_63245c3e(this_16dae98: Str)(implicit zone: Zone): CString = {
-    this_16dae98.string
+  def get_string_71aeeeb5(this_2a1c75b5: Str)(implicit zone: Zone): CString = {
+    this_2a1c75b5._2
   }
 
-  def `age_=_6c1f7066`(this_7a456025: Person, age: Int)(
+  def set_age_f291221(this_2c547893: Person, age: Int)(
       implicit zone: Zone
   ): Unit = {
-    this_7a456025.age = age
+    this_2c547893._5 = age
+    put_Person_5006a2f0(this_2c547893)
   }
-  def `enterprise_=_5465e7a0`(this_63ad2855: Job, enterprise: Str)(
+  def set_enterprise_65f767f2(this_17b79f41: Job, enterprise: Str)(
       implicit zone: Zone
   ): Unit = {
-    this_63ad2855.enterpriseId = enterprise.key
-    this_63ad2855.enterprise = enterprise
+    this_17b79f41._3 = enterprise._1
+    this_17b79f41._4 = enterprise
+    put_Job_2045e26(this_17b79f41)
   }
-  def `job_=_5af334f1`(this_7a456025: Person, job: Job)(
+  def set_job_20549dbe(this_2c547893: Person, job: Job)(
       implicit zone: Zone
   ): Unit = {
-    this_7a456025.jobId = job.key
-    this_7a456025.job = job
+    this_2c547893._6 = job._1
+    this_2c547893._7 = job
+    put_Person_5006a2f0(this_2c547893)
   }
-  def `name_=_2fff725c`(this_7a456025: Person, name: Str)(
+  def set_name_67ab2b8f(this_2c547893: Person, name: Str)(
       implicit zone: Zone
   ): Unit = {
-    this_7a456025.nameId = name.key
-    this_7a456025.name = name
+    this_2c547893._3 = name._1
+    this_2c547893._4 = name
+    put_Person_5006a2f0(this_2c547893)
   }
-  def `salary_=_3874ab85`(this_7a456025: Person, salary: Int)(
+  def set_salary_60b5bd6e(this_2c547893: Person, salary: Int)(
       implicit zone: Zone
   ): Unit = {
-    this_7a456025.salary = salary
+    this_2c547893._2 = salary
+    put_Person_5006a2f0(this_2c547893)
   }
-  def `size_=_43d713cc`(this_63ad2855: Job, size: Int)(
+  def set_size_3e239e7d(this_17b79f41: Job, size: Int)(
       implicit zone: Zone
   ): Unit = {
-    this_63ad2855.size = size
+    this_17b79f41._2 = size
+    put_Job_2045e26(this_17b79f41)
   }
 
   def allMinors: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: Person = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = isMinor_221c96fe(x_7);
-            if (x_8.asInstanceOf[scala.Boolean]) {
-              val x_9 = res_0;
-              res_0 = x_9.+(1);
+            val row_5 = v_3;
+            val x_6 = isMinor_6cc684ed(row_5);
+            if (x_6.asInstanceOf[scala.Boolean]) {
+              val x_7 = res_0;
+              res_0 = x_7.+(1);
               true
             } else
               true
           })
       }) {
-        val x_10 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_10
+        val x_8 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_8
       };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_11 = res_0;
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_9 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_11
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_9
     }
   }
   def allOld: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = salary_13b628c9(x_7);
-            val x_9 = name_2329b4bb(x_7);
-            val x_10 = age_17e864b4(x_7);
-            val x_11 = job_9fcd2c4(x_7);
-            val x_12 =
-              init_Person_42e499eb(scala.Tuple4(x_8, x_9, x_10.+(100), x_11));
-            val x_13 = res_0;
-            res_0 = x_13.+(1);
-            true
-          })
-      }) {
-        val x_14 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_14
-      };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_15 = res_0;
-      LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_15
-    }
-  }
-  def allOld2: Int = Zone { implicit zone =>
-    {
-      LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
-      while ({
-        val x_4 = v_3;
-        x_4._2
-          .!=(null)
-          .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = age_17e864b4(x_7);
-            `age_=_6c1f7066`(x_7, x_8.+(10));
-            val x_9 = res_0;
-            res_0 = x_9.+(1);
-            true
-          })
-      }) {
-        val x_10 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_10
-      };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_11 = res_0;
-      LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_11
-    }
-  }
-  def allOld3: Int = Zone { implicit zone =>
-    {
-      LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
-      while ({
-        val x_4 = v_3;
-        x_4._2
-          .!=(null)
-          .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = toCString_64f5464f("Test");
-            val x_9 = init_Str_68fbb46a(x_8);
-            val x_10 = age_17e864b4(x_7);
-            val x_11 = job_9fcd2c4(x_7);
-            val x_12 =
-              init_Person_42e499eb(scala.Tuple4(0, x_9, x_10.+(100), x_11));
-            val x_13 = res_0;
-            res_0 = x_13.+(1);
-            true
-          })
-      }) {
-        val x_14 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_14
-      };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_15 = res_0;
-      LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_15
-    }
-  }
-  def charAtQuery: Int = Zone { implicit zone =>
-    {
-      LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
-      while ({
-        val x_4 = v_3;
-        x_4._2
-          .!=(null)
-          .&&({
-              val x_5 = v_3;
-              val x_6 = v_3;
-              val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-              val x_8 = salary_13b628c9(x_7);
-              val x_9 = name_2329b4bb(x_7);
-              val x_10 = charAt_6d050d72(scala.Tuple2(x_9, 2L));
-              val x_11 =
-                toCString_64f5464f(x_10.asInstanceOf[scala.Byte].toString());
-              val x_12 = init_Str_68fbb46a(x_11);
-              val x_13 = age_17e864b4(x_7);
-              val x_14 = job_9fcd2c4(x_7);
-              val x_15 =
-                init_Person_42e499eb(scala.Tuple4(x_8, x_12, x_13, x_14));
-              val x_16 = res_0;
-              res_0 = x_16.+(1);
-              true
-            }
-          )
-      }) {
-        val x_17 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_17
-      };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_18 = res_0;
-      LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_18
-    }
-  }
-  def insertions: Unit = Zone { implicit zone =>
-    {
-      LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      val x_0 = toCString_64f5464f("EPFL");
-      val x_1 = init_Str_68fbb46a(x_0);
-      val x_2 = init_Job_7656444c(scala.Tuple2(10000, x_1));
-      val x_3 = toCString_64f5464f("Lucien");
-      val x_4 = init_Str_68fbb46a(x_3);
-      val x_5 = init_Person_42e499eb(scala.Tuple4(1000, x_4, 21, x_2));
-      val x_6 = toCString_64f5464f("John");
-      val x_7 = init_Str_68fbb46a(x_6);
-      val x_8 = init_Person_42e499eb(scala.Tuple4(100, x_7, 16, x_2));
-      LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose()
-    }
-  }
-  def joinQuery: Int = Zone { implicit zone =>
-    {
-      LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      var res_0: scala.Int = 2147483647;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
-      while ({
-        val x_4 = v_3;
-        x_4._2
-          .!=(null)
-          .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val cursor_8 = Person_table_3a296cff.cursorOpen();
-            val x_9 = Person_table_3a296cff.first(cursor_8);
-            var v_10: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_9;
-            while ({
-              val x_11 = v_10;
-              x_11._2
-                .!=(null)
-                .&&({
-                  val x_12 = v_10;
-                  val x_13 = v_10;
-                  val x_14 = fromPtrByte_Person_2cb5041c(x_12._1, x_13._2);
-                  val x_15 =
-                    age_17e864b4(((scala.Tuple2(x_7, x_14)): scala.Any)._1);
-                  val x_16 =
-                    age_17e864b4(((scala.Tuple2(x_7, x_14)): scala.Any)._2);
-                  val x_17 = scala.math.`package`.abs(x_15.-(x_16));
-                  val x_18 = res_0;
-                  val x_19 = scala.Predef.intWrapper(x_17);
-                  val x_20 = x_19.max(x_18);
-                  res_0 = x_20;
-                  true
-                })
-            }) {
-              val x_21 = Person_table_3a296cff.next(cursor_8);
-              v_10 = x_21
-            };
-            Person_table_3a296cff.cursorClose(cursor_8);
-            true
-          })
-      }) {
-        val x_22 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_22
-      };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_23 = res_0;
-      LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_23
-    }
-  }
-  def mapQuery: Int = Zone { implicit zone =>
-    {
-      LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
-      while ({
-        val x_4 = v_3;
-        x_4._2
-          .!=(null)
-          .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val row_8 = job_9fcd2c4(x_7);
-            val row_9 = size_c21d58c(row_8);
-            val row_10 = row_9.+(100);
+            val row_5 = v_3;
+            val x_6 = get_salary_da97ac6(row_5);
+            val x_7 = get_name_26cfb4c9(row_5);
+            val x_8 = get_age_4dd7278e(row_5);
+            val x_9 = get_job_cde223a(row_5);
+            val x_10 =
+              init_Person_724f4ff0(scala.Tuple4(x_6, x_7, x_8.+(100), x_9));
             val x_11 = res_0;
             res_0 = x_11.+(1);
             true
           })
       }) {
-        val x_12 = Person_table_3a296cff.next(cursor_1);
+        val x_12 = Person_table_7ff1c63e.next(cursor_1);
         v_3 = x_12
       };
-      Person_table_3a296cff.cursorClose(cursor_1);
+      Person_table_7ff1c63e.cursorClose(cursor_1);
       val x_13 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
       x_13
+    }
+  }
+  def allOld2: Int = Zone { implicit zone =>
+    {
+      LMDBTable.txnBegin();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      var res_0: scala.Int = 0;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
+      while ({
+        val x_4 = v_3;
+        x_4
+          .!=(null)
+          .&&({
+            val row_5 = v_3;
+            val x_6 = get_age_4dd7278e(row_5);
+            set_age_f291221(row_5, x_6.+(10));
+            val x_7 = res_0;
+            res_0 = x_7.+(1);
+            true
+          })
+      }) {
+        val x_8 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_8
+      };
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_9 = res_0;
+      LMDBTable.txnCommit();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_9
+    }
+  }
+  def allOld3: Int = Zone { implicit zone =>
+    {
+      LMDBTable.txnBegin();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      var res_0: scala.Int = 0;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
+      while ({
+        val x_4 = v_3;
+        x_4
+          .!=(null)
+          .&&({
+            val row_5 = v_3;
+            val x_6 = toCString_2c81235d("Test");
+            val x_7 = init_Str_3c96b2e1(x_6);
+            val x_8 = get_age_4dd7278e(row_5);
+            val x_9 = get_job_cde223a(row_5);
+            val x_10 =
+              init_Person_724f4ff0(scala.Tuple4(0, x_7, x_8.+(100), x_9));
+            val x_11 = res_0;
+            res_0 = x_11.+(1);
+            true
+          })
+      }) {
+        val x_12 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_12
+      };
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_13 = res_0;
+      LMDBTable.txnCommit();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_13
+    }
+  }
+  def charAtQuery: Int = Zone { implicit zone =>
+    {
+      LMDBTable.txnBegin();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      var res_0: scala.Int = 0;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
+      while ({
+        val x_4 = v_3;
+        x_4
+          .!=(null)
+          .&&({
+              val row_5 = v_3;
+              val x_6 = get_salary_da97ac6(row_5);
+              val x_7 = get_name_26cfb4c9(row_5);
+              val x_8 = charAt_449f8a52(scala.Tuple2(x_7, 2L));
+              val x_9 =
+                toCString_2c81235d(x_8.asInstanceOf[scala.Byte].toString());
+              val x_10 = init_Str_3c96b2e1(x_9);
+              val x_11 = get_age_4dd7278e(row_5);
+              val x_12 = get_job_cde223a(row_5);
+              val x_13 =
+                init_Person_724f4ff0(scala.Tuple4(x_6, x_10, x_11, x_12));
+              val x_14 = res_0;
+              res_0 = x_14.+(1);
+              true
+            }
+          )
+      }) {
+        val x_15 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_15
+      };
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_16 = res_0;
+      LMDBTable.txnCommit();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_16
+    }
+  }
+  def insertions: Unit = Zone { implicit zone =>
+    {
+      LMDBTable.txnBegin();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      val x_0 = toCString_2c81235d("EPFL");
+      val x_1 = init_Str_3c96b2e1(x_0);
+      val x_2 = init_Job_12bf7507(scala.Tuple2(10000, x_1));
+      val x_3 = toCString_2c81235d("Lucien");
+      val x_4 = init_Str_3c96b2e1(x_3);
+      val x_5 = init_Person_724f4ff0(scala.Tuple4(1000, x_4, 21, x_2));
+      val x_6 = toCString_2c81235d("John");
+      val x_7 = init_Str_3c96b2e1(x_6);
+      val x_8 = init_Person_724f4ff0(scala.Tuple4(100, x_7, 16, x_2));
+      LMDBTable.txnCommit();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose()
+    }
+  }
+  def joinQuery: Int = Zone { implicit zone =>
+    {
+      LMDBTable.txnBegin();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      var res_0: scala.Int = 2147483647;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
+      while ({
+        val x_4 = v_3;
+        x_4
+          .!=(null)
+          .&&({
+            val row1_5 = v_3;
+            val cursor_6 = Person_table_7ff1c63e.cursorOpen();
+            val x_7 = Person_table_7ff1c63e.first(cursor_6);
+            var v_8: scala.Any = x_7;
+            while ({
+              val x_9 = v_8;
+              x_9
+                .!=(null)
+                .&&({
+                  val row2_10 = v_8;
+                  val x_11 = get_age_4dd7278e(
+                    ((scala.Tuple2(row1_5, row2_10)): scala.Any)._1
+                  );
+                  val x_12 = get_age_4dd7278e(
+                    ((scala.Tuple2(row1_5, row2_10)): scala.Any)._2
+                  );
+                  val x_13 = scala.math.`package`.abs(x_11.-(x_12));
+                  val x_14 = res_0;
+                  val x_15 = scala.Predef.intWrapper(x_13);
+                  val x_16 = x_15.max(x_14);
+                  res_0 = x_16;
+                  true
+                })
+            }) {
+              val x_17 = Person_table_7ff1c63e.next(cursor_6);
+              v_8 = x_17
+            };
+            Person_table_7ff1c63e.cursorClose(cursor_6);
+            true
+          })
+      }) {
+        val x_18 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_18
+      };
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_19 = res_0;
+      LMDBTable.txnCommit();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_19
+    }
+  }
+  def mapQuery: Int = Zone { implicit zone =>
+    {
+      LMDBTable.txnBegin();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      var res_0: scala.Int = 0;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
+      while ({
+        val x_4 = v_3;
+        x_4
+          .!=(null)
+          .&&({
+            val row_5 = v_3;
+            val row_6 = get_job_cde223a(row_5);
+            val row_7 = get_size_c9cc2ee(row_6);
+            val row_8 = row_7.+(100);
+            val x_9 = res_0;
+            res_0 = x_9.+(1);
+            true
+          })
+      }) {
+        val x_10 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_10
+      };
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_11 = res_0;
+      LMDBTable.txnCommit();
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_11
     }
   }
   def printAllAges: Unit = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
-      val cursor_0 = Person_table_3a296cff.cursorOpen();
-      val x_1 = Person_table_3a296cff.first(cursor_0);
-      var v_2: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_1;
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
+      val cursor_0 = Person_table_7ff1c63e.cursorOpen();
+      val x_1 = Person_table_7ff1c63e.first(cursor_0);
+      var v_2: Person = x_1;
       while ({
         val x_3 = v_2;
-        x_3._2
+        x_3
           .!=(null)
           .&&({
-            val x_4 = v_2;
-            val x_5 = v_2;
-            val x_6 = fromPtrByte_Person_2cb5041c(x_4._1, x_5._2);
-            val x_7 = age_17e864b4(x_6);
-            scala.Predef.println(x_7);
+            val row_4 = v_2;
+            val x_5 = get_age_4dd7278e(row_4);
+            scala.Predef.println(x_5);
             true
           })
       }) {
-        val x_8 = Person_table_3a296cff.next(cursor_0);
-        v_2 = x_8
+        val x_6 = Person_table_7ff1c63e.next(cursor_0);
+        v_2 = x_6
       };
-      Person_table_3a296cff.cursorClose(cursor_0);
+      Person_table_7ff1c63e.cursorClose(cursor_0);
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose()
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose()
     }
   }
   def sizeJobQuery: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Job_table_39204160.cursorOpen();
-      val x_2 = Job_table_39204160.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Job_table_30a5862.cursorOpen();
+      val x_2 = Job_table_30a5862.first(cursor_1);
+      var v_3: Job = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Job_2edae177(x_5._1, x_6._2);
-            val x_8 = res_0;
-            res_0 = x_8.+(1);
+            val row_5 = v_3;
+            val x_6 = res_0;
+            res_0 = x_6.+(1);
             true
           })
       }) {
-        val x_9 = Job_table_39204160.next(cursor_1);
-        v_3 = x_9
+        val x_7 = Job_table_30a5862.next(cursor_1);
+        v_3 = x_7
       };
-      Job_table_39204160.cursorClose(cursor_1);
-      val x_10 = res_0;
+      Job_table_30a5862.cursorClose(cursor_1);
+      val x_8 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_10
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_8
     }
   }
   def sizePersonQuery: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: Person = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = res_0;
-            res_0 = x_8.+(1);
+            val row_5 = v_3;
+            val x_6 = res_0;
+            res_0 = x_6.+(1);
             true
           })
       }) {
-        val x_9 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_9
+        val x_7 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_7
       };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_10 = res_0;
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_8 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_10
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_8
     }
   }
   def sizeStrQuery: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Str_table_779777a9.cursorOpen();
-      val x_2 = Str_table_779777a9.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Str_table_13e8736f.cursorOpen();
+      val x_2 = Str_table_13e8736f.first(cursor_1);
+      var v_3: Str = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Str_230950b0(x_5._1, x_6._2);
-            val x_8 = res_0;
-            res_0 = x_8.+(1);
+            val row_5 = v_3;
+            val x_6 = res_0;
+            res_0 = x_6.+(1);
             true
           })
       }) {
-        val x_9 = Str_table_779777a9.next(cursor_1);
-        v_3 = x_9
+        val x_7 = Str_table_13e8736f.next(cursor_1);
+        v_3 = x_7
       };
-      Str_table_779777a9.cursorClose(cursor_1);
-      val x_10 = res_0;
+      Str_table_13e8736f.cursorClose(cursor_1);
+      val x_8 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_10
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_8
     }
   }
   def sizes: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: scala.Any = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = salary_13b628c9(x_7);
-            val x_9 = name_2329b4bb(x_7);
-            val x_10 = name_2329b4bb(x_7);
-            val x_11 = strlen_69ec280e(x_10);
-            val x_12 = job_9fcd2c4(x_7);
-            val x_13 = x_11.asInstanceOf[scala.Long].toInt;
-            val x_14 = init_Person_42e499eb(scala.Tuple4(x_8, x_9, x_13, x_12));
-            val x_15 = res_0;
-            res_0 = x_15.+(1);
+            val row_5 = v_3;
+            val x_6 = get_salary_da97ac6(row_5);
+            val x_7 = get_name_26cfb4c9(row_5);
+            val x_8 = get_name_26cfb4c9(row_5);
+            val x_9 = strlen_1dce79aa(x_8);
+            val x_10 = get_job_cde223a(row_5);
+            val x_11 = x_9.asInstanceOf[scala.Long].toInt;
+            val x_12 = init_Person_724f4ff0(scala.Tuple4(x_6, x_7, x_11, x_10));
+            val x_13 = res_0;
+            res_0 = x_13.+(1);
             true
           })
       }) {
-        val x_16 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_16
+        val x_14 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_14
       };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_17 = res_0;
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_15 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_17
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_15
     }
   }
   def sumAges: Int = Zone { implicit zone =>
     {
       LMDBTable.txnBegin();
-      Str_table_779777a9.dbiOpen();
-      Person_table_3a296cff.dbiOpen();
-      Job_table_39204160.dbiOpen();
+      Str_table_13e8736f.dbiOpen();
+      Person_table_7ff1c63e.dbiOpen();
+      Job_table_30a5862.dbiOpen();
       var res_0: scala.Int = 0;
-      val cursor_1 = Person_table_3a296cff.cursorOpen();
-      val x_2 = Person_table_3a296cff.first(cursor_1);
-      var v_3: scala.Tuple2[scala.Long, Ptr[scala.Byte]] = x_2;
+      val cursor_1 = Person_table_7ff1c63e.cursorOpen();
+      val x_2 = Person_table_7ff1c63e.first(cursor_1);
+      var v_3: Person = x_2;
       while ({
         val x_4 = v_3;
-        x_4._2
+        x_4
           .!=(null)
           .&&({
-            val x_5 = v_3;
-            val x_6 = v_3;
-            val x_7 = fromPtrByte_Person_2cb5041c(x_5._1, x_6._2);
-            val x_8 = res_0;
-            val x_9 = age_17e864b4(x_7);
-            res_0 = x_9.+(x_8);
+            val row_5 = v_3;
+            val x_6 = res_0;
+            val x_7 = get_age_4dd7278e(row_5);
+            res_0 = x_7.+(x_6);
             true
           })
       }) {
-        val x_10 = Person_table_3a296cff.next(cursor_1);
-        v_3 = x_10
+        val x_8 = Person_table_7ff1c63e.next(cursor_1);
+        v_3 = x_8
       };
-      Person_table_3a296cff.cursorClose(cursor_1);
-      val x_11 = res_0;
+      Person_table_7ff1c63e.cursorClose(cursor_1);
+      val x_9 = res_0;
       LMDBTable.txnCommit();
-      Str_table_779777a9.dbiClose();
-      Person_table_3a296cff.dbiClose();
-      Job_table_39204160.dbiClose();
-      x_11
+      Str_table_13e8736f.dbiClose();
+      Person_table_7ff1c63e.dbiClose();
+      Job_table_30a5862.dbiClose();
+      x_9
     }
   }
 }
