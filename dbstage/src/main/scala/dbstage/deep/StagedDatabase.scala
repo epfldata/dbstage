@@ -127,8 +127,13 @@ class StagedDatabase(implicit name: Name)
 
     def getFirst: Code[Cursor => T, Ctx] = 
       code{ cursor: Cursor => $(emptyPointers)($(variable).first(cursor)) }.unsafe_asClosedCode
+    def getLast: Code[Cursor => T, Ctx] = 
+      code{ cursor: Cursor => $(emptyPointers)($(variable).last(cursor)) }.unsafe_asClosedCode
+    def getPrev: Code[Cursor => T, Ctx] = 
+      code{ cursor: Cursor => $(emptyPointers)($(variable).prev(cursor)) }.unsafe_asClosedCode
     def getNext: Code[Cursor => T, Ctx] = 
       code{ cursor: Cursor => $(emptyPointers)($(variable).next(cursor)) }.unsafe_asClosedCode
+    
     def getSize: Code[Int, Ctx] =
       code{ $(variable).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
   }

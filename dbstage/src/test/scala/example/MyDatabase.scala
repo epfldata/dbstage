@@ -123,6 +123,14 @@ object MyDatabase extends StagedDatabase {
     all[Person].forEach(p => if(p.isMinor) Table.delete(p))
   })
 
+  val deleteAllMajors = query[Unit](code{
+    all[Person].forEach(p => if(!p.isMinor) Table.delete(p))
+  })
+
+  val insertOldPeople = query[Unit](code{
+    all[Person].forEach(p => new Person(p.salary, p.name, p.age+100, p.job))
+  })
+
   val sumAges = query[Int](code{
     all[Person].aggregate[Int](0, (person, sum) => person.age + sum)
   })

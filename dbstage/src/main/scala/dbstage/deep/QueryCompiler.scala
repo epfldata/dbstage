@@ -86,8 +86,8 @@ trait QueryCompiler { self: StagedDatabase =>
     def push[C0 <: C](step: Code[Row => Boolean, C0]): Code[Unit, C0] = code{
       val cursor = $(src.getCursor)
 
-      var get = $(src.getFirst)(cursor)
-      while(get != null && {$(step)(get)}){ get = $(src.getNext)(cursor) }
+      var get = $(src.getLast)(cursor)
+      while(get != null && {$(step)(get)}){ get = $(src.getPrev)(cursor) }
       
       $(src.closeCursor)(cursor)
     }.unsafe_asClosedCode // FIXME scope

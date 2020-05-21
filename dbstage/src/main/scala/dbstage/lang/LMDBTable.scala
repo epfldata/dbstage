@@ -24,5 +24,7 @@ class LMDBTable[T] {
   def cursorClose(cursor: Cursor): Unit = ???
   
   def first(cursor: Cursor): T = ???
+  def last(cursor: Cursor): T = ???
+  def prev(cursor: Cursor): T = ???
   def next(cursor: Cursor): T = ???
 }

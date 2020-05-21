@@ -131,13 +131,10 @@ case class LMDBTable[T](_name: String) {
     mdb_cursor_close(cursor)
   }
 
-  def first(cursor: Ptr[Byte])(implicit z: Zone): T = {
-    cursor_get(cursor, MDB_FIRST)
-  }
-
-  def next(cursor: Ptr[Byte])(implicit z: Zone): T = {
-    cursor_get(cursor, MDB_NEXT)
-  }
+  def first(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_FIRST)
+  def last(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_LAST)
+  def prev(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_PREV)
+  def next(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_NEXT)
 
   private def cursor_get(cursor: Ptr[Byte], op: Int)(implicit z: Zone): T = {
     val key = alloc[KVType]
@@ -176,7 +173,7 @@ case class LMDBTable[T](_name: String) {
     val dataPut = alloc[KVType]
     dataPut._1 = valueSize
     dataPut._2 = value
-    mdb_put(txn, dbi, lmdb_key, dataPut, 0)
+    println("Put: " + mdb_put(txn, dbi, lmdb_key, dataPut, 0))
   }
 
   def delete(key: Long)(implicit z: Zone): Unit = {
