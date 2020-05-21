@@ -48,6 +48,7 @@ class StagedDatabase(implicit name: Name)
   protected var closeDbis = code{}
 
   protected val toCString = Variable[String => CString]("toCString")
+  protected val fromCString = Variable[CString => String]("fromCString")
   register(Str.reflect(IR))
 
   def register[T0 <: Record: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {

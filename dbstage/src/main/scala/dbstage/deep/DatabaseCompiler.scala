@@ -78,9 +78,14 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[CString]("${cls.name}")\n"""
     }
 
-    val cString = {
+    val defToCString = {
       s"def ${toCString.toCode.showScala}(string: String)${implicitZoneParam}: CString = {\n" +
       s"toCString(string)\n}"
+    }
+
+    val defFromCString = {
+      s"def ${fromCString.toCode.showScala}(string: CString)${implicitZoneParam}: String = {\n" +
+      s"fromCString(string)\n}"
     }
 
     val emptyPointers = sortedClasses.collect { case (sym, tableRep) if sym != strSymbol =>
@@ -197,7 +202,12 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val fieldGetters = knownFieldGetters.toList.sortBy(_._1.name.toString).map { case (_, getter) =>
       val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == getter.typ.tpe.typeSymbol)
-      val returnType = if (getter.typ =:= codeTypeOf[String].rep) "CString" else getter.typ.toString
+
+      val body = if (getter.typ =:= codeTypeOf[String].rep) {
+        s"${fromCString.toCode.showScala}(${getter.owner.self.toCode.showScala}._${getter.index})"
+      } else {
+        s"${getter.owner.self.toCode.showScala}._${getter.index}"
+      }
 
       val optionalGet = if (knownDataType) {
         val get = knownClasses(getter.typ.tpe.typeSymbol).getter.toCode.showScala
@@ -206,9 +216,9 @@ trait DatabaseCompiler { self: StagedDatabase =>
         s"${getter.owner.self.toCode.showScala}._${getter.index} = ${get}(${getter.owner.self.toCode.showScala}._${getter.index-1})\n}\n"
       } else ""
 
-      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: ${returnType} = {\n" +
+      s"def ${getter.getter.toCode.showScala}(${getter.owner.self.toCode.showScala}: ${getter.owner.C.rep})${implicitZoneParam}: ${getter.typ} = {\n" +
       s"${optionalGet}" +  
-      s"${getter.owner.self.toCode.showScala}._${getter.index}\n" +
+      s"${body}\n" +
       "}"
     }
 
@@ -253,7 +263,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
       ${sizes.mkString("\n")}\n
       ${classes.mkString("\n")}\n
       ${strClass}\n
-      ${cString}\n
+      ${defToCString}\n
+      ${defFromCString}\n
       ${emptyPointers.mkString("\n")}\n
       ${tableGetters.mkString("\n")}\n
       ${strGetter.mkString("\n")}\n
