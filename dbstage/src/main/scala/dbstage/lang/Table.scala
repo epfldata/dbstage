@@ -1,10 +1,17 @@
 package dbstage.lang
 
 import scala.collection.mutable
+import scala.annotation.compileTimeOnly
+
+object Table {
+
+  @compileTimeOnly("This DSL method cannot be called at runtime.")
+  def delete[T](el: T): Unit = ???
+
+}
 
 object TableView {
   def all[T]: TableView[T] = ???
-  def delete[T](el: T): Unit = ???
 }
 
 abstract class TableView[T] { view =>
@@ -16,14 +23,6 @@ abstract class TableView[T] { view =>
     new Filter(pred)
   class Filter(pred: T => Boolean) extends TableView[T]
 
-/*
-  def insert(el: T): TableView[T] =
-    new Insert(el)
-
-  class Insert(el: T) extends TableView[T] {
-    protected def iterator: Iterator[T] = view.iterator.ad
-  }*/
-  
   def map[R](f: T => R): TableView[R] = new Map(f)
   class Map[R](f: T => R) extends TableView[R]
   

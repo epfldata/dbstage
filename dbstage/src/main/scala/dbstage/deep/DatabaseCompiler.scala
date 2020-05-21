@@ -37,7 +37,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
       var numberOfFields = 1
 
-      val fields = cls.fields.map( field => {
+      val fields = tableRep.logicalFields.map { field =>
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double]
 
@@ -53,11 +53,15 @@ trait DatabaseCompiler { self: StagedDatabase =>
           numberOfFields += 1
           s"${field.A.rep}"
         } else {
-          throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol}")
+          throw new IllegalArgumentException(s"Class ${cls.name} has parameter with unsupported type ${field.A.rep.tpe.typeSymbol.name}")
         }
-      })
+      }
 
-      s"type ${cls.name}Data = CStruct${numberOfFields}[${keyType}, ${fields.mkString(",")}]\n" +
+      println(cls.name)
+      println(fields)
+
+      val finalFields = keyType :: fields
+      s"type ${cls.name}Data = CStruct${numberOfFields}[${finalFields.mkString(",")}]\n" +
       s"type ${cls.name} = Ptr[${cls.name}Data]\n" +
       s"val size${cls.name} = sizeof[${cls.name}Data]\n" +
       s"""lazy val ${tableRep.variable.toCode.showScala} = new LMDBTable[${tableRep.T.rep}]("${cls.name}")\n"""
@@ -108,7 +112,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       val table = tableRep.variable.toCode.showScala
 
       var index = 1
-      val (removePtrs, fillPtrs) = tableRep.cls.fields.map(field => {
+      val (removePtrs, fillPtrs) = tableRep.logicalFields.map { field =>
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
         index += 1
 
@@ -116,7 +120,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
           index += 1
           (s"val ptr${index} = data_el._${index}\ndata_el._${index} = null\n", s"data_el._${index} = ptr${index}\n")
         } else ("", "")
-      }).unzip
+      }.unzip
 
       s"def ${tableRep.putter.toCode.showScala}(data_el: ${owner.C.rep})${implicitZoneParam}: Unit = {\n" +
       s"${removePtrs.mkString("")}\n" +

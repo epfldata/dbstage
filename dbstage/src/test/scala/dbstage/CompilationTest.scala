@@ -15,7 +15,8 @@ class TypingTester extends FunSuite {
     val genCode =
       MyDatabase.compile
         .replaceAll("example.Person", "Person") // temporary hack
-        .replaceAll("example.Job", "Job") // temporary hack
+        .replaceAll("example.Job", "Job")
+        .replaceAll("example.Citizen", "Citizen")
     
     import os._
     write.over(

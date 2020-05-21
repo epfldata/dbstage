@@ -3,8 +3,8 @@ package example
 import dbstage.deep._
 import IR.Predef._
 import IR.Quasicodes._
+import dbstage.lang._
 import dbstage.lang.TableView._
-import dbstage.lang.Str
 
 
 // For now, we will define the database in a programmatic way as follows.
@@ -21,6 +21,8 @@ object MyDatabase extends StagedDatabase {
   register(personCls)
   val jobCls = Job.reflect(IR)
   register(jobCls)
+  val citizenCls = Citizen.reflect(IR)
+  register(citizenCls)
   
   // Example query:
   val allMinors = query[Int](code{
@@ -32,7 +34,7 @@ object MyDatabase extends StagedDatabase {
   })
   
   val allOld3 = query[Int](code{
-    all[Person].map(p => new Person(0, new Str("Test"), p.age+100, p.job)).size
+    all[Person].map(p => new Person(0, "Test", p.age+100, p.job)).size
   })
 
   val sizes = query[Int](code{
@@ -40,7 +42,7 @@ object MyDatabase extends StagedDatabase {
   })
 
   val charAtQuery = query[Int](code{
-    all[Person].map(p => new Person(p.salary, new Str(p.name.charAt(2).toString), p.age, p.job)).size
+    all[Person].map(p => new Person(p.salary, p.name.charAt(2).toString, p.age, p.job)).size
   })
 
   val allOld2 = query[Int](code{
@@ -92,9 +94,15 @@ object MyDatabase extends StagedDatabase {
   })
 
   val insertions = query[Unit](code{
-    val epfl = new Job(10000, new Str("EPFL"))
-    val lucien = new Person(1000, new Str("Lucien"), 21, epfl)
-    val john = new Person(100, new Str("John"), 16, epfl)
+    val epfl = new Job(10000, "EPFL")
+    val lucien = new Person(1000, "Lucien", 21, epfl)
+    val john = new Person(100, "John", 16, epfl)
+  })
+
+  val insertionAtKey = query[Citizen](code{
+    new Citizen("Bob", 42)
+    // Eventually, we'll also allow:
+    //  new Citizen("Bob", allocateNewKey())
   })
 
   val sizePersonQuery = query[Int](code{
@@ -122,11 +130,16 @@ object MyDatabase extends StagedDatabase {
 import squid.quasi.lift
 
 @lift
-class Person(var salary: Int, var name: Str, var age: Int, var job: Job) {
+class Person(var salary: Int, var name: Str, var age: Int, var job: Job) extends Record {
   def isMinor = age < 18
 }
 
 @lift
-class Job(var size: Int, var enterprise: Str) {
+class Job(var size: Int, var enterprise: Str) extends Record {
 }
 
+@lift
+class Citizen(val name: Str, val key: Long) extends KeyedRecord {
+  // [LP] FIXME make this properly refer to the key field:
+  def showKey: String = key.toString
+}
