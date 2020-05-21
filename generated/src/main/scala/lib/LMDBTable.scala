@@ -94,6 +94,8 @@ case class LMDBTable[T](_name: String) {
   val name: CString = toCString(_name)(zone)
   var dbi: UInt = null
 
+  private val key_last_id = get_lmdb_key(-1)(zone)
+
   def dbiOpen()(implicit z: Zone): Unit = {
     val dbiPtr = alloc[UInt]
     println("Dbi open " + mdb_dbi_open(txn, name, MDB_CREATE, dbiPtr))
@@ -163,5 +165,18 @@ case class LMDBTable[T](_name: String) {
     mdb_put(txn, dbi, lmdb_key, dataPut, 0)
   }
 
-  def getNextKey(implicit z: Zone): Long = size
+  def getNextKey(implicit z: Zone): Long = {
+    val dataGet = alloc[KVType]
+    val return_code = mdb_get(txn, dbi, key_last_id, dataGet)
+
+    val new_last_id = if (return_code == 0) {
+      // Found last_id
+      val last_id = longget(dataGet._2, dataGet._1.toInt)
+      last_id + 1
+    } else {
+      // No last_id stored
+      0l
+    }
+    mdb_put(txn, dbi, key_last_id, get_lmdb_key(new_last_id), 0)
+  }
 }
