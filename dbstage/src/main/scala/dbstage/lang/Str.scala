@@ -1,9 +1,10 @@
 package dbstage.lang
 
 import squid.quasi.lift
+import scala.language.implicitConversions
 
 @lift
-class Str private(val string: String) extends Record {
+class Str (val string: String) extends Record {
   private type Word = Long
   private type CSize = Word
   private type CChar = Byte
