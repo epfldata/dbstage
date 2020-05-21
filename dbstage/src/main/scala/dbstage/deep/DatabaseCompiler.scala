@@ -148,6 +148,14 @@ trait DatabaseCompiler { self: StagedDatabase =>
       "}"
     }
 
+    val tableDeleters = knownDeleters.toList.sortBy(_._1.name.toString).map { case (_, deleter) =>
+      val table = knownClasses(deleter.owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
+
+      s"def ${deleter.deleter.toCode.showScala}(el: ${deleter.owner.C.rep})${implicitZoneParam}: Unit = {\n" +
+      s"${table}.delete(el._1)\n" +
+      "}"
+    }
+
     val constructors = knownConstructors.toList.sortBy(_._1.name.toString).map { case (_, constructor) =>
       val table = knownClasses(constructor.owner.C.rep.tpe.typeSymbol).variable.toCode.showScala
       val putter = knownClasses(constructor.owner.C.rep.tpe.typeSymbol).putter.toCode.showScala
@@ -270,6 +278,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       ${strGetter.mkString("\n")}\n
       ${tablePutters.mkString("\n")}\n
       ${strPutter.mkString("\n")}\n
+      ${tableDeleters.mkString("\n")}\n
       ${constructors.mkString("\n")}\n
       ${methods.mkString("\n")}\n
       ${stringMethods.mkString("\n")}\n

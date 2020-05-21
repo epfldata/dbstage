@@ -115,6 +115,14 @@ object MyDatabase extends StagedDatabase {
     all[Citizen].forEach(c => println(s"Citizen: (${c.name.string}, ${c.key}, ${c.age})"))
   })
 
+  val printAllPersons = query[Unit](code{
+    all[Person].forEach(p => println(s"Person: (${p.salary}, ${p.name.string}, ${p.age}, ${p.job})"))
+  })
+
+  val deleteAllMinors = query[Unit](code{
+    all[Person].forEach(p => if(p.isMinor) Table.delete(p))
+  })
+
   val sumAges = query[Int](code{
     all[Person].aggregate[Int](0, (person, sum) => person.age + sum)
   })

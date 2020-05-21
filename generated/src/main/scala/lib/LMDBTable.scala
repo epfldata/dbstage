@@ -179,6 +179,11 @@ case class LMDBTable[T](_name: String) {
     mdb_put(txn, dbi, lmdb_key, dataPut, 0)
   }
 
+  def delete(key: Long)(implicit z: Zone): Unit = {
+    val lmdb_key = get_lmdb_key(key)
+    mdb_del(txn, dbi, lmdb_key, null)
+  }
+
   def getNextKey(implicit z: Zone): Long = {
     val dataGet = alloc[KVType]
     val return_code = mdb_get(txn, dbiSize, key_last_id, dataGet)
