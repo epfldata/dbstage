@@ -4,6 +4,7 @@ import dbstage.lang.{TableView, Str, LMDBTable}
 
 import IR.Predef._
 import IR.Quasicodes._
+import dbstage.lang.KeyedRecord
 
 /** This class creates the String representation of the compiled
  * low-level database implementation. */
@@ -57,9 +58,6 @@ trait DatabaseCompiler { self: StagedDatabase =>
         }
       }
 
-      println(cls.name)
-      println(fields)
-
       val finalFields = keyType :: fields
       s"type ${cls.name}Data = CStruct${numberOfFields}[${finalFields.mkString(",")}]\n" +
       s"type ${cls.name} = Ptr[${cls.name}Data]\n" +
@@ -98,7 +96,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       }
 
       s"def ${tableRep.emptyPointers.toCode.showScala}(value: ${tableRep.cls.C.rep}): ${tableRep.cls.C.rep} = {\n" +
-      s"if(value != null) {${removePtrs.mkString("")}}\n" +
+      s"if(value != null) {\n${removePtrs.mkString("")}}\n" +
       s"value\n" +
       s"}"
     }
@@ -152,28 +150,33 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
       val (fieldTypes, fieldNames) = createParamTuple(constructor.params)
 
+      val getNewKeyOptional = if(constructor.owner.C <:< codeTypeOf[KeyedRecord]) "" else
+        s"new_val._1 = ${table}.getNextKey\n"
+
       var index = 1
       val fillInFields = constructor.params.zip(fieldNames).map{ case (param, fieldName) => {
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == param.Typ.rep.tpe.typeSymbol)
-        index += 1
+        val name = param.toString.stripPrefix(s"Variable[${param.Typ.rep}](").split('@')(0) // Better way to check?
         
         if(knownDataType) {
-          index += 1
+          index += 2
           s"new_val._${index-1} = ${fieldName}._1\n" +
           s"new_val._${index} = ${fieldName}"
+        } else if(name == "key") {
+          s"new_val._1 = ${fieldName}"
         } else {
+          index += 1
           s"new_val._${index} = ${fieldName}"
         }
       }}
 
       s"def ${constructor.constructor.toCode.showScala}(${fieldTypes.replaceAll("String", "CString")})${implicitZoneParam}" +
         s": ${constructor.owner.C.rep} = {\n" +
-        s"val key = ${table}.getNextKey\n" +
         s"val new_val = alloc[${constructor.owner.name}Data]\n" +
-        s"new_val._1 = key\n" +
+        s"${getNewKeyOptional}" +
         s"${fillInFields.mkString("\n")}\n" +
         s"${putter}(new_val)\n" +
-        s"${getter}(key)\n" +
+        s"${getter}(new_val._1)\n" +
         "}"
     }
 

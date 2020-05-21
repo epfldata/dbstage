@@ -15,7 +15,7 @@ object LMDBTable {
     val env_ = !envPtr
 
     // Set maximum number of databases
-    println("Max num dbs " + mdb_env_set_maxdbs(env_, 3))
+    println("Max num dbs " + mdb_env_set_maxdbs(env_, 4))
 
     // Open env
     println("env open " + mdb_env_open(env_, path, MDB_WRITEMAP, 664))

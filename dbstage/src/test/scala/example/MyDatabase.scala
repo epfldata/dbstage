@@ -21,8 +21,8 @@ object MyDatabase extends StagedDatabase {
   register(personCls)
   val jobCls = Job.reflect(IR)
   register(jobCls)
-  // val citizenCls = Citizen.reflect(IR)
-  // register(citizenCls)
+  val citizenCls = Citizen.reflect(IR)
+  register(citizenCls)
   
   // Example query:
   val allMinors = query[Int](code{
@@ -99,12 +99,21 @@ object MyDatabase extends StagedDatabase {
     val john = new Person(100, new Str("John"), 16, epfl)
   })
 
-  // val insertionAtKey = query[Unit](code{
-  //   new Citizen(new Str("Bob"), 42)
-  //   ()
-  //   // Eventually, we'll also allow:
-  //   //  new Citizen("Bob", allocateNewKey())
-  // })
+  val insertionAtKey = query[Unit](code{
+    new Citizen(new Str("Bob"), 42, 12)
+    ()
+    // Eventually, we'll also allow:
+    //  new Citizen("Bob", allocateNewKey())
+  })
+
+  val insertionAtKey2 = query[Unit](code{
+    new Citizen(new Str("Alice"), 42, 100)
+    ()
+  })
+
+  val printAllCitizens = query[Unit](code{
+    all[Citizen].forEach(c => println(s"Citizen: (${c.name.string}, ${c.key}, ${c.age})"))
+  })
 
   val sumAges = query[Int](code{
     all[Person].aggregate[Int](0, (person, sum) => person.age + sum)
@@ -127,8 +136,8 @@ class Person(var salary: Int, var name: Str, var age: Int, var job: Job) extends
 class Job(var size: Int, var enterprise: Str) extends Record {
 }
 
-// @lift
-// class Citizen(val name: Str, val key: Long) extends KeyedRecord {
-//   // [LP] FIXME make this properly refer to the key field:
-//   def showKey: String = key.toString
-// }
+@lift
+class Citizen(val name: Str, val key: Long, var age: Int) extends KeyedRecord {
+  // [LP] FIXME make this properly refer to the key field:
+  def showKey: String = key.toString
+}

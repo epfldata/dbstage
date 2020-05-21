@@ -41,7 +41,7 @@ trait QueryLifter { db: StagedDatabase =>
     val typ: IR.TypeRep
   ) {
     val getter = Variable[Any => Any](s"get_${symbol.name.toString}")
-    lazy val index = get_index(symbol, owner.fields.map(f => (f.symbol, f.A.rep)))
+    lazy val index = get_index(name, owner.fields.map(f => (f.name, f.A.rep)))
   }
 
   case class ClassSetter(
@@ -51,7 +51,7 @@ trait QueryLifter { db: StagedDatabase =>
     val typ: IR.TypeRep
   ) {
     val setter = Variable[(Any, Any) => Unit](s"set_${symbol.name.toString}")
-    lazy val index = get_index(symbol, owner.fields.map(f => (f.symbol, f.A.rep)))
+    lazy val index = get_index(name, owner.fields.map(f => (f.name, f.A.rep)))
   }
 
   case class ClassDeleter(
@@ -60,17 +60,19 @@ trait QueryLifter { db: StagedDatabase =>
     val deleter = Variable[Any => Unit](s"delete_${owner.name}")
   }
 
-  def get_index(symbol: IR.MtdSymbol, fields: List[(IR.MtdSymbol, IR.TypeRep)]): Int = {
+  def get_index(name: String, fields: List[(String, IR.TypeRep)]): Int = {
+    if (name == "key ") return 1
+
     var index = 1
 
-    fields.foreach{ case (symb, typ) => {
-      index += 1
+    fields.foreach{ case (f_name, typ) => {
+      if(f_name != "key ") index += 1
       val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == typ.tpe.typeSymbol)
       if (knownDataType) index += 1
-      if (symbol == symb) return index
+      if (name == f_name) return index
     }}
 
-    liftingError(s"Did not find index of field ${symbol}:\n\tIn fields: ${fields.mkString("(", ",", ")")}")
+    liftingError(s"Did not find index of field ${name}:\n\tIn fields: ${fields.mkString("(", ",", ")")}")
   }
   
   def liftingError(msg: String): Nothing = throw new Exception("lifting error: " + msg)
