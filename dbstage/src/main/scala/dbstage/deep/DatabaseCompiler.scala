@@ -85,12 +85,32 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"toCString(string)\n}"
     }
 
+    val emptyPointers = sortedClasses.collect { case (sym, tableRep) if sym != strSymbol =>
+      var index = 1
+      val removePtrs = tableRep.logicalFields.map { field =>
+        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
+        index += 1
+
+        if(knownDataType) {
+          index += 1
+          s"value._${index} = null\n"
+        } else ""
+      }
+
+      s"def ${tableRep.emptyPointers.toCode.showScala}(value: ${tableRep.cls.C.rep}): ${tableRep.cls.C.rep} = {\n" +
+      s"if(value != null) {${removePtrs.mkString("")}}\n" +
+      s"value\n" +
+      s"}"
+    }
+
     val tableGetters = sortedClasses.collect { case (sym, tableRep) if sym != strSymbol =>
       val owner = tableRep.cls
+      val removePointers = tableRep.emptyPointers.toCode.showScala
       val table = tableRep.variable.toCode.showScala
 
       s"def ${tableRep.getter.toCode.showScala}(key: ${keyType})${implicitZoneParam}: ${owner.C.rep} = {\n" +
-      s"${table}.get(key)\n" +
+      s"val value = ${table}.get(key)\n" +
+      s"${removePointers}(value)\n" +
       "}"
     }
 
@@ -111,21 +131,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
       val owner = tableRep.cls
       val table = tableRep.variable.toCode.showScala
 
-      var index = 1
-      val (removePtrs, fillPtrs) = tableRep.logicalFields.map { field =>
-        val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
-        index += 1
-
-        if(knownDataType) {
-          index += 1
-          (s"val ptr${index} = data_el._${index}\ndata_el._${index} = null\n", s"data_el._${index} = ptr${index}\n")
-        } else ("", "")
-      }.unzip
-
       s"def ${tableRep.putter.toCode.showScala}(data_el: ${owner.C.rep})${implicitZoneParam}: Unit = {\n" +
-      s"${removePtrs.mkString("")}\n" +
       s"${table}.put(data_el._1, size${owner.name}, data_el.asInstanceOf[Ptr[Byte]])\n" +
-      s"${fillPtrs.mkString("")}\n" +
       "}"
     }
 
@@ -204,7 +211,6 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
     val fieldSetters = knownFieldSetters.toList.sortBy(_._1.name.toString).map { case (_, setter) =>
       val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == setter.typ.tpe.typeSymbol)
-      val putter = knownClasses(setter.owner.C.rep.tpe.typeSymbol).putter.toCode.showScala
 
       val optionalIdSet = if (knownDataType) {
         s"${setter.owner.self.toCode.showScala}._${setter.index-1} = ${setter.name}._1\n"
@@ -213,7 +219,6 @@ trait DatabaseCompiler { self: StagedDatabase =>
       s"def ${setter.setter.toCode.showScala}(${setter.owner.self.toCode.showScala}: ${setter.owner.C.rep}, ${setter.name}: ${setter.typ})${implicitZoneParam}: Unit = {\n" +
       s"${optionalIdSet}" +
       s"${setter.owner.self.toCode.showScala}._${setter.index} = ${setter.name}\n" +
-      s"${putter}(${setter.owner.self.toCode.showScala})\n" +
       "}"
     }
 
@@ -246,6 +251,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
       ${classes.mkString("\n")}\n
       ${strClass}\n
       ${cString}\n
+      ${emptyPointers.mkString("\n")}\n
       ${tableGetters.mkString("\n")}\n
       ${strGetter.mkString("\n")}\n
       ${tablePutters.mkString("\n")}\n
@@ -261,6 +267,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
     .replaceAll("dbstage\\.lang\\.Str", "Str")
     .replaceAll("dbstage\\.lang\\.Ptr", "Ptr")
     .replaceAll("dbstage\\.lang\\.LMDBTable", "LMDBTable")
+    .replaceAll(": scala.Any", "")
 
     val regex = "\\.apply(?:\\[[^\\n\\r]+\\])?(\\([^\\n\\r]+\\))"
     val matches = regex.r.findAllMatchIn(program)

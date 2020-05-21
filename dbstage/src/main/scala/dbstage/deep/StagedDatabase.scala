@@ -112,6 +112,7 @@ class StagedDatabase(implicit name: Name)
     // Getters and putters LMDB
     val getter = Variable[Long => T](s"get_${cls.name}")
     val putter = Variable[T => Unit](s"put_${cls.name}")
+    val emptyPointers = Variable[T => T](s"empty_pointers_${cls.name}")
 
     def getDbi: Code[Unit, Ctx] =
       code{ $(variable).dbiOpen() }.unsafe_asClosedCode
@@ -124,9 +125,9 @@ class StagedDatabase(implicit name: Name)
       code{ cursor: Cursor => $(variable).cursorClose(cursor) }.unsafe_asClosedCode
 
     def getFirst: Code[Cursor => T, Ctx] = 
-      code{ cursor: Cursor => $(variable).first(cursor) }.unsafe_asClosedCode
+      code{ cursor: Cursor => $(emptyPointers)($(variable).first(cursor)) }.unsafe_asClosedCode
     def getNext: Code[Cursor => T, Ctx] = 
-      code{ cursor: Cursor => $(variable).next(cursor) }.unsafe_asClosedCode
+      code{ cursor: Cursor => $(emptyPointers)($(variable).next(cursor)) }.unsafe_asClosedCode
     def getSize: Code[Int, Ctx] =
       code{ $(variable).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
   }
