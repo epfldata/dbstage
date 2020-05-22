@@ -179,7 +179,10 @@ trait QueryLifter { db: StagedDatabase =>
 
   case class Map[T: CodeType, R: CodeType, C]
     (q: QueryRep[TableView[T], C], f: Code[T => R, C])
-    extends QueryRep[TableView[R], C]
+    extends QueryRep[TableView[R], C] {
+      type Row = T
+      implicit val Row = codeTypeOf[Row]
+    }
 
   case class Size[T: CodeType, C](q: QueryRep[TableView[T], C])
     extends QueryRep[Int, C] {
@@ -191,7 +194,12 @@ trait QueryLifter { db: StagedDatabase =>
 
   case class Join[T: CodeType, R: CodeType, C]
     (q1: QueryRep[TableView[T], C], q2: QueryRep[TableView[R], C])
-    extends QueryRep[TableView[(T, R)], C]
+    extends QueryRep[TableView[(T, R)], C] {
+      type Row1 = T
+      implicit val Row1 = codeTypeOf[Row1]
+      type Row2 = R
+      implicit val Row2 = codeTypeOf[Row2]
+  }
 
   case class AggregateRep[T: CodeType, Res: CodeType, C]
     (q: QueryRep[TableView[T], C], init: Code[Res, C], acc: Code[(T, Res) => Res, C])

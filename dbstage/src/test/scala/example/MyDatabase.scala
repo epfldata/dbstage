@@ -53,7 +53,7 @@ object MyDatabase extends StagedDatabase {
   val joinQuery = query[Int](code{
     all[Person].join(all[Person])
     .map(p01 => math.abs(p01._1.age - p01._2.age))
-    .aggregate[Int](Int.MaxValue, _ max _)
+    .aggregate[Int](Int.MinValue, _ max _)
   })
 
   // TODO: support val bindings as a result of `map` & support `flatMap`:
@@ -127,6 +127,10 @@ object MyDatabase extends StagedDatabase {
     all[Person].forEach(p => if(!p.isMinor) Table.delete(p))
   })
 
+  val economicCrisis = query[Unit](code{
+    all[Job].forEach(j => Table.delete(j))
+  })
+
   val insertOldPeople = query[Unit](code{
     all[Person].forEach(p => new Person(p.salary, p.name, p.age+100, p.job))
   })
@@ -154,6 +158,5 @@ class Job(var size: Int, var enterprise: Str) extends Record {
 
 @lift
 class Citizen(val name: Str, val key: Long, var age: Int) extends KeyedRecord {
-  // [LP] FIXME make this properly refer to the key field:
   def showKey: String = key.toString
 }

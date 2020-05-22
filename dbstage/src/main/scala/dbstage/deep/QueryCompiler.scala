@@ -37,8 +37,12 @@ trait QueryCompiler { self: StagedDatabase =>
     val res: IterationPlan[_, Ctx] = rep match {
       case View(tbl) => Scan(tbl)
       case Filter(view, pred) => Selection(planIteration(view), pred)
-      case Map(view, f) => QueryMap(planIteration(view), f)
-      case Join(view1, view2) => QueryJoin(planIteration(view1), planIteration(view2))
+      case map: Map[typ, tres, C @unchecked] =>
+        import map.Row
+        QueryMap(planIteration(map.q), map.f)
+      case join: Join[t1, t2, C @unchecked] =>
+        import join.{Row1, Row2}
+        QueryJoin(planIteration(join.q1), planIteration(join.q2))
       case _ => compilingError(s"Encountered unexpected QueryRep ${rep} when planning iteration")
     }
     res.asInstanceOf[IterationPlan[T, Ctx]]

@@ -25,4 +25,11 @@ object IR extends SimpleANF
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("join")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("aggregate")
   transparencyPropagatingMtds += methodSymbol[TableView[_]]("forEach")
+
+  import Predef._
+
+  rewrite {
+    case code"($x: $tx, $y: $ty)._1" => x
+    case code"($x: $tx, $y: $ty)._2" => y
+  }
 }
