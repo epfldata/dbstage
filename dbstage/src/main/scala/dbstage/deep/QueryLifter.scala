@@ -81,40 +81,52 @@ trait QueryLifter { db: StagedDatabase =>
   // IR.debugFor // enable this to have a trace of the pattern-matching process to debug match failures
   {
     val res: QueryRep[_, C] = queryCode match {
-      case code"($tbl: TableView[$ty]).filter($pred)" =>
-        Filter[ty.Typ, C](liftQuery(tbl), adaptCode(pred))
-      case code"($view: TableView[$ty]).size" =>
-        Size(liftQuery(view))
-      case code"($view: TableView[$ty]).map[$tres]($f)" =>
-        Map(liftQuery(view), adaptCode(f))
+      case code"val $x: $xt = $v; $rest: T" =>
+        LetBinding(Some(x),
+                  liftQuery(adaptCode(v)),
+                  liftQuery(adaptCode(rest)))
+      case code"var $x: $xt = $v; $rest: T" =>
+        LetBinding(Some(x.asInstanceOf[Variable[xt.Typ]]),
+                  liftQuery(adaptCode(v)),
+                  liftQuery(adaptCode(rest)),
+                  mutable=true)
+      case code"$e; $rest: T" =>
+        LetBinding(None,
+                  liftQuery(adaptCode(e)),
+                  liftQuery(adaptCode(rest)))
+      case code"($arg: $typ) => $exp: $ret" =>
+        FunctionRep(arg, liftQuery(adaptCode(exp)))
+      case code"while($cond) $e" =>
+        While(liftQuery(adaptCode(cond)),
+              liftQuery(adaptCode(e)))
+      case code"()" =>
+        NoOp()
       case code"TableView.all[$ty]" =>
         val tbl = knownClasses.getOrElse(ty.rep.tpe.typeSymbol, liftingError(s"cannot lift table reference: $ty")).asInstanceOf[TableRep[ty.Typ]]
         View(tbl)
-      case code"($view: TableView[$ty]).join($other: TableView[$tother])" =>
-        Join(liftQuery(view), liftQuery(other))
-      case code"($view: TableView[$ty]).aggregate[$tres]($init, $acc)" =>
-        AggregateRep(liftQuery(view), adaptCode(init), adaptCode(acc))
+      case code"($view: TableView[$ty]).size" =>
+        Size(liftQuery(view))
       case code"($view: TableView[$ty]).forEach($f)" =>
-        ForEachRep(liftQuery(view), adaptCode(f))
-
-      // [LP] FIXME lift val bindings!
-
+        ForEach(liftQuery(view),
+                  liftQuery(adaptCode(f)))
+      case code"($view: TableView[$ty]).filter($pred)" =>
+        Filter(liftQuery(view),
+              liftQuery(adaptCode(pred)))
+      case code"($view: TableView[$ty]).map[$tres]($f)" =>
+        Map(liftQuery(view),
+            liftQuery(adaptCode(f)))
+      case code"($view: TableView[$ty]).join($otherView: TableView[$tother])" =>
+        Join(liftQuery(view), liftQuery(otherView))
+      case code"($view: TableView[$ty]).aggregate[$tres]($init, $acc)" =>
+        Aggregate(liftQuery(view),
+                    liftQuery(adaptCode(init)),
+                    liftQuery(adaptCode(acc)))
       case _ =>
-        // [LP] FIXME prevent occurrence of query DSL constructs in queryCode
-        CodeQueryRep(adaptCodeValBindings(queryCode))
+        val cde = adaptCode(queryCode)
+        checkScalaCode(cde)
+        CodeRep(cde)
     }
     res.asInstanceOf[QueryRep[T, C]] // required due to limitation of scalac
-  }
-
-  def adaptCodeValBindings[T: CodeType, C](cde: Code[T, C]): Code[T, C] = cde match {
-    case code"val $x: $xt = $v; $rest: T" if knownClasses.contains(xt.rep.tpe.typeSymbol) =>
-      val code = adaptCode(v)
-      val codeRest = adaptCodeValBindings(rest)
-      code"val $x = $code; $codeRest"
-    case _ => adaptCode(cde)
-    // [LP] FIXME: there is no such thing as an "Insertion query":
-    // case code"()" => cde
-    // case _ => liftingError(s"Unsupported code inside Insertion query: ${cde.showScala}")
   }
   
   /** Rewrites all calls to methods defined in known data classes of the database
@@ -164,6 +176,17 @@ trait QueryLifter { db: StagedDatabase =>
         case _ => liftingError(s"do not know how to lift constructor: ${c.symbol.name}")
       }).asInstanceOf[Code[ty.Typ, C]]
   }
+
+  // Can probably write this in a better way
+  def checkScalaCode[T, C](cde: Code[T, C]): Unit = cde analyse {
+    case code"TableView.all[$ty]" => liftingError(s"Unsupported code '.all' inside query: ${cde.showScala}")
+    case code"($view: TableView[$ty]).size" => liftingError(s"Unsupported code '.size' inside query: ${cde.showScala}")
+    case code"($view: TableView[$ty]).forEach($f)" => liftingError(s"Unsupported code '.forEach' inside query: ${cde.showScala}")
+    case code"($view: TableView[$ty]).filter($pred)" => liftingError(s"Unsupported code '.filter' inside query: ${cde.showScala}")
+    case code"($view: TableView[$ty]).map[$tres]($f)" => liftingError(s"Unsupported code '.map' inside query: ${cde.showScala}")
+    case code"($view: TableView[$ty]).join($otherView: TableView[$tother])" => liftingError(s"Unsupported code '.join' inside query: ${cde.showScala}")
+    case code"($view: TableView[$ty]).aggregate[$tres]($init, $acc)" => liftingError(s"Unsupported code '.aggregate' inside query: ${cde.showScala}")
+  }
   
   /** Internal representation of database queries. */
   sealed abstract class QueryRep[T: CodeType, C] {
@@ -173,12 +196,23 @@ trait QueryLifter { db: StagedDatabase =>
   case class View[T: CodeType, C](tbl: TableRep[T])
     extends QueryRep[TableView[T], C]
 
+  case class CodeRep[T: CodeType, C](cde: Code[T, C])
+    extends QueryRep[T, C]
+
+  case class FunctionRep[R: CodeType, T: CodeType, C, CWithArg <: C](arg: Variable[R], cde: QueryRep[T, CWithArg])
+    extends QueryRep[R => T, C] {
+      type Arg = R
+      implicit val Arg = codeTypeOf[Arg]
+      type Ret = T
+      implicit val Ret = codeTypeOf[Ret]
+    }
+
   case class Filter[T: CodeType, C]
-    (q: QueryRep[TableView[T], C], pred: Code[T => Boolean, C])
+    (q: QueryRep[TableView[T], C], pred: QueryRep[T => Boolean, C])
     extends QueryRep[TableView[T], C]
 
   case class Map[T: CodeType, R: CodeType, C]
-    (q: QueryRep[TableView[T], C], f: Code[T => R, C])
+    (q: QueryRep[TableView[T], C], f: QueryRep[T => R, C])
     extends QueryRep[TableView[R], C] {
       type Row = T
       implicit val Row = codeTypeOf[Row]
@@ -190,8 +224,6 @@ trait QueryLifter { db: StagedDatabase =>
       implicit val Row = codeTypeOf[Row]
     }
 
-  case class CodeQueryRep[T: CodeType, C](code: Code[T, C]) extends QueryRep[T, C]
-
   case class Join[T: CodeType, R: CodeType, C]
     (q1: QueryRep[TableView[T], C], q2: QueryRep[TableView[R], C])
     extends QueryRep[TableView[(T, R)], C] {
@@ -201,17 +233,33 @@ trait QueryLifter { db: StagedDatabase =>
       implicit val Row2 = codeTypeOf[Row2]
   }
 
-  case class AggregateRep[T: CodeType, Res: CodeType, C]
-    (q: QueryRep[TableView[T], C], init: Code[Res, C], acc: Code[(T, Res) => Res, C])
+  case class Aggregate[T: CodeType, Res: CodeType, C]
+    (q: QueryRep[TableView[T], C], init: QueryRep[Res, C], acc: QueryRep[(T, Res) => Res, C])
     extends QueryRep[Res, C] {
       type Row = T
       implicit val Row = codeTypeOf[Row]
     }
 
-  case class ForEachRep[T: CodeType, C]
-    (q: QueryRep[TableView[T], C], f: Code[T => Unit, C])
+  case class ForEach[T: CodeType, C]
+    (q: QueryRep[TableView[T], C], f: QueryRep[T => Unit, C])
     extends QueryRep[Unit, C] {
       type Row = T
       implicit val Row = codeTypeOf[Row]
     }
+
+  case class While[T: CodeType, C]
+    (cond: QueryRep[Boolean, C], e: QueryRep[T, C])
+    extends QueryRep[Unit, C] {
+      type Val = T
+      implicit val Val = codeTypeOf[T]
+    }
+
+  case class LetBinding[R: CodeType, T: CodeType, C, CWithX <: C]
+    (x: Option[Variable[R]], value: QueryRep[R, C], rest: QueryRep[T, CWithX], mutable: Boolean = false)
+    extends QueryRep[T, C] {
+      type Val = R
+      implicit val Val = codeTypeOf[Val]
+    }
+
+  case class NoOp[C]() extends QueryRep[Unit, C]
 }

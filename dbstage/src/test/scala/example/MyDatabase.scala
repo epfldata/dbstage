@@ -93,6 +93,10 @@ object MyDatabase extends StagedDatabase {
     all[Person].map(p => p.job).map(job => job.size).map(size => size+100).size
   })
 
+  val queryInsideMap = query[Int](code{
+    all[Person].map(p => all[Person].size).aggregate[Int](0, (size, acc) => size + acc)
+  })
+
   val insertions = query[Unit](code{
     val epfl = new Job(10000, new Str("EPFL"))
     val lucien = new Person(1000, new Str("Lucien"), 21, epfl)
@@ -141,6 +145,17 @@ object MyDatabase extends StagedDatabase {
 
   val printAllAges = query[Unit](code{
     all[Person].forEach(p => println(p.age))
+  })
+
+  val queryWhile = query[Unit](code{
+    var i: Int = 0
+    val name = new Str("Test name")
+    val jobName = new Str("Google")
+    val job = new Job(20, jobName)
+    while(i < 5) {
+      val p = new Person(10, name, 20, job);
+      i += 1
+    }
   })
 }
 
