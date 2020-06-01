@@ -41,7 +41,7 @@ trait QueryCompiler { self: StagedDatabase =>
       case NoOp() => QueryCode(code{()})
       case l: LetBinding[tx, tres, C @unchecked, cWithX] =>
         import l.{Val, Res}
-        QueryLetBinding(l.x, planQuery(l.value), planQuery(l.rest.asInstanceOf[QueryRep[tres, C]]), l.mutable)
+        QueryLetBinding(l.x, planQuery(l.value), planQuery(l.rest.asInstanceOf[QueryRep[tres, C]]))
       case _ => println(rep);??? // unsupported for now
     }
     res.asInstanceOf[QueryPlan[T, Ctx]]
@@ -111,21 +111,14 @@ trait QueryCompiler { self: StagedDatabase =>
     }
 
   case class QueryLetBinding[R: CodeType, T: CodeType, C, Ctx <: C]
-    (x: Option[Variable[R]], value: QueryPlan[R, C], rest: QueryPlan[T, Ctx], mutable: Boolean)
+    (x: Option[Variable[R]], value: QueryPlan[R, C], rest: QueryPlan[T, Ctx])
     extends QueryPlan[T, C] {
       def getCode: Code[T, C] = {
         (if(x.isDefined) {
-          if(mutable) {
-            val binding = x.get.asInstanceOf[Variable[MutVar[R]]]
-            val valueCode = value.getCode
-            val restCode = rest.getCode
-            code"""$binding := $valueCode; $restCode"""
-          } else {
-            val binding = x.get
-            code{
-              val $binding = $(value.getCode)
-              $(rest.getCode)
-            }
+          val binding = x.get
+          code{
+            val $binding = $(value.getCode)
+            $(rest.getCode)
           }
         } else code{
           $(value.getCode);

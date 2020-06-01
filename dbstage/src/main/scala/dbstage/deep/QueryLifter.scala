@@ -83,22 +83,17 @@ trait QueryLifter { db: StagedDatabase =>
     val res: QueryRep[_, C] = queryCode match {
       case code"val $x: $xt = $v; $rest: T" =>
         LetBinding(Some(x),
-                  liftQuery(adaptCode(v)),
-                  liftQuery(adaptCode(rest)))
-      case code"var $x: $xt = $v; $rest: T" =>
-        LetBinding(Some(x.asInstanceOf[Variable[xt.Typ]]),
-                  liftQuery(adaptCode(v)),
-                  liftQuery(adaptCode(rest)),
-                  mutable=true)
+                  liftQuery(v),
+                  liftQuery(rest))
       case code"$e; $rest: T" =>
         LetBinding(None,
-                  liftQuery(adaptCode(e)),
-                  liftQuery(adaptCode(rest)))
+                  liftQuery(e),
+                  liftQuery(rest))
       case code"($arg: $typ) => $exp: $ret" =>
-        FunctionRep(arg, liftQuery(adaptCode(exp)))
+        FunctionRep(arg, liftQuery(exp))
       case code"while($cond) $e" =>
-        While(liftQuery(adaptCode(cond)),
-              liftQuery(adaptCode(e)))
+        While(liftQuery(cond),
+              liftQuery(e))
       case code"()" =>
         NoOp()
       case code"TableView.all[$ty]" =>
@@ -108,19 +103,19 @@ trait QueryLifter { db: StagedDatabase =>
         Size(liftQuery(view))
       case code"($view: TableView[$ty]).forEach($f)" =>
         ForEach(liftQuery(view),
-                  liftQuery(adaptCode(f)))
+                  liftQuery(f))
       case code"($view: TableView[$ty]).filter($pred)" =>
         Filter(liftQuery(view),
-              liftQuery(adaptCode(pred)))
+              liftQuery(pred))
       case code"($view: TableView[$ty]).map[$tres]($f)" =>
         Map(liftQuery(view),
-            liftQuery(adaptCode(f)))
+            liftQuery(f))
       case code"($view: TableView[$ty]).join($otherView: TableView[$tother])" =>
         Join(liftQuery(view), liftQuery(otherView))
       case code"($view: TableView[$ty]).aggregate[$tres]($init, $acc)" =>
         Aggregate(liftQuery(view),
-                    liftQuery(adaptCode(init)),
-                    liftQuery(adaptCode(acc)))
+                    liftQuery(init),
+                    liftQuery(acc))
       case _ =>
         val cde = adaptCode(queryCode)
         checkScalaCode(cde)
@@ -255,7 +250,7 @@ trait QueryLifter { db: StagedDatabase =>
     }
 
   case class LetBinding[R: CodeType, T: CodeType, C, CWithX <: C]
-    (x: Option[Variable[R]], value: QueryRep[R, C], rest: QueryRep[T, CWithX], mutable: Boolean = false)
+    (x: Option[Variable[R]], value: QueryRep[R, C], rest: QueryRep[T, CWithX])
     extends QueryRep[T, C] {
       type Val = R
       implicit val Val = codeTypeOf[Val]
