@@ -6,7 +6,7 @@ import lmdb4s.bindings._
 import lmdb4s.flags._
 
 object LMDBTable {
-  val path: CString = toCString("./lmdb-database")(zone)
+  val path: CString = toCString("./tpch-lmdb-database")(zone)
   lazy val zone: Zone = Zone.open()
   lazy val env: Ptr[Byte] = {
     // Create env
@@ -15,7 +15,8 @@ object LMDBTable {
     val env_ = !envPtr
 
     // Set maximum number of databases
-    println("Max num dbs " + mdb_env_set_maxdbs(env_, 5))
+    println("Max num dbs " + mdb_env_set_maxdbs(env_, 10))
+    println("Mapsize: " + mdb_env_set_mapsize(env_, 1048576L * 1024L * 10L)) // 10 GigaBytes
 
     // Open env
     println("env open " + mdb_env_open(env_, path, MDB_WRITEMAP, 664))
@@ -173,7 +174,11 @@ case class LMDBTable[T](_name: String) {
     val dataPut = alloc[KVType]
     dataPut._1 = valueSize
     dataPut._2 = value
-    println("Put: " + mdb_put(txn, dbi, lmdb_key, dataPut, 0))
+    val return_code = mdb_put(txn, dbi, lmdb_key, dataPut, 0)
+    if (return_code != 0) {
+      println("Put: " + return_code)
+      System.exit(1)
+    }
   }
 
   def delete(key: Long)(implicit z: Zone): Unit = {

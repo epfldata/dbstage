@@ -27,4 +27,6 @@ class LMDBTable[T] {
   def last(cursor: Cursor): T = ???
   def prev(cursor: Cursor): T = ???
   def next(cursor: Cursor): T = ???
+
+  def get(key: Long): T = ???
 }

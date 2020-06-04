@@ -6,6 +6,7 @@ import scala.scalanative.unsafe._
 object string {
   def strlen(str: CString): CSize = extern
   def strcpy(dest: CString, src: CString): CString = extern
+  def strcmp(str1: CString, str2: CString): Int = extern
 }
 
 object str {

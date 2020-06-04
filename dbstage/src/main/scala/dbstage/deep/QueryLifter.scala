@@ -168,6 +168,18 @@ trait QueryLifter { db: StagedDatabase =>
         case 2 => code{$(c.constructor)($(args(0)), $(args(1)))}
         case 3 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)))}
         case 4 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)))}
+        case 5 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)))}
+        case 6 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)))}
+        case 7 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)))}
+        case 8 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)))}
+        case 9 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)))}
+        case 10 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)))}
+        case 11 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)), $(args(10)))}
+        case 12 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)), $(args(10)), $(args(11)))}
+        case 13 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)), $(args(10)), $(args(11)), $(args(12)))}
+        case 14 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)), $(args(10)), $(args(11)), $(args(12)), $(args(13)))}
+        case 15 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)), $(args(10)), $(args(11)), $(args(12)), $(args(13)), $(args(14)))}
+        case 16 => code{$(c.constructor)($(args(0)), $(args(1)), $(args(2)), $(args(3)), $(args(4)), $(args(5)), $(args(6)), $(args(7)), $(args(8)), $(args(9)), $(args(10)), $(args(11)), $(args(12)), $(args(13)), $(args(14)), $(args(15)))}
         case _ => liftingError(s"do not know how to lift constructor: ${c.symbol.name}")
       }).asInstanceOf[Code[ty.Typ, C]]
   }

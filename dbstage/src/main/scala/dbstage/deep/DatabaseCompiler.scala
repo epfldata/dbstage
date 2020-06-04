@@ -40,7 +40,7 @@ trait DatabaseCompiler { self: StagedDatabase =>
 
       val fields = tableRep.logicalFields.map { field =>
         val knownDataType = knownClasses.values.exists(tbl => tbl.cls.C.rep.tpe.typeSymbol == field.A.rep.tpe.typeSymbol)
-        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double]
+        val knownPrimitiveType = field.A =:= codeTypeOf[Int] || field.A =:= codeTypeOf[Double] || field.A =:= codeTypeOf[Long]
 
         // Add String back?
         if (field.A =:= codeTypeOf[String]) {

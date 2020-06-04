@@ -4,6 +4,3 @@ scalaVersion := "2.11.12"
 nativeLinkStubs := true
 
 enablePlugins(ScalaNativePlugin)
-
-nativeLinkingOptions ++= Seq("-L" +
-  "/usr/local/Cellar/lmdb/0.9.24/lib/")

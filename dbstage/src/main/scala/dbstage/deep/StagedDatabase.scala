@@ -51,7 +51,7 @@ class StagedDatabase(implicit name: Name)
   protected val fromCString = Variable[CString => String]("fromCString")
   register(Str.reflect(IR))
 
-  def register[T0 <: Record: CodeType](cls: Clasz[T0])(implicit name: Name): Unit = {
+  def register[T0 <: Record: CodeType](cls: Clasz[T0])(implicit name: Name): TableRep[T0] = {
     // Table
     val tableRep = new TableRep(cls)
     knownClasses += cls.C.rep.tpe.typeSymbol -> tableRep
@@ -84,6 +84,8 @@ class StagedDatabase(implicit name: Name)
     // Constructor
     knownConstructors += cls.constructor.symbol ->
       ClassConstructor(cls, cls.constructor.symbol, cls.constructor.vparamss.head)
+
+    tableRep
   }
   
   /** The representation of a table that lives in this staged database. */
@@ -133,6 +135,9 @@ class StagedDatabase(implicit name: Name)
       code{ cursor: Cursor => $(emptyPointers)($(variable).prev(cursor)) }.unsafe_asClosedCode
     def getNext: Code[Cursor => T, Ctx] = 
       code{ cursor: Cursor => $(emptyPointers)($(variable).next(cursor)) }.unsafe_asClosedCode
+
+    def getAtKey: Code[Long => T, Ctx] = 
+      code{ key: Long => $(emptyPointers)($(variable).get(key)) }.unsafe_asClosedCode
     
     def getSize: Code[Int, Ctx] =
       code{ $(variable).size }.unsafe_asClosedCode // FIXME scope // What does it mean?
