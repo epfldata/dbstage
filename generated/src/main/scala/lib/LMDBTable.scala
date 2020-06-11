@@ -11,15 +11,15 @@ object LMDBTable {
   lazy val env: Ptr[Byte] = {
     // Create env
     val envPtr = alloc(1)(tagof[Ptr[Byte]], zone)
-    println("env create " + mdb_env_create(envPtr))
+    mdb_env_create(envPtr)
     val env_ = !envPtr
 
     // Set maximum number of databases
-    println("Max num dbs " + mdb_env_set_maxdbs(env_, 10))
-    println("Mapsize: " + mdb_env_set_mapsize(env_, 1048576L * 1024L * 10L)) // 10 GigaBytes
+    mdb_env_set_maxdbs(env_, 10)
+    mdb_env_set_mapsize(env_, 1048576L * 1024L * 10L) // 10 GigaBytes
 
     // Open env
-    println("env open " + mdb_env_open(env_, path, MDB_WRITEMAP, 664))
+    mdb_env_open(env_, path, MDB_WRITEMAP, 664)
 
     env_
   }
@@ -28,16 +28,24 @@ object LMDBTable {
 
   def txnBegin()(implicit z: Zone): Unit = if (txn == null) {
     val txPtr = alloc[Ptr[Byte]]
-    println("Txn begin " + mdb_txn_begin(env, null, 0, txPtr))
+    mdb_txn_begin(env, null, 0, txPtr)
     txn = !txPtr
 
     val dbiSizePtr = alloc[UInt]
-    println("Dbi size open: " + mdb_dbi_open(txn, toCString("sizes"), MDB_CREATE, dbiSizePtr))
+    mdb_dbi_open(txn, toCString("sizes"), MDB_CREATE, dbiSizePtr)
     dbiSize = !dbiSizePtr
   }
 
-  def txnCommit()(implicit z: Zone): Unit = {
-    println("Txn commit " + mdb_txn_commit(txn))
+  def txnCommit(): Unit = {
+    mdb_txn_commit(txn)
+    txn = null
+
+    mdb_dbi_close(env, dbiSize)
+    dbiSize = null
+  }
+
+  def txnAbort(): Unit = {
+    mdb_txn_abort(txn)
     txn = null
 
     mdb_dbi_close(env, dbiSize)
@@ -49,17 +57,10 @@ object LMDBTable {
     zone.close()
   }
 
-  def get_lmdb_key(key: Long)(implicit z: Zone): KVPtr = {
-    val bytes = BigInt(key).toByteArray
-    val size = bytes.length
-
-    val lmdb_key = alloc[KVType]
-    lmdb_key._1 = size
-    lmdb_key._2 = alloc[Byte](size)
+  def fill_lmdb_key(key: KVPtr, bytes: Array[Byte], size: Int): Unit = {
     for ( i <- 0 until size ) {
-      !(lmdb_key._2 + i) = bytes(i)
+      !(key._2 + i) = bytes(i)
     }
-    lmdb_key
   }
 
   def intcpy(ptr: Ptr[Byte], value: Int, size: Int): Unit = {
@@ -111,9 +112,9 @@ case class LMDBTable[T](_name: String) {
     key_last_id_ptr
   }
 
-  def dbiOpen()(implicit z: Zone): Unit = {
-    val dbiPtr = alloc[UInt]
-    println("Dbi open " + mdb_dbi_open(txn, name, MDB_CREATE, dbiPtr))
+  def dbiOpen(): Unit = {
+    val dbiPtr = stackalloc[UInt]
+    mdb_dbi_open(txn, name, MDB_CREATE, dbiPtr)
     dbi = !dbiPtr
   }
 
@@ -122,8 +123,9 @@ case class LMDBTable[T](_name: String) {
     dbi = null
   }
 
-  def cursorOpen()(implicit z: Zone): Ptr[Byte] = {
-    val cursorPtr = alloc[Ptr[Byte]]
+  def cursorOpen(): Ptr[Byte] = {
+    // stackalloc ptr[Byte] and both KVType
+    val cursorPtr = stackalloc[Ptr[Byte]]
     mdb_cursor_open(txn, dbi, cursorPtr)
     !cursorPtr
   }
@@ -132,14 +134,14 @@ case class LMDBTable[T](_name: String) {
     mdb_cursor_close(cursor)
   }
 
-  def first(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_FIRST)
-  def last(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_LAST)
-  def prev(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_PREV)
-  def next(cursor: Ptr[Byte])(implicit z: Zone): T = cursor_get(cursor, MDB_NEXT)
+  def first(cursor: Ptr[Byte]): T = cursor_get(cursor, MDB_FIRST)
+  def last(cursor: Ptr[Byte]): T = cursor_get(cursor, MDB_LAST)
+  def prev(cursor: Ptr[Byte]): T = cursor_get(cursor, MDB_PREV)
+  def next(cursor: Ptr[Byte]): T = cursor_get(cursor, MDB_NEXT)
 
-  private def cursor_get(cursor: Ptr[Byte], op: Int)(implicit z: Zone): T = {
-    val key = alloc[KVType]
-    val value = alloc[KVType]
+  private def cursor_get(cursor: Ptr[Byte], op: Int): T = {
+    val key = stackalloc[KVType]
+    val value = stackalloc[KVType]
     val code = mdb_cursor_get(cursor, key, value, op)
 
     if (code == 0) {
@@ -149,29 +151,41 @@ case class LMDBTable[T](_name: String) {
     }
   }
 
-  def size(implicit z: Zone): Long = {
+  def size(): Long = {
     // Get size
-    val stat = alloc[struct_lmdb_stat]
+    val stat = stackalloc[struct_lmdb_stat]
     mdb_stat(txn, dbi, stat)
 
     // Return
     stat._6
   }
 
-  def get(key: Long)(implicit z: Zone): T = {
+  def get(key: Long): T = {
     // Get value
-    val lmdb_key = get_lmdb_key(key)
-    val dataGet = alloc[KVType]
+    val lmdb_key = stackalloc[KVType]
+    val bytes = BigInt(key).toByteArray
+    val size = bytes.length
+    lmdb_key._1 = size.toLong
+    lmdb_key._2 = stackalloc[Byte](size)
+    fill_lmdb_key(lmdb_key, bytes, size)
+
+    val dataGet = stackalloc[KVType]
     mdb_get(txn, dbi, lmdb_key, dataGet)
 
     // Return
     dataGet._2.asInstanceOf[T]
   }
 
-  def put(key: Long, valueSize: Long, value: Ptr[Byte])(implicit z: Zone): Unit = {
+  def put(key: Long, valueSize: Long, value: Ptr[Byte]): Unit = {
     // Put
-    val lmdb_key = get_lmdb_key(key)
-    val dataPut = alloc[KVType]
+    val lmdb_key = stackalloc[KVType]
+    val bytes = BigInt(key).toByteArray
+    val size = bytes.length
+    lmdb_key._1 = size.toLong
+    lmdb_key._2 = stackalloc[Byte](size)
+    fill_lmdb_key(lmdb_key, bytes, size)
+
+    val dataPut = stackalloc[KVType]
     dataPut._1 = valueSize
     dataPut._2 = value
     val return_code = mdb_put(txn, dbi, lmdb_key, dataPut, 0)
@@ -181,13 +195,18 @@ case class LMDBTable[T](_name: String) {
     }
   }
 
-  def delete(key: Long)(implicit z: Zone): Unit = {
-    val lmdb_key = get_lmdb_key(key)
+  def delete(key: Long): Unit = {
+    val lmdb_key = stackalloc[KVType]
+    val bytes = BigInt(key).toByteArray
+    val size = bytes.length
+    lmdb_key._1 = size.toLong
+    lmdb_key._2 = stackalloc[Byte](size)
+    fill_lmdb_key(lmdb_key, bytes, size)
     mdb_del(txn, dbi, lmdb_key, null)
   }
 
-  def getNextKey(implicit z: Zone): Long = {
-    val dataGet = alloc[KVType]
+  def getNextKey(): Long = {
+    val dataGet = stackalloc[KVType]
     val return_code = mdb_get(txn, dbiSize, key_last_id, dataGet)
 
     val new_last_id = if (return_code == 0) {
@@ -198,8 +217,15 @@ case class LMDBTable[T](_name: String) {
       // No last_id stored
       0l
     }
+
+    val lmdb_key = stackalloc[KVType]
+    val bytes = BigInt(new_last_id).toByteArray
+    val size = bytes.length
+    lmdb_key._1 = size.toLong
+    lmdb_key._2 = stackalloc[Byte](size)
+    fill_lmdb_key(lmdb_key, bytes, size)
     
-    mdb_put(txn, dbiSize, key_last_id, get_lmdb_key(new_last_id), 0)
+    mdb_put(txn, dbiSize, key_last_id, lmdb_key, 0)
     new_last_id
   }
 }
