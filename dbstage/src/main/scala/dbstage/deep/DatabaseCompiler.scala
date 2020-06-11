@@ -201,7 +201,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
 
     val stringMethods = sortedMethods.filter(p => p._2.owner.C.rep.tpe.typeSymbol == strSymbol).map { case (_, mtd) => 
-      val (paramTypes, params_) = createParamTuple(mtd.owner.self :: mtd.vparamss.headOption.getOrElse(Nil))
+      val (paramTypes_, params_) = createParamTuple(mtd.owner.self :: mtd.vparamss.headOption.getOrElse(Nil))
+      val paramTypes = paramTypes_.replaceAll("\\bString\\b", "CString")
       val params = params_.head + "._2" :: params_.tail
       s"def ${mtd.variable.toCode.showScala}(${paramTypes})${implicitZoneParam}" +
         s": ${mtd.typ} = ${mtd.symbol.name}" +
