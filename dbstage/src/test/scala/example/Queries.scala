@@ -26,11 +26,13 @@ object Queries extends StagedDatabase {
   register(lineitemCls)
 
   val tpch_query_6 = query[Double](code{
+    val s1: CString = "1994-01-01"
+    val s2: CString = "1995-01-01"
     all[Lineitem].filter(li => li.l_quantity < 24 &&
                                 li.l_discount >= 0.05 &&
                                 li.l_discount <= 0.07 &&
-                                li.l_shipdate.strcmp("1994-01-01") >= 0 &&
-                                li.l_shipdate.strcmp("1995-01-01") < 0)
+                                li.l_shipdate.strcmp(s1) >= 0 &&
+                                li.l_shipdate.strcmp(s2) < 0)
                   .aggregate[Double](0, (li, acc) => acc + li.l_extendedprice * li.l_discount)
   })
 
@@ -39,10 +41,12 @@ object Queries extends StagedDatabase {
   })
 
   val key_join = query[Double](code{
+    val brand: CString = "Brand#44"
+
     all[Lineitem].filter(li => {
       val ps = li.l_partsupp
       val p = ps.ps_part
-      ps.ps_supplycost < 50.0 && p.p_brand.strcmp("Brand#44") != 0
+      ps.ps_supplycost < 50.0 && p.p_brand.strcmp(brand) != 0
     }).aggregate[Double](0.0, (li, acc) => acc + li.l_extendedprice * li.l_discount)
   })
 

@@ -134,12 +134,7 @@ trait QueryLifter { db: StagedDatabase =>
     case code"${MethodApplication(app)}: $ty" if knownMethods.contains(app.symbol) =>
       val m = knownMethods(app.symbol)
       val thisArg = app.args.head.head
-      val args = if (app.args.size == 1) Nil else app.args(1).map(arg => {
-        if (m.owner.C =:= codeTypeOf[Str] && arg.Typ.rep.tpe.typeSymbol == codeTypeOf[String].rep.tpe.typeSymbol) {
-          // Convert String to CString in Str methods
-          code{$(toCString)($(arg.asInstanceOf[Code[String, arg.Ctx]]))}
-        } else arg
-      })
+      val args = if (app.args.size == 1) Nil else app.args(1)
       (args.length match {  // How to give arguments nicely?
         case 0 => code{$(m.variable)($(thisArg)).asInstanceOf[ty.Typ]}
         case 1 => code{$(m.variable)($(thisArg), $(args(0))).asInstanceOf[ty.Typ]}

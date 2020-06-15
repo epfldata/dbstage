@@ -11,8 +11,11 @@ class Str (val string: String) extends Record {
 
   def strlen: CSize = ???.asInstanceOf[CSize]
   def charAt(index: Word): CChar = ???.asInstanceOf[CChar]
-  def strcmp(other: String): Int = ???.asInstanceOf[Int]
+  def strcmp(other: CString): Int = ???.asInstanceOf[Int]
 }
+
 object Str {
   implicit def apply(str: String): Str = new Str(str)
 }
+
+class CString
