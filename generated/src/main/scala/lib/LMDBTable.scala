@@ -6,7 +6,7 @@ import lmdb4s.bindings._
 import lmdb4s.flags._
 
 object LMDBTable {
-  val path: CString = toCString("./tpch-lmdb-database")(zone)
+  val path: CString = toCString("./demo-lmdb-database")(zone)
   lazy val zone: Zone = Zone.open()
   lazy val env: Ptr[Byte] = {
     // Create env
@@ -15,8 +15,8 @@ object LMDBTable {
     val env_ = !envPtr
 
     // Set maximum number of databases
-    mdb_env_set_maxdbs(env_, 10)
-    mdb_env_set_mapsize(env_, 1048576L * 1024L * 10L) // 10 GigaBytes
+    mdb_env_set_maxdbs(env_, 5)
+    mdb_env_set_mapsize(env_, 1048576L) // 1 MegaByte
 
     // Open env
     mdb_env_open(env_, path, MDB_WRITEMAP, 664)

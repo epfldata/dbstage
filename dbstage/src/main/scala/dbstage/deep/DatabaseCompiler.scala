@@ -261,6 +261,8 @@ trait DatabaseCompiler { self: StagedDatabase =>
     }
     
     val program = s"""
+    package main
+    
     import scala.collection.mutable
     import scala.scalanative.unsafe._
     import lib.string._
