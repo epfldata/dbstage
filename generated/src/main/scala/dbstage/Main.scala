@@ -53,6 +53,10 @@ object Main {
     wait_for_input()
     val (p12, p22, diff2) = Demo.computeBiggestSalaryDifferenceCommunityManager
     println(s"Biggest salary difference for community managers is ${diff2}, between ${p12} and ${p22}")
+
+    println("\n\n[Press Enter] to compute cumulated salary for each company:")
+    wait_for_input()
+    Demo.computeSalaryCompany
   }
 
   def wait_for_input(): Unit = {

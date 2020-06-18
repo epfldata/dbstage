@@ -79,6 +79,13 @@ object Demo extends StagedDatabase {
     })
   })
 
+  val computeSalaryCompany = query[Unit](code{
+    all[Company].map(c => {
+      all[Person].filter(p => p.job.company == c)
+                 .aggregate[(String, Double)]((c.name.string, 0), (p, acc) => (acc._1, acc._2 + p.salary))
+    }).forEach(c => println(s"${c._1} has cumulated salary ${c._2}"))
+  })
+
   val computeBiggestSalaryDifferenceCommunityManager = query[(String, String, Double)](code{
     val communityManagers = all[Person].filter(p => p.job.jobName.strcmp("Community Manager") == 0)
 
